@@ -1,9 +1,9 @@
 {
-  "name": "first-page",
+  "name": "tada-home",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "一个只印给一个人的日报 —— 个人起始页",
+  "description": "搭搭：tulai.design 的 AI 个人主页搭建助手",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@lobehub/ui": "^6.5.1",
+    "@tulai-design/agent-core": "^0.1.0",
+    "@tulai-design/agent-providers": "^0.1.0",
     "lucide-react": "1.61.0",
     "marked": "^18.1.1",
     "motion": "^14.5.0",

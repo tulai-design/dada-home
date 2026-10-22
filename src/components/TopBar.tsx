@@ -25,7 +25,7 @@ export function TopBar({
     <Flexbox className="topbar" direction="horizontal" align="center" justify="space-between" gap={12} width="100%">
       <Flexbox direction="horizontal" align="center" gap={10}>
         <Text as="b" className="brand-title">
-          第一页
+          搭搭
         </Text>
         <Tag size="small" variant="borderless">
           {pageLabel}

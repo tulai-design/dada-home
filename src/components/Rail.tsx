@@ -1,43 +1,45 @@
 import { Badge, Button } from '@lobehub/ui'
-import { Bookmark, Flame, Home, Monitor, Moon, Newspaper, NotebookPen, Settings, Sun } from 'lucide-react'
-import { PAGES, type PageId } from '../lib/pages'
+import { Bookmark, Flame, Home, LayoutDashboard, Monitor, Moon, Newspaper, NotebookPen, Settings, Sun } from 'lucide-react'
+import type { Page } from '../lib/workspace'
 
-const PAGE_ICONS = {
+/** 内置页面 id 的图标；AI 新建的页面没有对应项，统一用通用图标。 */
+const PAGE_ICONS: Record<string, typeof Home> = {
   home: Home,
   feeds: Newspaper,
   desk: NotebookPen,
   marks: Bookmark,
   hot: Flame,
-} as const
+}
 
 export function Rail({
+  pages,
   page,
   onPage,
   onMonitor,
   onSettings,
   onTheme,
   theme,
-  unread,
-  openTodos,
+  badges,
 }: {
-  page: PageId
-  onPage: (id: PageId) => void
+  pages: Page[]
+  page: string
+  onPage: (id: string) => void
   onMonitor: () => void
   onSettings: () => void
   onTheme: () => void
   theme: 'dark' | 'light'
-  unread: number
-  openTodos: number
+  /** 页面 id → 角标数字，由调用方按需提供。 */
+  badges?: Record<string, number>
 }) {
   return (
     <nav className="rail" aria-label="侧边导航">
-      <Button className="rail-logo" type="text" onClick={() => onPage('home')} aria-label="第一页">
-        页
+      <Button className="rail-logo" type="text" onClick={() => onPage(pages[0]?.id ?? 'home')} aria-label="搭搭">
+        搭
       </Button>
       <div className="rail-nav">
-        {PAGES.map((item) => {
-          const Icon = PAGE_ICONS[item.id]
-          const count = item.id === 'feeds' ? unread : item.id === 'desk' ? openTodos : 0
+        {pages.map((item) => {
+          const Icon = PAGE_ICONS[item.id] ?? LayoutDashboard
+          const count = badges?.[item.id] ?? 0
           const control = (
             <Button
               block

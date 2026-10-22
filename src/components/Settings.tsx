@@ -142,32 +142,6 @@ export function Settings({
                 <span>书签图标</span>
                 <Switch checked={settings.showFavicons} onChange={(v) => patch({ showFavicons: v })} />
               </label>
-              <label className="field">
-                <span>壁纸</span>
-                <Segmented
-                  value={settings.wallpaper}
-                  options={[
-                    { value: 'unsplash', label: 'Unsplash' },
-                    { value: 'custom', label: '自定义' },
-                    { value: 'off', label: '关闭' },
-                  ]}
-                  onChange={(v) => patch({ wallpaper: v as SettingsShape['wallpaper'] })}
-                />
-              </label>
-              {settings.wallpaper === 'unsplash' && (
-                <Button size="small" onClick={() => patch({ wallpaperIndex: settings.wallpaperIndex + 1 })}>
-                  换一张
-                </Button>
-              )}
-              {settings.wallpaper === 'custom' && (
-                <Field label="图片地址">
-                  <Input
-                    value={settings.wallpaperUrl}
-                    placeholder="https://images.unsplash.com/..."
-                    onValueChange={(v) => patch({ wallpaperUrl: v })}
-                  />
-                </Field>
-              )}
             </Flexbox>
           </section>
 

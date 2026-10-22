@@ -13,7 +13,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error('[第一页] 渲染出错', error, info.componentStack)
+    console.error('[搭搭] 渲染出错', error, info.componentStack)
   }
 
   render() {

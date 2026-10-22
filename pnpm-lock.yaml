@@ -11,6 +11,12 @@ importers:
       '@lobehub/ui':
         specifier: ^6.5.1
         version: 6.5.1(@lobehub/fluent-emoji@5.0.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@lobehub/icons@6.4.0)(@shikijs/themes@4.5.0)(@types/mdast@4.0.4)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(micromark-util-types@2.0.3)(micromark@4.0.3)(motion@14.5.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      '@tulai-design/agent-core':
+        specifier: ^0.1.0
+        version: 0.1.0
+      '@tulai-design/agent-providers':
+        specifier: ^0.1.0
+        version: 0.1.0
       lucide-react:
         specifier: 1.61.0
         version: 1.61.0(@types/react@19.3.0)(react@19.3.1)
@@ -956,6 +962,14 @@ packages:
 
   '@tanstack/virtual-core@3.19.6':
     resolution: {integrity: sha512-CsTW892z23gy7IyxYTTorVu1uZWB+0N349rSMgKz4rFLPpLza7F7TpcCKeI5iUAwYQCt8QUlOU67J+KXCxtpGw==}
+
+  '@tulai-design/agent-core@0.1.0':
+    resolution: {integrity: sha512-Okx27QOlBDHDrxrDIPu1VuYBxmvj1qcKKLIC48kWBYzj/5apR410USTbqlDhPqtyvX+Mqk2CtR9SeVKGrqlXWQ==}
+    engines: {node: '>=20'}
+
+  '@tulai-design/agent-providers@0.1.0':
+    resolution: {integrity: sha512-OSoy6em/A/aTdroaL6rOIDU6WihbijTHZvy2e1SWlO7PMRpiNOzAir4+Fz7wuii0GOLDV3Ii/ldxR+OPpuNbQA==}
+    engines: {node: '>=20'}
 
   '@types/babel__core@7.20.5':
     resolution: {integrity: sha512-qoQprZvz5wQFJwMDqeseRXWv3rqMvhgpbXFfVyWhbx9X47POIA6i/+dXefEmZKoAgOaTdaIgNSMqMIU61yRyzA==}
@@ -3033,6 +3047,12 @@ snapshots:
       '@tanstack/store': 0.11.2
 
   '@tanstack/virtual-core@3.19.6': {}
+
+  '@tulai-design/agent-core@0.1.0': {}
+
+  '@tulai-design/agent-providers@0.1.0':
+    dependencies:
+      '@tulai-design/agent-core': 0.1.0
 
   '@types/babel__core@7.20.5':
     dependencies:

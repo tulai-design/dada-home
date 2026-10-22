@@ -1,3 +1,7 @@
 node_modules
 dist
 .DS_Store
+
+# 本地验证脚本的临时目录
+.probe/
+.smoke/

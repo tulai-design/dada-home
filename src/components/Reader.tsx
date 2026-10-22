@@ -3,7 +3,7 @@ import { Alert, Button, Drawer, Empty, Flexbox, Markdown, Tag } from '@lobehub/u
 import type { Article } from '../lib/types'
 import { sanitizeHtml } from '../lib/rss'
 import { relativeTime } from '../lib/date'
-import { streamChat, type ChatMessage } from '../lib/ai'
+import { streamText, type ChatMessage } from '../lib/ai'
 import type { AiConfig } from '../lib/types'
 
 type Props = {
@@ -59,7 +59,7 @@ export function Reader({ article, ai, onClose, onMarkRead, onAskAi, onOpenSettin
       },
     ]
     try {
-      await streamChat(ai, messages, (chunk) => setSummary((prev) => prev + chunk), controller.signal)
+      await streamText(ai, messages, (chunk) => setSummary((prev) => prev + chunk), controller.signal)
     } catch (err) {
       if ((err as Error).name !== 'AbortError') setError(err instanceof Error ? err.message : String(err))
     } finally {
