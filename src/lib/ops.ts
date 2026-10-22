@@ -6,10 +6,14 @@ import {
   type ComponentInstance,
   type ComponentSpan,
   type ComponentType,
+  type Appearance,
+  type CustomWidget,
   type Page,
   type Wallpaper,
   type Workspace,
+  isCustomType,
 } from './workspace'
+import {ANIMATIONS, normalizeHost, normalizeWidget, sanitizeCss} from './customWidget'
 
 /**
  * 工作空间的全部编辑操作。
@@ -77,6 +81,27 @@ export function removePage(workspace: Workspace, pageId: string): Workspace {
   return {...workspace, pages: workspace.pages.filter((page) => page.id !== pageId)}
 }
 
+/** 页面级样式：整页背景、对齐、自定义 CSS。 */
+export function setPageStyle(
+  workspace: Workspace,
+  pageId: string,
+  input: {css?: string | null; align?: string},
+): Workspace {
+  const page = findPage(workspace, pageId)
+  const next: Page = {...page}
+  if (input.css === null) delete next.css
+  else if (typeof input.css === 'string' && input.css.trim()) {
+    const checked = sanitizeCss(input.css)
+    if (!checked.ok) throw new WorkspaceError(`页面样式没通过检查：${checked.reason}`)
+    next.css = checked.css
+  }
+  if (input.align !== undefined) {
+    if (input.align !== 'start' && input.align !== 'center') throw new WorkspaceError('align 只能是 start 或 center')
+    next.align = input.align
+  }
+  return replacePage(workspace, next)
+}
+
 export function movePage(workspace: Workspace, pageId: string, toIndex: number): Workspace {
   const from = workspace.pages.findIndex((page) => page.id === pageId)
   if (from < 0) findPage(workspace, pageId)
@@ -92,17 +117,22 @@ export function addComponent(
   input: {pageId: string; type: string; config?: unknown; span?: string; title?: string; index?: number},
 ): {workspace: Workspace; instance: ComponentInstance} {
   const page = findPage(workspace, input.pageId)
+  // 内置组件来自注册表，自定义组件来自工作空间自身
+  const custom = isCustomType(input.type) ? workspace.widgets.find((w) => `custom:${w.id}` === input.type) : undefined
   const definition = getDefinition(input.type as ComponentType)
-  if (!definition) throw new WorkspaceError(`没有这种组件：${input.type}`)
-  if (!definition.multiple && workspace.pages.some((p) => p.components.some((c) => c.type === definition.type))) {
-    throw new WorkspaceError(`「${definition.name}」只能放一个，已经存在了`)
+  if (!custom && !definition) throw new WorkspaceError(`没有这种组件：${input.type}。先用 create_widget 建一个，或用 list_component_types 看有哪些。`)
+  const single = definition ? !definition.multiple : false
+  if (single && workspace.pages.some((p) => p.components.some((c) => c.type === input.type))) {
+    throw new WorkspaceError(`「${definition!.name}」只能放一个，已经存在了`)
   }
   if (page.components.length >= 24) throw new WorkspaceError('这一页组件太多了，最多 24 个')
-  const span = SPANS.includes(input.span as ComponentSpan) ? (input.span as ComponentSpan) : definition.defaultSpan
+  const fallbackSpan = definition?.defaultSpan ?? 'half'
+  const span = SPANS.includes(input.span as ComponentSpan) ? (input.span as ComponentSpan) : fallbackSpan
   const instance: ComponentInstance = {
-    id: instanceId(definition.type),
-    type: definition.type,
-    config: normalizeConfig(definition, input.config),
+    id: instanceId(input.type),
+    type: input.type as ComponentInstance['type'],
+    // 自定义组件没有配置字段，config 保持为空
+    config: definition ? normalizeConfig(definition, input.config) : {},
     span,
     ...(input.title?.trim() ? {title: input.title.trim().slice(0, 24)} : {}),
   }
@@ -115,14 +145,20 @@ export function addComponent(
 export function updateComponent(
   workspace: Workspace,
   ref: string,
-  patch: {config?: unknown; span?: string; title?: string | null},
+  patch: {config?: unknown; span?: string; title?: string | null; look?: unknown},
   pageId?: string,
 ): {workspace: Workspace; instance: ComponentInstance} {
   const {page, instance} = locate(workspace, ref, pageId)
   const definition = getDefinition(instance.type)
-  if (!definition) throw new WorkspaceError(`组件类型已失效：${instance.type}`)
+  const exists = definition || (isCustomType(instance.type) && workspace.widgets.some((w) => `custom:${w.id}` === instance.type))
+  if (!exists) throw new WorkspaceError(`组件类型已失效：${instance.type}`)
   const next: ComponentInstance = {...instance}
-  if (patch.config !== undefined) next.config = normalizeConfig(definition, {...instance.config, ...(patch.config as object)})
+  if (patch.config !== undefined && definition) next.config = normalizeConfig(definition, {...instance.config, ...(patch.config as object)})
+  if (patch.look !== undefined) {
+    const look = normalizeLook(patch.look)
+    if (Object.keys(look).length) next.look = {...instance.look, ...look}
+    else delete next.look
+  }
   if (patch.span !== undefined) {
     if (!SPANS.includes(patch.span as ComponentSpan)) throw new WorkspaceError(`不支持的宽度：${patch.span}，可选 ${SPANS.join('/')}`)
     next.span = patch.span as ComponentSpan
@@ -164,6 +200,80 @@ export function moveComponent(
 }
 
 /** 设置页面壁纸。custom 只接受 http(s) 图片地址，防止 javascript: 之类的 URL 进入 CSS。 */
+const VARIANTS = ['plain', 'card', 'accent', 'quiet'] as const
+const TONES = ['neutral', 'main', 'green', 'blue', 'amber', 'violet'] as const
+const TITLE_SIZES = ['sm', 'md', 'lg'] as const
+
+/**
+ * 外观覆盖：只接受声明过的取值。
+ * 非法 CSS 会抛出可读错误——写错了要让 AI 知道，不能悄悄丢掉装作成功。
+ */
+function normalizeLook(raw: unknown): Appearance {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
+  const value = raw as Record<string, unknown>
+  const look: Appearance = {}
+  if (typeof value.variant === 'string' && VARIANTS.includes(value.variant as never)) look.variant = value.variant as Appearance['variant']
+  if (typeof value.tone === 'string' && TONES.includes(value.tone as never)) look.tone = value.tone as Appearance['tone']
+  if (typeof value.titleSize === 'string' && TITLE_SIZES.includes(value.titleSize as never)) look.titleSize = value.titleSize as Appearance['titleSize']
+  if (typeof value.animation === 'string' && ANIMATIONS.includes(value.animation as never)) look.animation = value.animation
+  if (typeof value.css === 'string' && value.css.trim()) {
+    const checked = sanitizeCss(value.css)
+    if (!checked.ok) throw new WorkspaceError(`样式没通过检查：${checked.reason}`)
+    look.css = checked.css
+  }
+  return look
+}
+
+/** 创建一个自定义组件。规格经 normalizeWidget 校验后才写入。 */
+export function createWidget(workspace: Workspace, raw: unknown): {workspace: Workspace; widget: CustomWidget} {
+  if (workspace.widgets.length >= 20) throw new WorkspaceError('自定义组件太多了，最多 20 个')
+  const base = `w${(workspace.widgets.length + 1).toString(36)}${Date.now().toString(36).slice(-3)}`
+  const checked = normalizeWidget(raw, base)
+  if (!checked.ok) throw new WorkspaceError(checked.reason)
+  let id = base
+  for (let n = 2; workspace.widgets.some((w) => w.id === id); n += 1) id = `${base}${n}`
+  const widget = {...checked.widget, id}
+  return {workspace: {...workspace, widgets: [...workspace.widgets, widget]}, widget}
+}
+
+/** 改一个自定义组件的规格；id 不变，引用它的实例自动跟着变。 */
+export function updateWidget(workspace: Workspace, id: string, raw: unknown): {workspace: Workspace; widget: CustomWidget} {
+  const current = workspace.widgets.find((w) => w.id === id)
+  if (!current) throw new WorkspaceError(`没有这个自定义组件：${id}`)
+  const checked = normalizeWidget(raw, id)
+  if (!checked.ok) throw new WorkspaceError(checked.reason)
+  return {workspace: {...workspace, widgets: workspace.widgets.map((w) => (w.id === id ? checked.widget : w))}, widget: checked.widget}
+}
+
+/** 删一个自定义组件，连同引用它的实例。 */
+export function removeWidget(workspace: Workspace, id: string): {workspace: Workspace; removed: CustomWidget; instances: string[]} {
+  const widget = workspace.widgets.find((w) => w.id === id)
+  if (!widget) throw new WorkspaceError(`没有这个自定义组件：${id}`)
+  const type = `custom:${id}`
+  const instances: string[] = []
+  const pages = workspace.pages.map((page) => {
+    const kept = page.components.filter((c) => {
+      if (c.type !== type) return true
+      instances.push(c.id)
+      return false
+    })
+    return kept.length === page.components.length ? page : {...page, components: kept}
+  })
+  return {workspace: {...workspace, pages, widgets: workspace.widgets.filter((w) => w.id !== id)}, removed: widget, instances}
+}
+
+/** 授权一个域名。 */export function grantHost(workspace: Workspace, host: string): Workspace {
+  const normalized = normalizeHost(host)
+  if (!normalized) throw new WorkspaceError(`域名不合法：${host}`)
+  if (workspace.network.some((grant) => grant.host === normalized)) return workspace
+  return {...workspace, network: [...workspace.network, {host: normalized, grantedAt: Date.now()}]}
+}
+
+/** 撤销一个域名的授权。 */
+export function revokeHost(workspace: Workspace, host: string): Workspace {
+  return {...workspace, network: workspace.network.filter((grant) => grant.host !== host)}
+}
+
 export function setWallpaper(
   workspace: Workspace,
   pageId: string,
@@ -220,6 +330,8 @@ export function defaultWorkspace(): Workspace {
     version: WORKSPACE_VERSION,
     theme: {preset: 'paper', overrides: {}, mode: 'light'},
     layout: {...DEFAULT_LAYOUT},
+    widgets: [],
+    network: [],
     pages: [
       {
         id: 'home',

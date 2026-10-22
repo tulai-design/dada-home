@@ -1,7 +1,8 @@
 import {useCallback, useSyncExternalStore} from 'react'
 import {defaultWorkspace} from './ops'
 import {getDefinition} from './registry'
-import {WORKSPACE_VERSION, type Page, type Wallpaper, type Workspace} from './workspace'
+import {WORKSPACE_VERSION, type CustomWidget, type Page, type Wallpaper, type Workspace} from './workspace'
+import {normalizeWidget} from './customWidget'
 
 /**
  * 工作空间 store。
@@ -36,6 +37,15 @@ export function migrate(raw: unknown): Workspace | null {
   const data = raw as Partial<Workspace>
   if (!Array.isArray(data.pages) || data.pages.length === 0) return null
 
+  // 自定义组件必须先解析出来：过滤页面组件时要靠它判断 custom:* 是否仍然有效
+  const widgets: CustomWidget[] = []
+  for (const raw of Array.isArray(data.widgets) ? data.widgets : []) {
+    if (!raw || typeof raw.id !== 'string') continue
+    const checked = normalizeWidget(raw, raw.id)
+    if (checked.ok) widgets.push(checked.widget)
+  }
+  const customTypes = new Set(widgets.map((w) => `custom:${w.id}`))
+
   const pages: Page[] = []
   for (const page of data.pages) {
     if (!page || typeof page.id !== 'string' || !Array.isArray(page.components)) continue
@@ -43,8 +53,10 @@ export function migrate(raw: unknown): Workspace | null {
       id: page.id,
       name: typeof page.name === 'string' ? page.name : page.id,
       label: typeof page.label === 'string' ? page.label : page.id,
-      // 丢掉注册表里已不存在的组件类型，避免渲染器崩溃
-      components: page.components.filter((item) => item && typeof item.id === 'string' && getDefinition(item.type)),
+      // 丢掉已失效的组件类型：内置的看注册表，自定义的看 widgets 列表
+      components: page.components.filter(
+        (item) => item && typeof item.id === 'string' && (getDefinition(item.type) || customTypes.has(item.type)),
+      ),
       ...(readWallpaper(page.wallpaper) ? { wallpaper: readWallpaper(page.wallpaper) } : {}),
     })
   }
@@ -63,6 +75,8 @@ export function migrate(raw: unknown): Workspace | null {
       columns: Number.isFinite(data.layout?.columns) ? Number(data.layout!.columns) : fallback.layout.columns,
       maxWidth: Number.isFinite(data.layout?.maxWidth) ? Number(data.layout!.maxWidth) : fallback.layout.maxWidth,
     },
+    widgets,
+    network: Array.isArray(data.network) ? data.network.filter((g) => g && typeof g.host === 'string') : [],
   }
 }
 

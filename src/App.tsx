@@ -21,7 +21,7 @@ import { beginTurn, useTurns, type Turn } from './lib/chat'
 import type { Article, BookmarkGroup, Feed, Settings as SettingsShape } from './lib/types'
 import type { ComponentHost } from './lib/registry'
 import { useWorkspace } from './lib/workspaceStore'
-import { removeComponent, updateComponent } from './lib/ops'
+import { grantHost, removeComponent, updateComponent } from './lib/ops'
 import { removeData, useComponentData, SHARED } from './lib/componentData'
 import { wallpaperUrl } from './lib/wallpaper'
 import './widgets'
@@ -264,6 +264,9 @@ export default function App() {
       aiModel: settings.ai.model,
       aiBusy: busy,
       search: doSearch,
+      networkGrants: workspace.network.map((grant) => grant.host),
+      // 用户点「允许访问」是明确的主动行为，直接授权，不再二次确认
+      requestNetworkGrant: (host: string) => edit((ws) => grantHost(ws, host)),
       profile: {
         name: settings.name,
         city: settings.city,
@@ -273,7 +276,7 @@ export default function App() {
         showFavicons: settings.showFavicons,
       },
     }),
-    [settings, readIds, setReadIds, ask, aiConfigured, busy, doSearch, openArticle],
+    [settings, readIds, setReadIds, ask, aiConfigured, busy, doSearch, openArticle, edit, workspace.network],
   )
 
   const onUpdateConfig = useCallback(
@@ -398,7 +401,7 @@ export default function App() {
             {currentPage && (
               <PageView
                 page={currentPage}
-                layout={workspace.layout}
+                workspace={workspace}
                 host={host}
                 onUpdateConfig={onUpdateConfig}
                 onRemove={onRemoveComponent}

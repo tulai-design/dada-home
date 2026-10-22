@@ -4209,3 +4209,213 @@ kbd {
   color: var(--text2);
   word-break: break-word;
 }
+
+/* ============================================================
+   组件外观变体
+   由实例的 look 决定（data-variant / data-tone / data-title-size），
+   AI 可以按需调整，而不用改组件代码。
+   ============================================================ */
+
+/* 标题字号 */
+.widget[data-title-size='sm'] .page-pane h2,
+.widget[data-title-size='sm'] .custom-widget h2 { font-size: 12px; }
+.widget[data-title-size='lg'] .page-pane h2,
+.widget[data-title-size='lg'] .custom-widget h2 { font-size: 17px; }
+
+/* 语义色调：把主色映射到主题变量 */
+.widget[data-tone='main'] { --widget-accent: var(--main); }
+.widget[data-tone='green'] { --widget-accent: var(--c-green); }
+.widget[data-tone='blue'] { --widget-accent: var(--c-blue); }
+.widget[data-tone='amber'] { --widget-accent: var(--c-amber); }
+.widget[data-tone='violet'] { --widget-accent: var(--c-violet); }
+.widget[data-tone='neutral'] { --widget-accent: var(--text2); }
+
+/* plain：无边框无底色，直接落在页面/壁纸上 */
+.widget[data-variant='plain'] .page-pane,
+.widget[data-variant='plain'] .weather-card {
+  border: 0;
+  background: transparent;
+  padding: 8px 4px;
+}
+
+/* accent：左侧一条彩色竖线，强调这一块 */
+.widget[data-variant='accent'] .page-pane,
+.widget[data-variant='accent'] .weather-card {
+  border-left: 3px solid var(--widget-accent, var(--main));
+  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+}
+
+/* quiet：更淡的底和边框，用于次要信息 */
+.widget[data-variant='quiet'] .page-pane,
+.widget[data-variant='quiet'] .weather-card {
+  background: color-mix(in srgb, var(--bg2) 60%, transparent);
+  border-color: transparent;
+}
+
+.widget[data-variant='quiet'] .page-pane h2,
+.widget[data-variant='quiet'] .custom-widget h2 {
+  color: var(--text3);
+  font-weight: 400;
+}
+
+/* ── 自定义组件的各布局 ── */
+.custom-widget .custom-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.custom-widget .custom-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  line-height: 1.55;
+}
+
+.custom-index {
+  flex: none;
+  min-width: 16px;
+  color: var(--text3);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.custom-meta {
+  flex: none;
+  margin-left: auto;
+  color: var(--text3);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.custom-sub {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--text3);
+  font-size: 12px;
+}
+
+.custom-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.custom-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+  gap: 12px;
+}
+
+.custom-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.custom-stat-value {
+  font-family: var(--font-serif);
+  font-size: 26px;
+  line-height: 1.15;
+  color: var(--widget-accent, var(--text));
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.custom-stat-label {
+  color: var(--text2);
+  font-size: 12px;
+}
+
+.custom-stat-meta {
+  color: var(--text3);
+  font-size: 11px;
+}
+
+.custom-links {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 6px 14px;
+}
+
+.custom-text p {
+  margin: 0 0 6px;
+  line-height: 1.7;
+}
+
+.custom-sub-inline {
+  margin-left: 8px;
+  color: var(--text3);
+  font-size: 12px;
+}
+
+.custom-refresh {
+  font-size: 11px;
+  color: var(--text3);
+}
+
+/* ── 自定义 SVG 图形 ── */
+.custom-art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+}
+
+.custom-art-frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.custom-art-frame > svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 320px;
+}
+
+/* ── 预置动画 ── */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+@keyframes spin-slow {
+  to { transform: rotate(360deg); }
+}
+
+.widget[data-animation='fade-in'] { animation: fade-in 0.5s var(--curve) both; }
+.widget[data-animation='pulse-soft'] { animation: pulse-soft 2.4s ease-in-out infinite; }
+.widget[data-animation='float'] { animation: float 3.6s ease-in-out infinite; }
+.widget[data-animation='spin-slow'] { animation: spin-slow 18s linear infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .widget[data-animation] { animation: none; }
+}
+
+/* 页面内容居中 */
+.page-grid[data-align='center'] {
+  justify-items: center;
+}
+
+.page-grid[data-align='center'] > .widget {
+  width: 100%;
+}

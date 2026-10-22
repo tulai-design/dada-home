@@ -368,6 +368,210 @@ export const HOME_TOOLS = [
     },
   ),
 
+  // ───── 自定义组件 ─────
+  define(
+    {schema: {parse: obj}, json: {type: 'object', properties: {}}},
+    {
+      name: 'list_custom_widgets',
+      title: '查看自定义组件',
+      description: '列出用户已创建的自定义组件及其规格。改它们之前先看。',
+      effect: 'read',
+      highRisk: () => false,
+      execute: async () => {
+        const { widgets } = getWorkspace()
+        if (!widgets.length) return '还没有自定义组件。可以用 create_widget 建一个。'
+        return widgets
+          .map((w) => `custom:${w.id}｜${w.name}｜${w.layout}｜${w.source.kind === 'http' ? w.source.url : '静态数据'}\n  ${w.description || '（无描述）'}`)
+          .join('\n')
+      },
+    },
+  ),
+  define(
+    {schema: {parse: obj}, json: {type: 'object', properties: {}, description: '完整规格，见 describe'}},
+    {
+      name: 'create_widget',
+      title: '创建自定义组件',
+      description: [
+        '造一个现有组件类型里没有的新组件。你写的是声明式规格，不是代码。',
+        '规格字段：',
+        '  name（必填，不超过 24 字）、description、layout（必填）',
+        '    - list 列表 / cards 卡片 / stats 大数字 / text 段落 / links 链接墙：需要 item 和 source',
+        '    - art 图形：直接画 SVG，需要 svg 字段，不需要 item 和 source。',
+        '      svg 必须是完整的 <svg ...>...</svg>，可用元素：g path circle ellipse rect line polyline polygon text tspan',
+        '      linearGradient radialGradient stop clipPath mask filter 等；不能含 script、事件属性、外部链接。',
+        '  item（必填）：{title:{path}, subtitle?, meta?, link?}，path 用点号取字段，例如 "author.name"；prefix 可加前缀文字',
+        '  source（必填）：静态 {kind:"static", items:[{...}]}，或接口 {kind:"http", url, path?, every?}',
+        '    - http 的 url 必须是 http(s)；域名需要用户授权后才能取数，未授权时组件会提示用户点击允许',
+        '    - path 指定从响应里取数组的路径，例如 "data.list"；留空表示响应本身就是数组',
+        '    - every 是最短 60 秒的重取间隔',
+        '  emptyText、options:{limit, numbered}',
+        '建好后用 add_component 把 custom:<返回的id> 放到页面上。',
+      ].join('\n'),
+      effect: 'write',
+      highRisk: () => false,
+      execute: (args) =>
+        guard(() => {
+          const result = ops.createWidget(getWorkspace(), args)
+          commit(result.workspace)
+          return `已创建自定义组件 custom:${result.widget.id}（${result.widget.name}）。用 add_component 把它放到页面上。`
+        }),
+    },
+  ),
+  define(
+    {
+      schema: {parse: (raw) => ({id: str(obj(raw).id), spec: obj(raw).spec})},
+      json: {
+        type: 'object',
+        properties: {id: {type: 'string', description: '自定义组件 id（不含 custom: 前缀）'}, spec: {type: 'object', description: '与 create_widget 相同结构的完整规格'}},
+        required: ['id', 'spec'],
+      },
+    },
+    {
+      name: 'update_widget',
+      title: '修改自定义组件',
+      description: '改一个自定义组件的规格（字段同 create_widget，需要给完整规格）。页面上引用它的组件会立即跟着变。',
+      effect: 'write',
+      highRisk: () => false,
+      execute: (args) =>
+        guard(() => {
+          const result = ops.updateWidget(getWorkspace(), args.id, args.spec)
+          commit(result.workspace)
+          return `已更新 custom:${result.widget.id}（${result.widget.name}）。`
+        }),
+    },
+  ),
+  define(
+    {
+      schema: {parse: (raw) => ({id: str(obj(raw).id)})},
+      json: {type: 'object', properties: {id: {type: 'string'}}, required: ['id']},
+    },
+    {
+      name: 'remove_widget',
+      title: '删除自定义组件',
+      description: '删除一个自定义组件，以及页面上引用它的所有实例。',
+      effect: 'write',
+      highRisk: () => true,
+      execute: (args) =>
+        guard(() => {
+          const result = ops.removeWidget(getWorkspace(), args.id)
+          commit(result.workspace)
+          return `已删除 custom:${args.id}（${result.removed.name}），同时移除了 ${result.instances.length} 处引用。`
+        }),
+    },
+  ),
+
+  // ───── 外观 ─────
+  define(
+    {
+      schema: {
+        parse: (raw) => ({ref: str(obj(raw).ref), pageId: optStr(obj(raw).pageId), look: obj(raw).look}),
+      },
+      json: {
+        type: 'object',
+        properties: {
+          ref: {type: 'string', description: '组件 id 或标题'},
+          pageId: {type: 'string'},
+          look: {
+            type: 'object',
+            description:
+              '外观：{variant, tone, titleSize, animation, css}。css 写纯属性声明，例如 "border-radius: 18px; box-shadow: 0 8px 30px rgb(0 0 0 / 12%)"；不要写选择器和花括号。',
+            properties: {
+              variant: {type: 'string', enum: ['plain', 'card', 'accent', 'quiet']},
+              tone: {type: 'string', enum: ['neutral', 'main', 'green', 'blue', 'amber', 'violet']},
+              titleSize: {type: 'string', enum: ['sm', 'md', 'lg']},
+              animation: {type: 'string', enum: ['none', 'fade-in', 'pulse-soft', 'float', 'spin-slow']},
+              css: {type: 'string', description: '自定义 CSS 声明，不含花括号'},
+            },
+          },
+        },
+        required: ['ref', 'look'],
+      },
+    },
+    {
+      name: 'set_appearance',
+      title: '调整组件外观',
+      description: [
+        '改单个组件的样式，不改内容和数据。两种用法：',
+        '1. 预设档位：variant（plain 无边框 / card 卡片 / accent 左侧彩条 / quiet 淡底）、tone（强调色）、titleSize（标题字号）、animation（预置动画）',
+        '2. 自定义 CSS：css 字段写纯属性声明，例如 "background: linear-gradient(135deg,#f6d365,#fda085); border-radius: 20px; box-shadow: 0 10px 40px rgb(0 0 0 / 15%)"。',
+        '   只作用于这一块，不要写选择器、花括号、@import、url(http...)。',
+        '想做出独特的视觉效果时用 css；只要统一感时用预设档位。',
+      ].join('\n'),
+      effect: 'write',
+      highRisk: () => false,
+      execute: (args) =>
+        guard(() => {
+          const result = ops.updateComponent(getWorkspace(), args.ref, {look: args.look}, args.pageId)
+          commit(result.workspace)
+          return `已调整外观：${describeComponent(result.instance)}`
+        }),
+    },
+  ),
+  define(
+    {
+      schema: {
+        parse: (raw) => ({pageId: str(obj(raw).pageId), css: obj(raw).css === null ? null : optStr(obj(raw).css), align: optStr(obj(raw).align)}),
+      },
+      json: {
+        type: 'object',
+        properties: {
+          pageId: {type: 'string'},
+          css: {type: 'string', description: '整页样式声明，不含花括号；传 null 清除'},
+          align: {type: 'string', enum: ['start', 'center'], description: '内容对齐'},
+        },
+        required: ['pageId'],
+      },
+    },
+    {
+      name: 'set_page_style',
+      title: '调整页面样式',
+      description: '改整页的样式：内容对齐，以及作用在内容容器上的 CSS 声明（例如内边距、最大宽度之外的整体观感）。同样不接受选择器和花括号。',
+      effect: 'write',
+      highRisk: () => false,
+      execute: (args) =>
+        guard(() => {
+          commit(ops.setPageStyle(getWorkspace(), args.pageId, args))
+          return `已更新页面 ${args.pageId} 的样式。`
+        }),
+    },
+  ),
+
+  // ───── 网络授权 ─────
+  define(
+    {schema: {parse: obj}, json: {type: 'object', properties: {}}},
+    {
+      name: 'list_network_grants',
+      title: '查看已授权域名',
+      description: '列出用户已允许访问的域名。创建要联网的组件前先看，避免重复申请。',
+      effect: 'read',
+      highRisk: () => false,
+      execute: async () => {
+        const { network } = getWorkspace()
+        if (!network.length) return '还没有授权任何域名。'
+        return network.map((g) => `${g.host}（${new Date(g.grantedAt).toLocaleDateString('zh-CN')} 授权）`).join('\n')
+      },
+    },
+  ),
+  define(
+    {
+      schema: {parse: (raw) => ({host: str(obj(raw).host)})},
+      json: {type: 'object', properties: {host: {type: 'string', description: '域名，例如 api.github.com'}}, required: ['host']},
+    },
+    {
+      name: 'request_network_grant',
+      title: '申请域名授权',
+      description: '为一个还没授权的域名请求用户同意。用户必须明确允许，之后才能在该域名上取数。',
+      effect: 'write',
+      highRisk: () => true,
+      execute: (args) =>
+        guard(() => {
+          const next = ops.grantHost(getWorkspace(), args.host)
+          commit(next)
+          return `已授权 ${args.host}。`
+        }),
+    },
+  ),
+
   // ───── 视图 ─────
   define(
     {

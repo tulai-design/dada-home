@@ -64,6 +64,10 @@ export type ComponentHost = {
   aiBusy: boolean
   /** 搜索结果打开方式：直接开网址还是走搜索引擎。 */
   search: (query: string, engine: string) => void
+  /** 已授权可访问的域名列表（自定义组件的网络取数用）。 */
+  networkGrants: string[]
+  /** 请求用户授权一个域名；用户同意后写入工作空间。 */
+  requestNetworkGrant: (host: string) => void
   /** 全局设置里组件需要读的部分。 */
   profile: {name: string; city: string; lat: number; lon: number; showSeconds: boolean; showFavicons: boolean}
 }
