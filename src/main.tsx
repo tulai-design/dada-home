@@ -5,6 +5,7 @@ import { motion } from 'motion/react'
 import '@lobehub/ui/theme.css'
 import '@lobehub/ui/style.css'
 import App from './App'
+import { initStorage } from './lib/storage'
 import './styles.css'
 import './theme.css'
 
@@ -26,11 +27,14 @@ if (import.meta.env.DEV) {
   })
 }
 
-createRoot(document.getElementById('root')!).render(
+// 先把 IndexedDB 里的数据读进内存再渲染：组件一挂载就要同步拿到自己的数据。
+void initStorage().then(() =>
+  createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ConfigProvider motion={motion}>
       <ToastHost position="top-right" />
       <App />
     </ConfigProvider>
   </StrictMode>,
+  ),
 )

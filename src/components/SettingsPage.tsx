@@ -1,6 +1,6 @@
 import {useState, type ReactNode} from 'react'
-import {ActionIcon, Modal, Segmented, Slider, Text} from '@lobehub/ui'
-import {ChevronLeft, Database, Download, Globe, LayoutTemplate, Palette, PanelLeft, PanelTop, RotateCcw, Sparkles, User} from 'lucide-react'
+import {ActionIcon, Modal, Segmented, Text} from '@lobehub/ui'
+import {ChevronLeft, Database, Download, Globe, Info, LayoutDashboard, LayoutTemplate, Palette, PanelLeft, PanelTop, RotateCcw, Sparkles, User} from 'lucide-react'
 import type {LucideIcon} from 'lucide-react'
 import {appVisible} from '../lib/market'
 import {defaultWorkspace} from '../lib/ops'
@@ -9,6 +9,12 @@ import {PROXY_PRESETS} from '../lib/rss'
 import {useStored} from '../lib/store'
 import {Group, Row, TextRow, Tile} from './ios'
 import {SidebarSettings, StatusbarSettings} from './LayoutSettings'
+import {exportIdb} from '../lib/storage'
+import {useIsMobile} from '../lib/useMedia'
+import {AiSettings} from './AiSettings'
+import {AboutPanel} from './About'
+import {AppearanceSettings} from './ThemeSettings'
+import {TemplateSettings} from './TemplateSettings'
 
 /**
  * 设置页，仿 iOS 设置：左边是分组列表，右边是当前项的详情。
@@ -37,12 +43,13 @@ type Props = {
   onReset: () => void
 }
 
-function exportBackup() {
+async function exportBackup() {
   const dump: Record<string, unknown> = {}
   for (let i = 0; i < localStorage.length; i += 1) {
     const key = localStorage.key(i)
     if (key?.startsWith('fp.')) dump[key] = localStorage.getItem(key)
   }
+  dump.indexedDB = await exportIdb()
   const blob = new Blob([JSON.stringify(dump, null, 2)], {type: 'application/json'})
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
@@ -53,7 +60,9 @@ function exportBackup() {
 
 export function SettingsPage({ctx, themeMode, onThemeMode, section, onSection, onReset}: Props) {
   const {settings, patch} = ctx
-  const [pane, setPane] = useState<'list' | 'detail'>('detail')
+  const mobile = useIsMobile()
+  // 手机上一次只显示一栏：直接点进设置先看列表；从别处跳来指定某一项时直接显示那一项
+  const [pane, setPane] = useState<'list' | 'detail'>(mobile && section === 'profile' ? 'list' : 'detail')
   const [resetOpen, setResetOpen] = useState(false)
   const [assistantMode, setAssistantMode] = useStored<'drawer' | 'full'>('assistantMode', 'drawer')
 
@@ -77,21 +86,17 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, onSection, o
       icon: Palette,
       color: '#0a84ff',
       summary: themeMode === 'dark' ? '深色' : '浅色',
-      render: () => (
-        <Group footer="页面的壁纸、特效和版式，直接对搭搭说就行。">
-          <Row label="配色">
-            <Segmented
-              size="small"
-              value={themeMode}
-              options={[
-                {value: 'light', label: '浅色'},
-                {value: 'dark', label: '深色'},
-              ]}
-              onChange={(v) => onThemeMode(v as 'light' | 'dark')}
-            />
-          </Row>
-        </Group>
-      ),
+      description: '配色和主题库。页面的壁纸、特效和版式，直接对搭搭说就行。',
+      render: () => <AppearanceSettings mode={themeMode} onMode={onThemeMode} />,
+    },
+    {
+      id: 'templates',
+      name: '模板',
+      icon: LayoutDashboard,
+      color: '#bf5af2',
+      summary: `${ctx.workspace.templates.length} 个`,
+      description: '把整套页面设计存下来，随时切换；也可以从内置预设起步。',
+      render: () => <TemplateSettings />,
     },
     {
       id: 'sidebar',
@@ -123,16 +128,7 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, onSection, o
       description: '接入兼容 OpenAI 的模型。密钥只保存在这台浏览器里。',
       render: () => (
         <>
-          <Group title="模型">
-            <TextRow label="接口地址" stack value={settings.ai.baseUrl} placeholder="https://api.openai.com/v1" onChange={(v) => patch({ai: {...settings.ai, baseUrl: v}})} />
-            <TextRow label="密钥" secret value={settings.ai.apiKey} placeholder="sk-…" onChange={(v) => patch({ai: {...settings.ai, apiKey: v}})} />
-            <TextRow label="模型" value={settings.ai.model} placeholder="gpt-4o-mini" onChange={(v) => patch({ai: {...settings.ai, model: v}})} />
-          </Group>
-          <Group title="风格" footer="数值越低回答越稳，越高越发散。">
-            <Row label="温度" stack hint={settings.ai.temperature.toFixed(1)}>
-              <Slider min={0} max={1.5} step={0.1} value={settings.ai.temperature} onChange={(v) => patch({ai: {...settings.ai, temperature: v}})} />
-            </Row>
-          </Group>
+          <AiSettings ai={settings.ai} proxy={settings.proxy} onChange={(ai) => patch({ai})} />
           <Group title="对话面板" footer="也可以随时点面板右上角的图标切换。">
             <Row label="打开方式">
               <Segmented
@@ -180,14 +176,22 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, onSection, o
           <Group footer="导出订阅、书签、待办、页面和配置。密钥也在其中，请妥善保管。">
             <Row label="导出备份" icon={<Download size={16} />} chevron onClick={exportBackup} />
           </Group>
-          <Group footer="只把页面、侧栏、状态条和已装的组件恢复成初始状态；订阅、书签、待办和密钥都保留。">
-            <Row label="恢复默认布局" icon={<LayoutTemplate size={16} />} onClick={() => ctx.edit((ws) => ({...defaultWorkspace(), theme: ws.theme}))} />
+          <Group footer="只把页面、侧栏、状态条和已装的组件恢复成初始状态；订阅、书签、待办、密钥和已存的模板都保留。">
+            <Row label="恢复默认布局" icon={<LayoutTemplate size={16} />} onClick={() => ctx.edit((ws) => ({...defaultWorkspace(), theme: ws.theme, themes: ws.themes, templates: ws.templates}))} />
           </Group>
-          <Group footer="会清掉订阅、书签、待办、页面和密钥，回到初始状态。">
+          <Group footer="会清掉订阅、书签、待办、页面、模板和密钥，回到初始状态。">
             <Row label="恢复默认" icon={<RotateCcw size={16} />} danger onClick={() => setResetOpen(true)} />
           </Group>
         </>
       ),
+    },
+    {
+      id: 'about',
+      name: '关于',
+      icon: Info,
+      color: '#d43f2d',
+      description: '认识一下搭搭。',
+      render: () => <AboutPanel />,
     },
   ]
 

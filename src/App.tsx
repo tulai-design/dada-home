@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { A, ActionIcon, toast } from '@lobehub/ui'
-import { LayoutGrid, Monitor, Moon, RefreshCw, Rss, Settings, Sparkles, Sun } from 'lucide-react'
+import { LayoutGrid, Monitor, Moon, Palette, RefreshCw, Rss, Settings, Sparkles, Sun } from 'lucide-react'
 import { pageIcon } from './lib/pageIcons'
+import { FROZEN_PAGE_ID, activeTheme } from './lib/workspace'
+import { applyTheme, setMode } from './lib/themes'
 import { useStored } from './lib/store'
 import { SEARCH_ENGINES, defaultBookmarks, defaultFeeds, defaultSettings } from './lib/defaults'
 import { hotOrigin } from './lib/hot'
@@ -23,7 +25,8 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import { MonitorPage } from './components/Monitor'
 import { MarketPage } from './components/MarketPage'
 import { isInstalled } from './lib/market'
-import { beginTurn, useTurns, type Turn } from './lib/chat'
+import { resetStorage } from './lib/storage'
+import { beginTurn, contextTurns, initChat, useChat, type Turn } from './lib/chat'
 import type { Article, BookmarkGroup, Feed, Settings as SettingsShape } from './lib/types'
 import type { ComponentHost } from './lib/registry'
 import { useWorkspace } from './lib/workspaceStore'
@@ -49,7 +52,8 @@ export default function App() {
     return {
       ...base,
       ...storedSettings,
-      ai: { ...base.ai, ...(storedSettings.ai ?? {}) },
+      // 0.6 是旧版本的默认温度，而且当时根本没发给接口；当作「没设置」，别让升级悄悄改变模型的行为
+      ai: { ...base.ai, ...(storedSettings.ai ?? {}), ...(storedSettings.ai?.temperature === 0.6 ? { temperature: undefined } : {}) },
       monitor: Array.isArray(storedSettings.monitor) ? storedSettings.monitor : [],
       hotSource: hotOrigin(storedSettings.hotSource),
     }
@@ -62,7 +66,8 @@ export default function App() {
   const [monitorStates, setMonitorStates] = useState<Record<string, MonitorState>>({})
   const [range, setRange] = useStored<RangeId>('range', '24h')
 
-  const [turns, setTurns] = useTurns()
+  const chat = useChat()
+  const { turns, setTurns } = chat
   const [busy, setBusy] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   /** 待答复的确认请求：由 ask 写入，由确认卡片按钮调用。 */
@@ -120,14 +125,18 @@ export default function App() {
     setPendingPage(null)
   }, [pendingPage, workspace.pages, setPageId])
 
+  // 应用主题：明暗 + 当前主题的变量。切换主题时要把上一个主题设过的变量清掉，不然会残留。
+  const theme = activeTheme(workspace)
+  const appliedVars = useRef<string[]>([])
   useEffect(() => {
-    document.documentElement.dataset.theme = workspace.theme.mode
-    document.documentElement.dataset.primaryColor = 'red'
-    for (const [name, value] of Object.entries(workspace.theme.overrides)) {
-      document.documentElement.style.setProperty(`--${name}`, value)
-    }
+    const root = document.documentElement
+    root.dataset.theme = workspace.theme.mode
+    root.dataset.primaryColor = 'red'
+    for (const name of appliedVars.current) root.style.removeProperty(`--${name}`)
+    appliedVars.current = Object.keys(theme.overrides)
+    for (const [name, value] of Object.entries(theme.overrides)) root.style.setProperty(`--${name}`, value)
     document.title = `${settings.name === '朋友' ? '' : `${settings.name} · `}搭搭`
-  }, [workspace.theme, settings.name])
+  }, [workspace.theme.mode, theme, settings.name])
 
   // 已读记录是共享数据，订阅组件读写它；外壳只需要把当前值传给宿主
   const [readIds, setReadIds] = useStored<string[]>('read', [])
@@ -166,6 +175,7 @@ export default function App() {
 
   const ask = useCallback(
     async (text: string) => {
+      await initChat()
       const turn = beginTurn(text)
       if (!aiConfigured) {
         setTurns((prev) => [...prev, {...turn, error: '先到设置里填接口地址与模型。', endedAt: Date.now()}])
@@ -173,7 +183,7 @@ export default function App() {
       }
 
       // 历史按轮展开成消息：只带问答正文，思考过程和工具细节不进上下文
-      const history: ChatMessage[] = turns.flatMap((t) => {
+      const history: ChatMessage[] = contextTurns(turns, settings.ai.contextTurns).flatMap((t) => {
         const items: ChatMessage[] = [{ role: 'user', content: t.prompt }]
         if (t.answer) items.push({ role: 'assistant', content: t.answer })
         return items
@@ -350,7 +360,7 @@ export default function App() {
   )
 
   const toggleTheme = useCallback(
-    () => edit((ws) => ({ ...ws, theme: { ...ws.theme, mode: ws.theme.mode === 'dark' ? 'light' : 'dark' } })),
+    () => edit((ws) => setMode(ws, ws.theme.mode === 'dark' ? 'light' : 'dark')),
     [edit],
   )
 
@@ -413,8 +423,18 @@ export default function App() {
         label: workspace.theme.mode === 'dark' ? '切换到浅色' : '切换到深色',
         group: '动作',
         icon: workspace.theme.mode === 'dark' ? Sun : Moon,
-        run: () => edit((ws) => ({ ...ws, theme: { ...ws.theme, mode: ws.theme.mode === 'dark' ? 'light' : 'dark' } })),
+        run: () => edit((ws) => setMode(ws, ws.theme.mode === 'dark' ? 'light' : 'dark')),
       },
+      ...workspace.themes
+        .filter((item) => item.id !== workspace.theme.active)
+        .map((item) => ({
+          id: `theme-${item.id}`,
+          label: `主题：${item.name}`,
+          hint: item.description ? item.description.slice(0, 14) : undefined,
+          group: '主题',
+          icon: Palette,
+          run: () => edit((ws) => applyTheme(ws, item.id).workspace),
+        })),
       ...(isInstalled(workspace, 'feeds') ? feeds : [])
         .filter((f) => f.enabled !== false)
         .map((f) => ({
@@ -425,7 +445,7 @@ export default function App() {
           run: () => window.open(f.url, '_blank', 'noopener'),
         })),
     ],
-    [workspace.pages, workspace.theme.mode, workspace.addons, feeds, edit, goPage, openMonitor, openMarket, openSettings],
+    [workspace.pages, workspace.theme, workspace.themes, workspace.addons, feeds, edit, goPage, openMonitor, openMarket, openSettings],
   )
 
   const appCtx: AppSettingsContext = useMemo(
@@ -474,6 +494,7 @@ export default function App() {
             theme={workspace.theme.mode}
             onTheme={toggleTheme}
             onPalette={() => setPaletteOpen((v) => !v)}
+            onHome={() => goPage(FROZEN_PAGE_ID)}
           />
 
           {view === 'page' && (
@@ -521,13 +542,10 @@ export default function App() {
               <SettingsPage
                 ctx={appCtx}
                 themeMode={workspace.theme.mode}
-                onThemeMode={(mode) => edit((ws) => ({ ...ws, theme: { ...ws.theme, mode } }))}
+                onThemeMode={(mode) => edit((ws) => setMode(ws, mode))}
                 section={section}
                 onSection={setSection}
-                onReset={() => {
-                  localStorage.clear()
-                  location.reload()
-                }}
+                onReset={() => void resetStorage()}
               />
             </div>
           )}
@@ -570,18 +588,28 @@ export default function App() {
           open={assistantOpen}
           ai={settings.ai}
           turns={turns}
+          ready={chat.ready}
+          convs={chat.convs}
+          convId={chat.convId}
+          onNewConv={() => void chat.newConv()}
+          onOpenConv={(id) => void chat.openConv(id)}
+          onDeleteConv={(id) => void chat.deleteConv(id)}
           busy={busy}
           seed={{ text: '', key: 0 }}
           onSend={(text) => void ask(text)}
           onStop={() => abortRef.current?.abort()}
           onClose={() => setAssistantOpen(false)}
           onOpenSettings={() => openSettings('ai')}
-          onClear={() => setTurns([])}
           onApprovalAnswer={answerApproval}
         />
 
         <PageSwitcher
           open={switcherOpen}
+          system={[
+            ...(monitorOn ? [{ id: 'sys-monitor', label: '服务监控', icon: Monitor, run: openMonitor }] : []),
+            { id: 'sys-market', label: '组件市场', icon: LayoutGrid, run: openMarket },
+            { id: 'sys-settings', label: '设置', icon: Settings, run: () => openSettings() },
+          ]}
           pages={workspace.pages}
           current={view === 'page' ? (currentPage?.id ?? '') : ''}
           onPick={goPage}

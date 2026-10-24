@@ -1,11 +1,12 @@
 import {useCallback, useSyncExternalStore} from 'react'
 import {defaultWorkspace} from './ops'
 import {getDefinition, normalizeConfig} from './registry'
-import {FROZEN_PAGE_ID, MAX_STATUS_ITEMS, WORKSPACE_VERSION, type StatusItem, type CustomWidget, type Layer, type Page, type Wallpaper, type Workspace} from './workspace'
+import {DEFAULT_THEME, DEFAULT_THEME_ID, FROZEN_PAGE_ID, MAX_STATUS_ITEMS, MAX_TEMPLATES, WORKSPACE_VERSION, type StatusItem, type TemplateEntry, type ThemeEntry, type ThemeConfig, type CustomWidget, type Layer, type Page, type Wallpaper, type Workspace} from './workspace'
 import {normalizeWidget, sanitizeCss} from './customWidget'
 import {normalizeLayer} from '../fx/catalog'
 import {isPageIcon} from './pageIcons'
 import {ADDONS} from './market'
+import {cleanOverrides, readThemes} from './themes'
 
 /** 旧数据里没有 icon 的页面，按 id 补回当初的图标，别全变成同一个。 */
 const LEGACY_ICONS: Record<string, string> = {home: 'home', feeds: 'newspaper', desk: 'notebook-pen', marks: 'bookmark', hot: 'flame'}
@@ -76,16 +77,14 @@ export function migrate(raw: unknown): Workspace | null {
   const homeAt = pages.findIndex((page) => page.id === FROZEN_PAGE_ID)
   if (homeAt < 0) pages.unshift(fallback.pages[0])
   else if (homeAt > 0) pages.unshift(...pages.splice(homeAt, 1))
+  const theme = readThemeState(data)
   const statusbar = readStatusbar(data.statusbar, fallback.statusbar)
   return {
     version: WORKSPACE_VERSION,
     pages,
     addons: readAddons((data as { addons?: unknown }).addons, pages, statusbar),
-    theme: {
-      preset: typeof data.theme?.preset === 'string' ? data.theme.preset : fallback.theme.preset,
-      mode: data.theme?.mode === 'dark' ? 'dark' : 'light',
-      overrides: data.theme?.overrides && typeof data.theme.overrides === 'object' ? data.theme.overrides : {},
-    },
+    theme: theme.config,
+    themes: theme.themes,
     layout: {
       columns: Number.isFinite(data.layout?.columns) ? Number(data.layout!.columns) : fallback.layout.columns,
       maxWidth: Number.isFinite(data.layout?.maxWidth) ? Number(data.layout!.maxWidth) : fallback.layout.maxWidth,
@@ -93,7 +92,50 @@ export function migrate(raw: unknown): Workspace | null {
     widgets,
     network: Array.isArray(data.network) ? data.network.filter((g) => g && typeof g.host === 'string') : [],
     statusbar,
+    templates: readTemplates((data as { templates?: unknown }).templates),
+    ...(typeof (data as { template?: unknown }).template === 'string' ? { template: (data as { template: string }).template } : {}),
   }
+}
+
+/**
+ * 读模板库。每个模板的快照照工作空间的规矩重新过一遍（丢掉失效组件、补默认值），
+ * 所以导入来的、旧版本的、手改过的模板都不会把页面弄坏。
+ */
+export function readTemplates(raw: unknown): TemplateEntry[] {
+  if (!Array.isArray(raw)) return []
+  const out: TemplateEntry[] = []
+  for (const item of raw.slice(0, MAX_TEMPLATES)) {
+    if (!item || typeof item.id !== 'string' || typeof item.name !== 'string' || out.some((entry) => entry.id === item.id)) continue
+    const snap = item.snapshot as Partial<TemplateEntry['snapshot']> | undefined
+    if (!snap) continue
+    const checked = migrate({
+      pages: snap.pages,
+      widgets: snap.widgets,
+      statusbar: snap.statusbar,
+      addons: snap.addons ?? [],
+      layout: snap.layout,
+      themes: snap.theme ? [snap.theme] : undefined,
+    })
+    if (!checked) continue
+    const theme = snap.theme?.id === DEFAULT_THEME_ID ? DEFAULT_THEME : checked.themes.find((entry) => entry.id !== DEFAULT_THEME_ID)
+    const now = Date.now()
+    out.push({
+      id: item.id,
+      name: item.name.trim().slice(0, 20) || '未命名',
+      description: typeof item.description === 'string' ? item.description.slice(0, 120) : '',
+      createdAt: Number.isFinite(item.createdAt) ? item.createdAt : now,
+      updatedAt: Number.isFinite(item.updatedAt) ? item.updatedAt : now,
+      snapshot: {
+        pages: checked.pages,
+        statusbar: checked.statusbar,
+        layout: checked.layout,
+        widgets: checked.widgets,
+        addons: checked.addons,
+        ...(theme ? { theme } : {}),
+      },
+    })
+  }
+  return out
 }
 
 function readIcon(page: Partial<Page>): Partial<Page> {
@@ -111,6 +153,30 @@ function readAddons(raw: unknown, pages: Page[], statusbar: StatusItem[]): strin
   if (Array.isArray(raw)) return [...new Set(raw.filter((id): id is string => typeof id === 'string' && known.has(id)))]
   const used = new Set<string>([...pages.flatMap((page) => page.components.map((item) => item.type as string)), ...statusbar.map((item) => item.type as string)])
   return ADDONS.filter((addon) => addon.types.some((type) => used.has(type))).map((addon) => addon.id)
+}
+
+/**
+ * 主题库与当前主题。旧数据只有 theme.overrides：有改动就收成一个「我的主题」并保持启用，没有就用默认。
+ */
+function readThemeState(data: Partial<Workspace>): { themes: ThemeEntry[]; config: ThemeConfig } {
+  const themes = readThemes(data.themes)
+  const raw = (data.theme ?? {}) as { active?: unknown; overrides?: unknown; mode?: unknown; base?: unknown }
+  const mode: 'light' | 'dark' = raw.mode === 'dark' ? 'dark' : 'light'
+  const base: 'light' | 'dark' = raw.base === 'dark' ? 'dark' : raw.base === 'light' ? 'light' : mode
+  if (!Array.isArray(data.themes) && raw.overrides && typeof raw.overrides === 'object') {
+    try {
+      const overrides = cleanOverrides(raw.overrides)
+      if (Object.keys(overrides).length) {
+        themes.push({ id: 'mine', name: '我的主题', description: '升级前你调过的配色', overrides })
+        return { themes, config: { active: 'mine', mode, base } }
+      }
+    } catch {
+      /* 旧的变量不合法就当没有 */
+    }
+  }
+  const active = typeof raw.active === 'string' && themes.some((item) => item.id === raw.active) ? raw.active : DEFAULT_THEME_ID
+  const entry = themes.find((item) => item.id === active)
+  return { themes, config: { active, mode: entry?.mode ?? mode, base } }
 }
 
 /** 状态条：旧数据没有这个字段，用默认；有就逐项校验，失效的组件丢掉。 */

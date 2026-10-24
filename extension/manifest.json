@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "搭搭书签桥",
+  "version": "0.1.0",
+  "description": "让搭搭（tulai.design）读取、整理你浏览器里的书签。只在你手动启用的网站上工作。",
+  "minimum_chrome_version": "102",
+  "permissions": ["bookmarks", "scripting", "storage"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "action": { "default_title": "搭搭书签桥", "default_popup": "popup.html" },
+  "icons": { "16": "icon16.png", "48": "icon48.png", "128": "icon128.png" }
+}

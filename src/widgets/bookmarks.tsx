@@ -1,8 +1,11 @@
+import {useState} from 'react'
 import {ActionIcon, A, Button, Empty, Flexbox, Text} from '@lobehub/ui'
-import {Bookmark, Plus, Trash2} from 'lucide-react'
+import {Bookmark, FileDown, FileUp, Pencil, Plus} from 'lucide-react'
+import {BookmarkEditor, GroupEditor} from '../components/BookmarkEditor'
+import {BookmarkSync} from '../components/BookmarkSync'
+import {download, hostOf, normalizeUrl, toHtml} from '../lib/bookmarks'
 import {registerApp, useAppSettings} from '../lib/apps'
-import {Group, Row, TextRow} from '../components/ios'
-import {uid} from '../lib/store'
+import {Group, Row} from '../components/ios'
 import {SHARED, useComponentData} from '../lib/componentData'
 import {registerComponent, type ComponentProps} from '../lib/registry'
 import type {BookmarkGroup} from '../lib/types'
@@ -15,55 +18,75 @@ type BookmarksConfig = {
 }
 
 function favicon(url: string) {
-  try {
-    return `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=64`
-  } catch {
-    return ''
-  }
+  return `https://www.google.com/s2/favicons?domain=${hostOf(url)}&sz=64`
 }
 
 function Bookmarks({config, host}: ComponentProps<BookmarksConfig>) {
   // 书签是共享数据：多个书签卡片显示同一批分组
-  const [groups, setGroups] = useComponentData<BookmarkGroup[]>(SHARED.bookmarks, [])
+  const [groups] = useComponentData<BookmarkGroup[]>(SHARED.bookmarks, [])
   const shown = config.singleGroup ? groups.slice(0, 1) : groups
+  const [editing, setEditing] = useState<Parameters<typeof BookmarkEditor>[0]['editing']>(null)
+  const [groupEditing, setGroupEditing] = useState<BookmarkGroup | null>(null)
+
+  const [syncOpen, setSyncOpen] = useState(false)
 
   return (
     <Flexbox className="page-pane" direction="vertical" gap={16}>
       <Flexbox direction="horizontal" align="center" justify="space-between" width="100%">
         <Text as="h2">{config.heading}</Text>
-        <ActionIcon icon={Plus} title="编辑书签" onClick={() => host.openSettings('bookmarks')} />
+        <Flexbox direction="horizontal" gap={2}>
+          <ActionIcon icon={FileUp} title="导入与同步" onClick={() => setSyncOpen(true)} />
+          <ActionIcon icon={Plus} title="添加书签" onClick={() => setEditing('new')} />
+        </Flexbox>
       </Flexbox>
       {shown.length ? (
         <div className="mark-board page-list">
           {shown.map((group) => (
             <section key={group.id}>
-              <h3>{group.name}</h3>
+              <h3 className="mark-title">
+                {group.name}
+                <ActionIcon className="mark-edit" icon={Pencil} size="small" title="编辑分组" onClick={() => setGroupEditing(group)} />
+              </h3>
               <div className="mark-grid">
-                {group.items.map((item) => (
-                  <Flexbox key={item.id} direction="horizontal" align="center" gap={4} className="mark-cell" width="100%">
-                    <A href={item.url} target="_blank" rel="noreferrer noopener">
-                      {config.showFavicons && host.profile.showFavicons && favicon(item.url) ? (
-                        <img src={favicon(item.url)} alt="" width={16} height={16} />
-                      ) : null}
-                      {item.name}
-                    </A>
-                    <ActionIcon
-                      icon={Trash2}
-                      size="small"
-                      title="删除"
-                      onClick={() =>
-                        setGroups((prev) => prev.map((g) => (g.id === group.id ? {...g, items: g.items.filter((i) => i.id !== item.id)} : g)))
-                      }
-                    />
-                  </Flexbox>
-                ))}
+                {group.items.map((item) => {
+                  const href = normalizeUrl(item.url)
+                  const icon = config.showFavicons && host.profile.showFavicons && href ? favicon(href) : ''
+                  return (
+                    <Flexbox key={item.id} direction="horizontal" align="center" gap={4} className="mark-cell" width="100%">
+                      {href ? (
+                        <A href={href} target="_blank" rel="noreferrer noopener">
+                          {icon ? <img src={icon} alt="" width={16} height={16} /> : null}
+                          {item.name}
+                        </A>
+                      ) : (
+                        <Text type="secondary">{item.name}</Text>
+                      )}
+                      <ActionIcon className="mark-edit" icon={Pencil} size="small" title="编辑" onClick={() => setEditing({bookmark: item, group: group.name})} />
+                    </Flexbox>
+                  )
+                })}
               </div>
             </section>
           ))}
         </div>
       ) : (
-        <Empty title="还没有书签" action={<Button icon={<Plus size={14} />} onClick={() => host.openSettings('bookmarks')}>去添加</Button>} />
+        <Empty
+          title="还没有书签"
+          action={
+            <Flexbox horizontal gap={8}>
+              <Button icon={<Plus size={14} />} onClick={() => setEditing('new')}>
+                添加一个
+              </Button>
+              <Button icon={<FileUp size={14} />} onClick={() => setSyncOpen(true)}>
+                从浏览器导入
+              </Button>
+            </Flexbox>
+          }
+        />
       )}
+      <BookmarkEditor editing={editing} groups={groups} onClose={() => setEditing(null)} />
+      <GroupEditor group={groupEditing} onClose={() => setGroupEditing(null)} />
+      <BookmarkSync open={syncOpen} onClose={() => setSyncOpen(false)} />
     </Flexbox>
   )
 }
@@ -87,37 +110,34 @@ registerComponent<BookmarksConfig>({
 
 /* ---------- 应用设置：书签 ---------- */
 
+/** 设置里每组最多列出几条，再多的在书签页里看。 */
+const LIST_LIMIT = 15
+
 function BookmarkSettings() {
-  const {groups, setGroups} = useAppSettings()
-  const patchGroup = (id: string, part: Partial<BookmarkGroup>) => setGroups(groups.map((g) => (g.id === id ? {...g, ...part} : g)))
+  const {groups} = useAppSettings()
+  const [editing, setEditing] = useState<Parameters<typeof BookmarkEditor>[0]['editing']>(null)
+  const [groupEditing, setGroupEditing] = useState<BookmarkGroup | null>(null)
+  const [syncOpen, setSyncOpen] = useState(false)
 
   return (
     <>
-      <Group title={`分组 · ${groups.length} 个`}>
-        <Row label="添加分组" icon={<Plus size={16} />} onClick={() => setGroups([...groups, {id: uid(), name: '新分组', items: []}])} />
+      <Group footer="网页自己读不到浏览器里的书签，装上配套的浏览器扩展就能直接读写；不装也可以导入导出文件。也可以让搭搭 AI 帮你加、帮你整理。">
+        <Row label="添加书签" icon={<Plus size={16} />} onClick={() => setEditing('new')} />
+        <Row label="导入与同步" hint="从浏览器读取、同步回浏览器，或选导出文件" icon={<FileUp size={16} />} chevron onClick={() => setSyncOpen(true)} />
+        <Row label="导出为 HTML" hint="可以导入回任何浏览器" icon={<FileDown size={16} />} onClick={() => download('bookmarks.html', toHtml(groups), 'text/html')} />
       </Group>
       {groups.map((group) => (
-        <Group key={group.id} title={group.name || '未命名分组'}>
-          <TextRow label="分组名" value={group.name} onChange={(v) => patchGroup(group.id, {name: v})} />
-          {group.items.map((item) => {
-            const patchItem = (part: Partial<(typeof group.items)[number]>) =>
-              patchGroup(group.id, {items: group.items.map((i) => (i.id === item.id ? {...i, ...part} : i))})
-            return (
-              <div className="ios-item" key={item.id}>
-                <TextRow label="名称" value={item.name} onChange={(v) => patchItem({name: v})} />
-                <TextRow label="地址" value={item.url} onChange={(v) => patchItem({url: v})} />
-                <Row label="删除这个书签" icon={<Trash2 size={16} />} danger onClick={() => patchGroup(group.id, {items: group.items.filter((i) => i.id !== item.id)})} />
-              </div>
-            )
-          })}
-          <Row
-            label="添加书签"
-            icon={<Plus size={16} />}
-            onClick={() => patchGroup(group.id, {items: [...group.items, {id: uid(), name: '新书签', url: 'https://'}]})}
-          />
-          <Row label="删除整个分组" icon={<Trash2 size={16} />} danger onClick={() => setGroups(groups.filter((g) => g.id !== group.id))} />
+        <Group key={group.id} title={`${group.name} · ${group.items.length}`}>
+          {group.items.slice(0, LIST_LIMIT).map((item) => (
+            <Row key={item.id} label={item.name} hint={hostOf(item.url)} onClick={() => setEditing({bookmark: item, group: group.name})} chevron />
+          ))}
+          {group.items.length > LIST_LIMIT && <Row hint={`还有 ${group.items.length - LIST_LIMIT} 个，在书签页里看`} />}
+          <Row label="编辑分组" icon={<Pencil size={16} />} onClick={() => setGroupEditing(group)} />
         </Group>
       ))}
+      <BookmarkEditor editing={editing} groups={groups} onClose={() => setEditing(null)} />
+      <GroupEditor group={groupEditing} onClose={() => setGroupEditing(null)} />
+      <BookmarkSync open={syncOpen} onClose={() => setSyncOpen(false)} />
     </>
   )
 }
@@ -127,7 +147,7 @@ registerApp({
   name: '书签',
   icon: Bookmark,
   color: '#0a84ff',
-  description: '书签分组和每个网址。是否显示站点图标，在书签组件自己的配置里改。',
+  description: '添加、导入、导出书签。点一个书签就能改名字、地址和分组。',
   summary: (ctx) => `${ctx.groups.reduce((n, g) => n + g.items.length, 0)} 个`,
   Panel: BookmarkSettings,
 })

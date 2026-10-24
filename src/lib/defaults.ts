@@ -60,7 +60,7 @@ export const defaultSettings = (): Settings => ({
   wallpaper: 'unsplash',
   wallpaperIndex: 0,
   wallpaperUrl: '',
-  ai: { baseUrl: 'https://api.openai.com/v1', apiKey: '', model: 'gpt-4o-mini', temperature: 0.6 },
+  ai: { baseUrl: 'https://api.openai.com/v1', apiKey: '', model: 'gpt-4o-mini' },
   monitor: [],
   hotSource: NEWSHUB_ORIGIN,
   hotBoards: [...DEFAULT_HOT_BOARDS],

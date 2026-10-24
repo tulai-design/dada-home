@@ -12,15 +12,22 @@ export function TopBar({
   theme,
   onTheme,
   onPalette,
+  onHome,
 }: {
   status: ReactNode
   theme: 'dark' | 'light'
   onTheme: () => void
   onPalette: () => void
+  /** 手机上顶栏左边显示 logo，点它回首页 */
+  onHome?: () => void
 }) {
   const small = { blockSize: 28, size: 15, borderRadius: 8 }
   return (
     <div className="topbar">
+      <button type="button" className="topbar-brand" aria-label="回到首页" onClick={onHome}>
+        <img src={`${import.meta.env.BASE_URL}brand/dada-logo.png`} alt="" width={28} height={28} draggable={false} />
+        <span>搭搭</span>
+      </button>
       <div className="topbar-right">
         {status}
         <span className="topbar-tools">

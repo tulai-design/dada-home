@@ -3,6 +3,7 @@ import { Input, Modal } from '@lobehub/ui'
 import { ArrowRight, Bookmark, CornerDownLeft, Globe, Search } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { BookmarkGroup } from '../lib/types'
+import { normalizeUrl } from '../lib/bookmarks'
 
 export type PaletteAction = {
   id: string
@@ -51,13 +52,13 @@ export function CommandPalette({
 
   const all = useMemo<Item[]>(() => {
     const marks: Item[] = groups.flatMap((group) =>
-      group.items.map((item) => ({
+      group.items.filter((item) => normalizeUrl(item.url)).map((item) => ({
         key: `bm-${item.id}`,
         label: item.name,
         hint: group.name,
         group: '书签',
         icon: Bookmark,
-        run: () => window.location.assign(item.url),
+        run: () => window.location.assign(normalizeUrl(item.url) ?? '/'),
       })),
     )
     const actions: Item[] = extra.map((action) => ({ key: action.id, label: action.label, hint: action.hint, group: action.group, icon: action.icon ?? ArrowRight, run: action.run }))
@@ -128,7 +129,7 @@ export function CommandPalette({
     >
       <div className="cmdk-input">
         <Search size={17} />
-        <Input autoFocus variant="borderless" size="large" placeholder={placeholder} value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={onKeyDown} />
+        <Input autoFocus={!window.matchMedia('(pointer: coarse)').matches} variant="borderless" size="large" placeholder={placeholder} value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={onKeyDown} />
       </div>
 
       <div className="cmdk-list" ref={listRef}>

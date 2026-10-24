@@ -6,7 +6,12 @@ import {FX_DEFS, describeFx, getFx} from '../fx/catalog'
 import {getDefinition, listDefinitions} from './registry'
 import {getWorkspace, commit} from './workspaceStore'
 import {PAGE_ICON_KEYS} from './pageIcons'
-import {ADDONS, typeAvailable} from './market'
+import {ADDONS, isInstalled, typeAvailable} from './market'
+import {NO_EXTENSION_HINT, SYNC_FOLDER, call, detect, importFromBrowser, listBrowser, pushToBrowser} from './browserBookmarks'
+import {addBookmarks, countBookmarks, getBookmarks, removeBookmarks, removeGroup, renameGroup, setBookmarks, updateBookmark} from './bookmarks'
+import {activeTheme} from './workspace'
+import {PRESETS} from './presets'
+import {isSynced, summarize} from './templates'
 
 /**
  * AI 可调用的工作空间工具。
@@ -31,6 +36,7 @@ type Obj = Record<string, unknown>
 const obj = (raw: unknown): Obj => (raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Obj) : {})
 const str = (value: unknown): string => (typeof value === 'string' ? value.trim() : '')
 const optStr = (value: unknown): string | undefined => str(value) || undefined
+const strList = (value: unknown): string[] => (Array.isArray(value) ? value.map(str).filter(Boolean) : [])
 const num = (value: unknown): number | undefined => (typeof value === 'number' && Number.isFinite(value) ? value : undefined)
 
 /** 让一个操作的错误变成给模型看的文字，而不是抛出去中断整轮对话。 */
@@ -40,6 +46,18 @@ async function guard(run: () => string): Promise<string> {
   } catch (error) {
     if (error instanceof WorkspaceError) return `没有成功：${error.message}`
     throw error
+  }
+}
+
+/** 调浏览器扩展：没连上就回一句引导，而不是抛错中断整轮对话。 */
+async function bridge(run: () => Promise<string>): Promise<string> {
+  try {
+    // 先快速确认扩展在，没装就别干等 8 秒超时
+    if (!(await detect(1200))) return NO_EXTENSION_HINT
+    return await run()
+  } catch (error) {
+    if (error instanceof Error && error.message === 'NO_EXTENSION') return NO_EXTENSION_HINT
+    return `没有成功：${error instanceof Error ? error.message : String(error)}`
   }
 }
 
@@ -86,7 +104,7 @@ export const HOME_TOOLS = [
           .join('\n')
         const status = workspace.statusbar.map((item) => `${item.type} ${JSON.stringify(item.config)}`).join('；') || '（空）'
         const addons = workspace.addons.map((id) => ADDONS.find((a) => a.id === id)?.name ?? id).join('、') || '（无）'
-        return `${pages}\n\n已安装的市场组件：${addons}\n状态条：${status}\n主题：${workspace.theme.mode}｜预设 ${workspace.theme.preset}｜覆盖 ${JSON.stringify(workspace.theme.overrides)}`
+        return `${pages}\n\n已安装的市场组件：${addons}\n状态条：${status}\n主题：${activeTheme(workspace).name}（${activeTheme(workspace).id}）｜明暗 ${workspace.theme.mode}｜主题库 ${workspace.themes.length} 个，用 list_themes 查看\n模板库：我的 ${workspace.templates.length} 个 + 内置预设，用 list_templates 查看`
       },
     },
   ),
@@ -334,13 +352,198 @@ export const HOME_TOOLS = [
     {
       name: 'set_theme',
       title: '调整主题',
-      description: '切换明暗，或覆盖主题变量（如 main 主色、bg 背景、text 文字、radius 圆角）。只写要改的变量。',
+      description:
+        '微调当前主题：切换明暗，或覆盖变量（main 主色、bg 背景、bg2、text 文字、radius 圆角等），只写要改的。当前是默认主题时会自动另存为「自定义 N」再改，默认主题不会被改坏。要整套新风格并起名保存，用 save_theme。',
       effect: 'write',
       highRisk: () => false,
       execute: (args) =>
         guard(() => {
-          commit(ops.setTheme(getWorkspace(), args))
-          return '主题已更新。'
+          const result = ops.setTheme(getWorkspace(), args)
+          commit(result.workspace)
+          return result.forked ? `当前是默认主题，已另存为「${result.forked.name}」并应用修改。想起个名字可以用 save_theme。` : '主题已更新。'
+        }),
+    },
+  ),
+
+  // ───── 主题库 ─────
+  define(
+    {schema: {parse: obj}, json: {type: 'object', properties: {}}},
+    {
+      name: 'list_themes',
+      title: '查看主题库',
+      description: '列出所有存下来的主题（含默认主题）：id、名字、说明、变量、是否正在使用。用户想换主题、回到默认、或你要新做一个之前先看这个。',
+      effect: 'read',
+      highRisk: () => false,
+      execute: async () => {
+        const workspace = getWorkspace()
+        return workspace.themes
+          .map((item) => `${item.id}｜${item.name}｜${item.id === workspace.theme.active ? '使用中' : '未使用'}${item.builtin ? '｜默认（不可改删）' : ''}${item.mode ? `｜自带${item.mode}` : ''}\n  ${item.description || '（无说明）'}\n  变量 ${JSON.stringify(item.overrides)}`)
+          .join('\n')
+      },
+    },
+  ),
+  define(
+    {
+      schema: {
+        parse: (raw) => {
+          const value = obj(raw)
+          return {id: optStr(value.id), name: optStr(value.name), description: optStr(value.description), overrides: value.overrides, mode: optStr(value.mode), activate: value.activate === false ? false : undefined}
+        },
+      },
+      json: {
+        type: 'object',
+        properties: {
+          name: {type: 'string', description: '主题名，20 字以内，例如「深海」「黄昏」'},
+          description: {type: 'string', description: '一两句话说明这个主题的气质，之后在列表里看'},
+          overrides: {type: 'object', description: 'CSS 变量覆盖，键不带 `--`：main 主色、bg/bg2/bg3 背景层级、text/text2/text3 文字层级、radius 圆角等'},
+          mode: {type: 'string', enum: ['light', 'dark'], description: '主题自带的明暗；启用时会一并切过去'},
+          id: {type: 'string', description: '要更新的已有主题 id；不填则按名字匹配，匹配不到就新建'},
+          activate: {type: 'boolean', description: '存完是否立刻启用，默认启用'},
+        },
+      },
+    },
+    {
+      name: 'save_theme',
+      title: '保存主题',
+      description:
+        '把一套配色存进主题库并（默认）启用。用户让你「做一个xx风格的主题」时用这个：起一个好记的名字、写一句说明、给出完整的变量。同名或同 id 的会被更新；默认主题不能改。深色类主题记得带 mode:"dark" 并把 bg/text 一起配好。',
+      effect: 'write',
+      highRisk: () => false,
+      execute: (args) =>
+        guard(() => {
+          const result = ops.saveTheme(getWorkspace(), args)
+          commit(result.workspace)
+          return `${result.created ? '已新建' : '已更新'}主题「${result.theme.name}」（${result.theme.id}）${args.activate === false ? '，未启用' : '，并已启用'}。`
+        }),
+    },
+  ),
+  define(
+    {
+      schema: {parse: (raw) => ({ref: str(obj(raw).ref)})},
+      json: {type: 'object', properties: {ref: {type: 'string', description: '主题 id 或名字；回到默认就传 default'}}, required: ['ref']},
+    },
+    {
+      name: 'apply_theme',
+      title: '切换主题',
+      description: '切换到主题库里的某个主题。「换回默认」「还原」就是 ref:"default"。',
+      effect: 'write',
+      highRisk: () => false,
+      execute: (args) =>
+        guard(() => {
+          const result = ops.applyTheme(getWorkspace(), args.ref)
+          commit(result.workspace)
+          return `已切换到主题「${result.theme.name}」。`
+        }),
+    },
+  ),
+  define(
+    {
+      schema: {parse: (raw) => ({ref: str(obj(raw).ref)})},
+      json: {type: 'object', properties: {ref: {type: 'string', description: '主题 id 或名字'}}, required: ['ref']},
+    },
+    {
+      name: 'delete_theme',
+      title: '删除主题',
+      description: '从主题库删掉一个主题。正在使用的会回到默认主题；默认主题删不掉。',
+      effect: 'write',
+      highRisk: () => true,
+      execute: (args) =>
+        guard(() => {
+          const result = ops.removeTheme(getWorkspace(), args.ref)
+          commit(result.workspace)
+          return `已删除主题「${result.removed.name}」。`
+        }),
+    },
+  ),
+
+  // ───── 模板库 ─────
+  define(
+    {schema: {parse: obj}, json: {type: 'object', properties: {}}},
+    {
+      name: 'list_templates',
+      title: '查看模板库',
+      description: '列出所有页面模板：用户存下来的，和内置预设。模板是整套页面设计（页面、组件、状态条、版式、主题）的快照。用户想「换一套布局」「回到之前那版」「有没有现成的模板」时先看这个。',
+      effect: 'read',
+      highRisk: () => false,
+      execute: async () => {
+        const workspace = getWorkspace()
+        const own = workspace.templates.map(
+          (item) => `${item.id}｜${item.name}｜${item.id === workspace.template ? '最近使用' : '未使用'}｜${isSynced(workspace, item) ? '与当前一致' : '与当前不同'}\n  ${item.description || '（无说明）'}\n  ${summarize(item.snapshot)}`,
+        )
+        const presets = PRESETS.map((item) => `${item.id}｜${item.name}｜内置预设（不可改删）\n  ${item.description}\n  包含：${item.tags.join('、')}`)
+        return `【我的模板】\n${own.join('\n') || '（还没有）'}\n\n【内置预设】\n${presets.join('\n')}`
+      },
+    },
+  ),
+  define(
+    {
+      schema: {
+        parse: (raw) => {
+          const value = obj(raw)
+          return {id: optStr(value.id), name: optStr(value.name), description: optStr(value.description), withTheme: value.withTheme === false ? false : undefined}
+        },
+      },
+      json: {
+        type: 'object',
+        properties: {
+          name: {type: 'string', description: '模板名，20 字以内，例如「工作日」「周末」'},
+          description: {type: 'string', description: '一两句话说明这套布局适合什么场景'},
+          id: {type: 'string', description: '要覆盖更新的已有模板 id；不填则按名字匹配，匹配不到就新建'},
+          withTheme: {type: 'boolean', description: '是否把当前主题一起存进去，默认是'},
+        },
+      },
+    },
+    {
+      name: 'save_template',
+      title: '保存模板',
+      description:
+        '把当前整套页面设计（所有页面和组件、状态条、版式、自定义组件、已装的市场组件，默认含当前主题）存成模板。组件里的数据（待办、便签等）不会存进去。用户做完一版满意的设计、或想「存一下现在的布局」时用。同名或同 id 的会被更新成当前设计。',
+      effect: 'write',
+      highRisk: () => false,
+      execute: (args) =>
+        guard(() => {
+          const result = ops.saveTemplate(getWorkspace(), args)
+          commit(result.workspace)
+          return `${result.created ? '已新建' : '已更新'}模板「${result.template.name}」（${result.template.id}）：${summarize(result.template.snapshot)}。`
+        }),
+    },
+  ),
+  define(
+    {
+      schema: {parse: (raw) => ({ref: str(obj(raw).ref)})},
+      json: {type: 'object', properties: {ref: {type: 'string', description: '模板 id 或名字，内置预设也可以（如 preset-night）'}}, required: ['ref']},
+    },
+    {
+      name: 'apply_template',
+      title: '套用模板',
+      description:
+        '套用一个模板：整体替换当前所有页面、组件、状态条、版式和已装的市场组件（带主题的会一并切换）。组件里的数据不动。这会覆盖当前设计，所以套用前如果当前设计还没存过，先问用户要不要 save_template；用户可以用撤销找回。',
+      effect: 'write',
+      highRisk: () => true,
+      execute: (args) =>
+        guard(() => {
+          const result = ops.applyTemplate(getWorkspace(), args.ref)
+          commit(result.workspace)
+          return `已套用模板「${result.name}」。`
+        }),
+    },
+  ),
+  define(
+    {
+      schema: {parse: (raw) => ({ref: str(obj(raw).ref)})},
+      json: {type: 'object', properties: {ref: {type: 'string', description: '模板 id 或名字'}}, required: ['ref']},
+    },
+    {
+      name: 'delete_template',
+      title: '删除模板',
+      description: '从模板库删掉一个用户存的模板（只删记录，不影响当前页面）。内置预设删不掉。',
+      effect: 'write',
+      highRisk: () => true,
+      execute: (args) =>
+        guard(() => {
+          const result = ops.removeTemplate(getWorkspace(), args.ref)
+          commit(result.workspace)
+          return `已删除模板「${result.removed.name}」。`
         }),
     },
   ),
@@ -857,6 +1060,359 @@ export const HOME_TOOLS = [
           commit(result.workspace)
           return `已卸载「${result.addon.name}」。`
         }),
+    },
+  ),
+
+  // ───── 书签 ─────
+  define(
+    {
+      schema: {parse: (raw) => ({group: optStr(obj(raw).group), query: optStr(obj(raw).query)})},
+      json: {
+        type: 'object',
+        properties: {
+          group: {type: 'string', description: '只看这个分组（分组名）'},
+          query: {type: 'string', description: '按名称或网址搜索'},
+        },
+      },
+    },
+    {
+      name: 'list_bookmarks',
+      title: '查看书签',
+      description: '列出书签：每个分组和里面的书签（id｜名称｜网址）。整理、查重、删除之前先看这个。书签很多时用 group 或 query 缩小范围。',
+      effect: 'read',
+      highRisk: () => false,
+      execute: async (args) => {
+        if (!isInstalled(getWorkspace(), 'bookmarks')) return '书签组件还没安装，先用 install_addon 装上 bookmarks。'
+        const groups = getBookmarks()
+        if (!groups.length) return '还没有任何书签。'
+        const q = args.query?.toLowerCase()
+        const LIMIT = 300
+        let shown = 0
+        const lines: string[] = []
+        for (const g of groups) {
+          if (args.group && g.name !== args.group) continue
+          const items = g.items.filter((i) => !q || i.name.toLowerCase().includes(q) || i.url.toLowerCase().includes(q))
+          if (!items.length && (q || args.group)) continue
+          lines.push(`# ${g.name}（${g.items.length} 个${q ? `，匹配 ${items.length}` : ''}）`)
+          for (const i of items) {
+            if (shown >= LIMIT) break
+            lines.push(`  ${i.id}｜${i.name}｜${i.url}`)
+            shown += 1
+          }
+        }
+        if (shown >= LIMIT) lines.push(`（只列出前 ${LIMIT} 个，用 group 或 query 缩小范围）`)
+        return `共 ${countBookmarks(groups)} 个书签\n${lines.join('\n')}`
+      },
+    },
+  ),
+  define(
+    {
+      schema: {
+        parse: (raw) => ({
+          items: (Array.isArray(obj(raw).items) ? (obj(raw).items as unknown[]) : []).slice(0, 200).map((item) => ({url: str(obj(item).url), name: optStr(obj(item).name), group: optStr(obj(item).group)})),
+        }),
+      },
+      json: {
+        type: 'object',
+        properties: {
+          items: {
+            type: 'array',
+            description: '要添加的书签，一次最多 200 个',
+            items: {
+              type: 'object',
+              properties: {
+                url: {type: 'string', description: '网址，没写协议会补 https://'},
+                name: {type: 'string', description: '名称，不写就用域名'},
+                group: {type: 'string', description: '分组名，不存在会新建；不写放进第一个分组'},
+              },
+              required: ['url'],
+            },
+          },
+        },
+        required: ['items'],
+      },
+    },
+    {
+      name: 'add_bookmarks',
+      title: '添加书签',
+      description: '批量添加书签。分组不存在会自动新建；已经有的网址会自动跳过，不会重复。用户给了一堆网址、或让你推荐一批站点时用这个，别一个一个加。',
+      effect: 'write',
+      highRisk: () => false,
+      execute: (args) =>
+        guard(() => {
+          if (!isInstalled(getWorkspace(), 'bookmarks')) return '书签组件还没安装，先用 install_addon 装上 bookmarks。'
+          if (!args.items.length) return '没有要添加的书签。'
+          const result = addBookmarks(getBookmarks(), args.items)
+          setBookmarks(result.groups)
+          return `已添加 ${result.added} 个书签。${result.skipped.length ? `跳过 ${result.skipped.length} 个：${result.skipped.slice(0, 10).join('、')}` : ''}`
+        }),
+    },
+  ),
+  define(
+    {
+      schema: {parse: (raw) => ({id: str(obj(raw).id), name: optStr(obj(raw).name), url: optStr(obj(raw).url), group: optStr(obj(raw).group)})},
+      json: {
+        type: 'object',
+        properties: {
+          id: {type: 'string', description: '书签 id（list_bookmarks 里看）'},
+          name: {type: 'string'},
+          url: {type: 'string'},
+          group: {type: 'string', description: '移到这个分组，不存在会新建'},
+        },
+        required: ['id'],
+      },
+    },
+    {
+      name: 'update_bookmark',
+      title: '修改书签',
+      description: '改一个书签的名称、网址，或把它移到另一个分组。',
+      effect: 'write',
+      highRisk: () => false,
+      execute: (args) =>
+        guard(() => {
+          const result = updateBookmark(getBookmarks(), args.id, args)
+          if (result.error) return `没有成功：${result.error}`
+          setBookmarks(result.groups)
+          return '已修改。'
+        }),
+    },
+  ),
+  define(
+    {
+      schema: {parse: (raw) => ({ids: strList(obj(raw).ids), group: str(obj(raw).group)})},
+      json: {
+        type: 'object',
+        properties: {
+          ids: {type: 'array', items: {type: 'string'}, description: '要移动的书签 id'},
+          group: {type: 'string', description: '目标分组名，不存在会新建'},
+        },
+        required: ['ids', 'group'],
+      },
+    },
+    {
+      name: 'move_bookmarks',
+      title: '批量移动书签',
+      description: '把一批书签移到同一个分组。整理书签（按用途归类）时，先 list_bookmarks，再按分组分批调用这个。',
+      effect: 'write',
+      highRisk: () => false,
+      execute: (args) =>
+        guard(() => {
+          if (!args.group) return '没有成功：要给目标分组名'
+          let groups = getBookmarks()
+          let moved = 0
+          for (const id of args.ids) {
+            const result = updateBookmark(groups, id, {group: args.group})
+            if (!result.error) {
+              groups = result.groups
+              moved += 1
+            }
+          }
+          setBookmarks(groups)
+          return `已移动 ${moved} 个书签到「${args.group}」${moved < args.ids.length ? `，${args.ids.length - moved} 个 id 不存在` : ''}。`
+        }),
+    },
+  ),
+  define(
+    {
+      schema: {parse: (raw) => ({ids: strList(obj(raw).ids), urls: strList(obj(raw).urls)})},
+      json: {
+        type: 'object',
+        properties: {
+          ids: {type: 'array', items: {type: 'string'}, description: '书签 id'},
+          urls: {type: 'array', items: {type: 'string'}, description: '或按网址删'},
+        },
+      },
+    },
+    {
+      name: 'remove_bookmarks',
+      title: '删除书签',
+      description: '按 id 或网址删除书签。删除是高危操作，会让用户确认。',
+      effect: 'write',
+      highRisk: () => true,
+      execute: (args) =>
+        guard(() => {
+          const result = removeBookmarks(getBookmarks(), args)
+          setBookmarks(result.groups)
+          return `已删除 ${result.removed} 个书签。`
+        }),
+    },
+  ),
+  define(
+    {
+      schema: {parse: (raw) => ({group: str(obj(raw).group), name: optStr(obj(raw).name), remove: obj(raw).remove === true})},
+      json: {
+        type: 'object',
+        properties: {
+          group: {type: 'string', description: '分组名'},
+          name: {type: 'string', description: '改成这个新名字'},
+          remove: {type: 'boolean', description: '为 true 则删除整个分组及里面的书签'},
+        },
+        required: ['group'],
+      },
+    },
+    {
+      name: 'edit_bookmark_group',
+      title: '编辑书签分组',
+      description: '给分组改名，或删除整个分组（连同里面的书签，高危，会让用户确认）。',
+      effect: 'write',
+      highRisk: (args) => args.remove,
+      execute: (args) =>
+        guard(() => {
+          const groups = getBookmarks()
+          const target = groups.find((g) => g.name === args.group)
+          if (!target) return `没有叫「${args.group}」的分组`
+          if (args.remove) {
+            setBookmarks(removeGroup(groups, target.id))
+            return `已删除分组「${target.name}」和里面的 ${target.items.length} 个书签。`
+          }
+          if (!args.name) return '没有成功：要给新名字，或设 remove 为 true'
+          const result = renameGroup(groups, target.id, args.name)
+          if (result.error) return `没有成功：${result.error}`
+          setBookmarks(result.groups)
+          return `已改名为「${args.name}」。`
+        }),
+    },
+  ),
+
+  // ───── 浏览器里的真书签（需要「搭搭书签桥」扩展） ─────
+  define(
+    {
+      schema: {parse: (raw) => ({query: optStr(obj(raw).query), folder: optStr(obj(raw).folder)})},
+      json: {
+        type: 'object',
+        properties: {
+          query: {type: 'string', description: '按标题或网址搜索'},
+          folder: {type: 'string', description: '只看这个文件夹，例如「书签栏/开发」'},
+        },
+      },
+    },
+    {
+      name: 'list_browser_bookmarks',
+      title: '查看浏览器书签',
+      description: '读取用户浏览器里真正的书签（不是搭搭里的）：id｜标题｜网址｜所在文件夹。需要用户装了「搭搭书签桥」扩展并在此网站启用；没连上会告诉你怎么引导用户。整理浏览器书签前先看这个。',
+      effect: 'read',
+      highRisk: () => false,
+      execute: (args) =>
+        bridge(async () => {
+          const {items, folders} = await listBrowser()
+          const q = args.query?.toLowerCase()
+          const folder = args.folder?.split('/').map((p) => p.trim()).filter(Boolean)
+          const inFolder = (path: string[]) => !folder || folder.every((seg, i) => path[i] === seg)
+          const hits = items.filter((i) => inFolder(i.path) && (!q || i.title.toLowerCase().includes(q) || i.url.toLowerCase().includes(q)))
+          const LIMIT = 300
+          const lines = hits.slice(0, LIMIT).map((i) => `  ${i.id}｜${i.title}｜${i.url}｜${i.path.join('/')}`)
+          return `浏览器共 ${items.length} 个书签，${folders.length} 个文件夹；${q || folder ? `匹配 ${hits.length} 个` : '以下是书签'}：\n${lines.join('\n')}${hits.length > LIMIT ? `\n（只列出前 ${LIMIT} 个，用 query 或 folder 缩小范围）` : ''}\n文件夹：${folders.map((f) => f.path.join('/')).join('；')}`
+        }),
+    },
+  ),
+  define(
+    {
+      schema: {
+        parse: (raw) => ({
+          items: (Array.isArray(obj(raw).items) ? (obj(raw).items as unknown[]) : []).slice(0, 200).map((item) => ({url: str(obj(item).url), title: optStr(obj(item).title), folder: optStr(obj(item).folder)})),
+        }),
+      },
+      json: {
+        type: 'object',
+        properties: {
+          items: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                url: {type: 'string'},
+                title: {type: 'string'},
+                folder: {type: 'string', description: '文件夹路径，例如「书签栏/开发」，不存在会新建；不写则放进书签栏的「搭搭」文件夹'},
+              },
+              required: ['url'],
+            },
+          },
+        },
+        required: ['items'],
+      },
+    },
+    {
+      name: 'add_browser_bookmarks',
+      title: '添加到浏览器书签',
+      description: '往用户浏览器书签里批量添加（需要扩展）。同一文件夹里已有的网址会跳过。',
+      effect: 'write',
+      highRisk: () => false,
+      execute: (args) =>
+        bridge(async () => {
+          const items = args.items.map((i) => ({url: i.url, title: i.title, path: i.folder ? i.folder.split('/').map((p) => p.trim()).filter(Boolean) : ['@bar', SYNC_FOLDER]}))
+          const result = await call<{created: number; skipped: string[]}>('create', {items}, 30000)
+          return `已添加 ${result.created} 个到浏览器书签。${result.skipped.length ? `跳过 ${result.skipped.length} 个：${result.skipped.slice(0, 10).join('、')}` : ''}`
+        }),
+    },
+  ),
+  define(
+    {
+      schema: {parse: (raw) => ({ids: strList(obj(raw).ids), folder: str(obj(raw).folder)})},
+      json: {
+        type: 'object',
+        properties: {
+          ids: {type: 'array', items: {type: 'string'}, description: '浏览器书签 id（list_browser_bookmarks 里看）'},
+          folder: {type: 'string', description: '目标文件夹路径，例如「书签栏/开发」，不存在会新建'},
+        },
+        required: ['ids', 'folder'],
+      },
+    },
+    {
+      name: 'move_browser_bookmarks',
+      title: '移动浏览器书签',
+      description: '把浏览器里的一批书签移到某个文件夹（需要扩展）。整理浏览器书签时，先 list_browser_bookmarks，想好分类再分批移动。',
+      effect: 'write',
+      highRisk: () => false,
+      execute: (args) =>
+        bridge(async () => {
+          if (!args.folder) return '没有成功：要给目标文件夹'
+          const result = await call<{moved: number}>('move', {ids: args.ids, path: args.folder.split('/').map((p) => p.trim()).filter(Boolean)}, 30000)
+          return `已移动 ${result.moved} 个浏览器书签到「${args.folder}」。`
+        }),
+    },
+  ),
+  define(
+    {
+      schema: {parse: (raw) => ({ids: strList(obj(raw).ids)})},
+      json: {type: 'object', properties: {ids: {type: 'array', items: {type: 'string'}}}, required: ['ids']},
+    },
+    {
+      name: 'remove_browser_bookmarks',
+      title: '删除浏览器书签',
+      description: '删除浏览器里的书签（需要扩展；只删书签，不删文件夹）。会真的从用户浏览器里删掉，高危，会让用户确认。',
+      effect: 'write',
+      highRisk: () => true,
+      execute: (args) =>
+        bridge(async () => {
+          const result = await call<{removed: number}>('remove', {ids: args.ids}, 30000)
+          return `已从浏览器删除 ${result.removed} 个书签。`
+        }),
+    },
+  ),
+  define(
+    {schema: {parse: obj}, json: {type: 'object', properties: {}}},
+    {
+      name: 'import_browser_bookmarks',
+      title: '把浏览器书签导入搭搭',
+      description: '把浏览器里的全部书签并进搭搭的书签页（需要扩展，重复的网址自动跳过）。用户说「导入我的书签」时用这个。',
+      effect: 'write',
+      highRisk: () => false,
+      execute: () =>
+        bridge(async () => {
+          if (!isInstalled(getWorkspace(), 'bookmarks')) return '书签组件还没安装，先用 install_addon 装上 bookmarks。'
+          return importFromBrowser()
+        }),
+    },
+  ),
+  define(
+    {schema: {parse: obj}, json: {type: 'object', properties: {}}},
+    {
+      name: 'push_bookmarks_to_browser',
+      title: '把搭搭书签同步到浏览器',
+      description: '把搭搭书签页的书签写进浏览器书签栏的「搭搭」文件夹，只增不删（需要扩展）。',
+      effect: 'write',
+      highRisk: () => false,
+      execute: () => bridge(() => pushToBrowser()),
     },
   ),
   define(

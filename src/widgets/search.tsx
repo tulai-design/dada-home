@@ -1,9 +1,9 @@
 import {useEffect, useMemo, useRef, useState, type ReactNode} from 'react'
 import {ActionIcon, Button, Flexbox, Input, Tag, Text} from '@lobehub/ui'
-import {ArrowUp, Check, ChevronDown, ChevronRight, CircleAlert, LoaderCircle, Search, Sparkles} from 'lucide-react'
+import {ArrowUp, Check, ChevronDown, ChevronRight, CircleAlert, LoaderCircle, Search} from 'lucide-react'
 import {useStored} from '../lib/store'
 import {SEARCH_ENGINES} from '../lib/defaults'
-import {useTurns} from '../lib/chat'
+import {useChat} from '../lib/chat'
 import {registerComponent, type ComponentProps} from '../lib/registry'
 
 type SearchMode = 'ai' | (typeof SEARCH_ENGINES)[number]['id']
@@ -17,18 +17,13 @@ const PRESETS = ['总结今天的订阅', '帮我加一个待办', '把天气挪
 
 type Entry = {id: SearchMode; label: string; tag: string; logo: ReactNode}
 
-/** 引擎徽标：不依赖联网图标，离线也在。AI 用主色星芒。 */
-function Logo({entry}: {entry: {id: string; mark?: string; color?: string}}) {
-  if (entry.id === 'ai') {
-    return (
-      <span className="engine-logo" data-ai="true">
-        <Sparkles size={13} />
-      </span>
-    )
-  }
+/** 引擎徽标：用品牌自己的图标（public/engines/*.svg）。AI 用搭搭的 logo。 */
+function Logo({entry}: {entry: {id: string}}) {
+  const base = import.meta.env.BASE_URL
+  const src = entry.id === 'ai' ? `${base}brand/dada-logo.png` : `${base}engines/${entry.id}.svg`
   return (
-    <span className="engine-logo" style={{background: entry.color}} data-long={(entry.mark?.length ?? 0) > 2 ? 'true' : undefined}>
-      {entry.mark}
+    <span className="engine-logo" data-ai={entry.id === 'ai' ? 'true' : undefined}>
+      <img src={src} alt="" draggable={false} />
     </span>
   )
 }
@@ -42,10 +37,13 @@ function looksLikeUrl(q: string) {
   return /^(https?:\/\/|[a-z0-9-]+\.[a-z]{2,})(\/\S*)?$/i.test(q.trim())
 }
 
+/** 触屏设备：一进页面就聚焦会弹出键盘，挡住半个屏幕。 */
+const isTouch = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
+
 function SearchBox({config, host}: ComponentProps<SearchConfig>) {
   const [value, setValue] = useState('')
   const [mode, setMode] = useStored<SearchMode>('searchMode', 'ai')
-  const [turns] = useTurns()
+  const {turns} = useChat()
   const [menu, setMenu] = useState(false)
   const [hi, setHi] = useState(0)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -185,7 +183,7 @@ function SearchBox({config, host}: ComponentProps<SearchConfig>) {
           <Input
             className="hero-input"
             variant="borderless"
-            autoFocus
+            autoFocus={!isTouch}
             allowClear
             value={value}
             placeholder={placeholder}

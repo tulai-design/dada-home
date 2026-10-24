@@ -12,7 +12,7 @@
  */
 
 /** 当前工作空间结构版本。改结构就加一，并在 migrate 里补一条迁移。 */
-export const WORKSPACE_VERSION = 2
+export const WORKSPACE_VERSION = 3
 
 /** 内置组件类型。新增内置组件要在 registry 里注册，并在这里加一个值。 */
 export type BuiltinType =
@@ -219,14 +219,63 @@ export const MAX_STATUS_ITEMS = 5
 /** 页面数量上限。侧栏放不下的会自动收进「全部页面」。 */
 export const MAX_PAGES = 30
 
-/** 主题：只存差异，未列出的键沿用主题预设。 */
-export type ThemeConfig = {
-  /** 预设主题 id */
-  preset: string
+/** 默认主题的 id。它永远存在，不能改、不能删，是「回到最初」的锚点。 */
+export const DEFAULT_THEME_ID = 'default'
+
+/** 主题库最多存多少个。 */
+export const MAX_THEMES = 24
+
+/**
+ * 一个主题：名字、说明，加上相对默认主题的 CSS 变量差异。
+ * 默认主题的 overrides 为空，也就是「什么都不改」。
+ */
+export type ThemeEntry = {
+  id: string
+  name: string
+  /** 一两句话说明这个主题的气质，列表里显示，也让 AI 和用户记得它是什么 */
+  description: string
   /** CSS 变量覆盖，键名不含 `--` 前缀，例如 {main: '#f5223f'} */
   overrides: Record<string, string>
-  /** 亮色还是暗色基底 */
+  /** 主题自带明暗时，启用它会同时切到这个明暗；不填则沿用当前 */
+  mode?: 'light' | 'dark'
+  builtin?: boolean
+}
+
+/** 当前使用哪个主题，以及明暗。主题本身存在 Workspace.themes 里。 */
+export type ThemeConfig = {
+  active: string
+  /** 实际生效的明暗：主题自带就用主题的，否则用 base */
   mode: 'light' | 'dark'
+  /** 用户自己选的明暗。切到不指定明暗的主题（比如默认主题）时回到它，这样「还原」才是真的还原。 */
+  base: 'light' | 'dark'
+}
+
+/** 模板库最多存多少个（内置预设不占名额）。 */
+export const MAX_TEMPLATES = 12
+
+/**
+ * 模板快照：一套完整的「页面设计」。
+ * 页面、组件、状态条、版式、AI 做的自定义组件、装了哪些市场组件——都在里面。
+ * 组件里的数据（待办、便签、书签…）不在模板里，它们属于用户，不随布局来回搬。
+ */
+export type TemplateSnapshot = {
+  pages: Page[]
+  statusbar: StatusItem[]
+  layout: LayoutConfig
+  widgets: CustomWidget[]
+  addons: string[]
+  /** 带上配色。不填表示套用模板时保持当前主题不变。 */
+  theme?: ThemeEntry
+}
+
+/** 模板库里的一条记录。 */
+export type TemplateEntry = {
+  id: string
+  name: string
+  description: string
+  createdAt: number
+  updatedAt: number
+  snapshot: TemplateSnapshot
 }
 
 /** 工作空间：用户全部可导出内容的根。 */
@@ -234,6 +283,8 @@ export type Workspace = {
   version: number
   pages: Page[]
   theme: ThemeConfig
+  /** 主题库：默认主题加上所有存下来的主题 */
+  themes: ThemeEntry[]
   layout: LayoutConfig
   /** AI 创建的自定义组件，按 id 索引 */
   widgets: CustomWidget[]
@@ -243,6 +294,10 @@ export type Workspace = {
   statusbar: StatusItem[]
   /** 已安装的市场组件（见 market.ts）。没装的组件不出现在页面、侧栏和 AI 的可用清单里。 */
   addons: string[]
+  /** 模板库：存下来的页面设计，可随时套用。内置预设在代码里，不占这里。 */
+  templates: TemplateEntry[]
+  /** 最近套用或保存的模板 id，只用来在列表里标出「当前」。 */
+  template?: string
 }
 
 export type LayoutConfig = {
@@ -281,4 +336,17 @@ let counter = 0
 export function instanceId(type: string): string {
   counter += 1
   return `${type.replace(':', '-')}-${Date.now().toString(36)}-${counter.toString(36)}`
+}
+
+export const DEFAULT_THEME: ThemeEntry = {
+  id: DEFAULT_THEME_ID,
+  name: '纸张',
+  description: '米白纸张、墨色文字、红色点缀，搭搭的默认气质。',
+  overrides: {},
+  builtin: true,
+}
+
+/** 当前启用的主题；id 失效时回落到默认主题。 */
+export function activeTheme(workspace: Pick<Workspace, 'themes' | 'theme'>): ThemeEntry {
+  return workspace.themes.find((item) => item.id === workspace.theme.active) ?? workspace.themes.find((item) => item.id === DEFAULT_THEME_ID) ?? DEFAULT_THEME
 }

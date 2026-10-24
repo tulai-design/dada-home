@@ -1,9 +1,11 @@
 import {useEffect, useLayoutEffect, useRef, useState} from 'react'
-import {ActionIcon, Button, Drawer, Empty, Flexbox, Markdown, Text} from '@lobehub/ui'
-import {ArrowDown, Maximize2, MessageSquare, Minimize2, Plus, Settings, Sparkles, Square, Trash2, X} from 'lucide-react'
+import {ActionIcon, Button, Drawer, Empty, Flexbox, Markdown, Modal, Text} from '@lobehub/ui'
+import {ArrowDown, History, Maximize2, MessageSquare, Minimize2, Plus, Settings, Square, Trash2, X} from 'lucide-react'
 import {useStored} from '../lib/store'
 import type {AiConfig} from '../lib/types'
-import {elapsed, isActive, type Turn} from '../lib/chat'
+import {useIsMobile} from '../lib/useMedia'
+import {Mascot} from './About'
+import {elapsed, isActive, type Conv, type Turn} from '../lib/chat'
 import {ThinkingPanel} from './ThinkingPanel'
 import {ToolRow} from './ToolRow'
 import {Composer} from './Composer'
@@ -13,26 +15,42 @@ type Props = {
   open: boolean
   ai: AiConfig
   turns: Turn[]
+  /** 对话记录是否已从 IndexedDB 读完 */
+  ready: boolean
+  convs: Conv[]
+  convId: string
+  onNewConv: () => void
+  onOpenConv: (id: string) => void
+  onDeleteConv: (id: string) => void
   busy: boolean
   seed: {text: string; key: number}
   onSend: (text: string) => void
   onStop: () => void
   onClose: () => void
   onOpenSettings: () => void
-  onClear: () => void
   /** 用户对确认卡片的选择 */
   onApprovalAnswer: (approved: boolean) => void
 }
 
 /** 距底部多少像素内算「贴底」，超过就认为用户在看历史，不再自动跟随。 */
 const FOLLOW_THRESHOLD = 120
+/** 一次渲染多少轮。 */
+const PAGE = 40
 
-export function Assistant({open, ai, turns, busy, seed, onSend, onStop, onClose, onOpenSettings, onClear, onApprovalAnswer}: Props) {
+export function Assistant({open, ai, turns, ready, convs, convId, onNewConv, onOpenConv, onDeleteConv, busy, seed, onSend, onStop, onClose, onOpenSettings, onApprovalAnswer}: Props) {
   const [mode, setMode] = useStored<'drawer' | 'full'>('assistantMode', 'drawer')
   const [input, setInput] = useState('')
   const logRef = useRef<HTMLDivElement>(null)
   const followRef = useRef(true)
+  const mobile = useIsMobile()
   const [paused, setPaused] = useState(false)
+  // 对话可以无限长：只渲染最近一段，更早的点一下再展开，免得几千轮把界面拖慢
+  const [shown, setShown] = useState(PAGE)
+  const [listOpen, setListOpen] = useState(false)
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null)
+  useEffect(() => setShown(PAGE), [convId])
+  const visible = turns.length > shown ? turns.slice(-shown) : turns
+  const hiddenCount = turns.length - visible.length
   const configured = Boolean(ai.baseUrl.trim() && ai.model.trim())
 
   useEffect(() => {
@@ -87,7 +105,9 @@ export function Assistant({open, ai, turns, busy, seed, onSend, onStop, onClose,
 
   const actions = (
     <Flexbox direction="horizontal" align="center" gap={4}>
-      {turns.length > 0 && <ActionIcon icon={Trash2} title="清空对话" onClick={onClear} />}
+      <ActionIcon icon={Plus} title={busy ? '回答完再新开对话' : '新对话'} disabled={busy || !turns.length} onClick={onNewConv} />
+      {(mode !== 'full' || mobile) && <ActionIcon icon={History} title="历史对话" onClick={() => setListOpen(true)} />}
+      {turns.length > 0 && <ActionIcon icon={Trash2} title="删除这个对话" disabled={busy} onClick={() => setPendingDelete(convId)} />}
       <ActionIcon icon={Settings} title="设置" onClick={onOpenSettings} />
       <ActionIcon icon={mode === 'full' ? Minimize2 : Maximize2} title={mode === 'full' ? '退出全屏' : '全屏'} onClick={() => setMode(mode === 'full' ? 'drawer' : 'full')} />
     </Flexbox>
@@ -95,9 +115,15 @@ export function Assistant({open, ai, turns, busy, seed, onSend, onStop, onClose,
 
   const chat = (
       <Flexbox direction="vertical" style={{height: '100%', position: 'relative'}}>
-        {turns.length === 0 ? (
+        {!ready ? (
+          <div className="chat-empty">
+            <Text type="secondary">正在读取对话记录…</Text>
+          </div>
+        ) : turns.length === 0 ? (
           <div className="chat-empty">
           <Empty
+            image={<Mascot size={120} className="mascot chat-mascot" />}
+            imageSize={120}
             title={configured ? '说说你想怎么改' : '模型未接入'}
             description={
               configured
@@ -109,7 +135,12 @@ export function Assistant({open, ai, turns, busy, seed, onSend, onStop, onClose,
           </div>
         ) : (
           <div className="chat-log" ref={logRef} onScroll={onScroll}>
-            {turns.map((turn) => (
+            {hiddenCount > 0 && (
+              <Button className="chat-earlier" type="text" size="small" onClick={() => setShown((n) => n + PAGE)}>
+                显示更早的 {Math.min(PAGE, hiddenCount)} 轮（还有 {hiddenCount} 轮）
+              </Button>
+            )}
+            {visible.map((turn) => (
               <TurnView key={turn.id} turn={turn} busy={busy} onApprovalAnswer={onApprovalAnswer} />
             ))}
             <div className="chat-log-tail" />
@@ -130,8 +161,41 @@ export function Assistant({open, ai, turns, busy, seed, onSend, onStop, onClose,
           busy={busy}
           placeholder={configured ? '说一句话，让搭搭改页面' : '先配置模型'}
           hint={configured ? ai.model : '未配置模型'}
+          model={configured ? ai.model : undefined}
         />
       </Flexbox>
+  )
+
+  const dialogs = (
+    <>
+      <Modal open={listOpen} title="历史对话" footer={null} width={460} onCancel={() => setListOpen(false)}>
+        <div className="conv-modal">
+          <ConvList
+            convs={convs}
+            convId={convId}
+            busy={busy}
+            onOpen={(id) => {
+              onOpenConv(id)
+              setListOpen(false)
+            }}
+            onDelete={setPendingDelete}
+          />
+        </div>
+      </Modal>
+      <Modal
+        open={Boolean(pendingDelete)}
+        title="删除对话"
+        okText="删除"
+        cancelText="取消"
+        onCancel={() => setPendingDelete(null)}
+        onOk={() => {
+          if (pendingDelete) onDeleteConv(pendingDelete)
+          setPendingDelete(null)
+        }}
+      >
+        <Text>删除「{convs.find((c) => c.id === pendingDelete)?.title ?? '这个对话'}」和里面所有的问答？删除后不能找回。</Text>
+      </Modal>
+    </>
   )
 
   // 全屏：占满整个窗口（红框之内），左边是历史标题，右边是对话
@@ -141,27 +205,14 @@ export function Assistant({open, ai, turns, busy, seed, onSend, onStop, onClose,
       <div className="ai-full" role="dialog" aria-label="搭搭 AI">
         <aside className="ai-full-side">
           <div className="ai-full-brand">
-            <Sparkles size={16} /> 搭搭
+            <Mascot size={28} className="ai-full-logo" /> 搭搭
           </div>
-          <Button block icon={<Plus size={14} />} onClick={onClear} disabled={!turns.length}>
+          <Button block icon={<Plus size={14} />} onClick={onNewConv} disabled={busy || !turns.length}>
             新对话
           </Button>
           <div className="ai-full-history-title">历史</div>
           <div className="ai-full-history">
-            {turns.length === 0 && <Text type="secondary" fontSize={12}>还没有对话</Text>}
-            {[...turns].reverse().map((turn) => (
-              <Button
-                key={turn.id}
-                block
-                type="text"
-                className="ai-history-item"
-                icon={<MessageSquare size={13} />}
-                title={turn.prompt}
-                onClick={() => document.getElementById(`turn-${turn.id}`)?.scrollIntoView({behavior: 'smooth', block: 'start'})}
-              >
-                <span>{turn.prompt}</span>
-              </Button>
-            ))}
+            <ConvList convs={convs} convId={convId} busy={busy} onOpen={onOpenConv} onDelete={setPendingDelete} />
           </div>
         </aside>
         <section className="ai-full-main">
@@ -174,14 +225,18 @@ export function Assistant({open, ai, turns, busy, seed, onSend, onStop, onClose,
           </header>
           <div className="ai-full-chat">{chat}</div>
         </section>
+        {dialogs}
       </div>
     )
   }
 
   return (
-    <Drawer open={open} onClose={onClose} title="搭搭" width={720} extra={actions}>
-      {chat}
-    </Drawer>
+    <>
+      <Drawer open={open} onClose={onClose} title="搭搭" width={mobile ? '100%' : 720} extra={actions}>
+        {chat}
+      </Drawer>
+      {dialogs}
+    </>
   )
 }
 
@@ -229,5 +284,36 @@ function TurnView({turn, busy, onApprovalAnswer}: {turn: Turn; busy: boolean; on
 
       {turn.aborted && <Text className="turn-note" type="secondary">已停止</Text>}
     </div>
+  )
+}
+
+/** 历史对话列表：只有标题，当前的高亮，每行可删。 */
+function ConvList({convs, convId, busy, onOpen, onDelete}: {convs: Conv[]; convId: string; busy: boolean; onOpen: (id: string) => void; onDelete: (id: string) => void}) {
+  if (!convs.length) {
+    return (
+      <Text type="secondary" fontSize={12}>
+        还没有对话
+      </Text>
+    )
+  }
+  return (
+    <>
+      {convs.map((conv) => (
+        <div key={conv.id} className="conv-row" data-on={conv.id === convId} data-disabled={busy && conv.id !== convId}>
+          <Button
+            block
+            type="text"
+            className="ai-history-item"
+            icon={<MessageSquare size={13} />}
+            title={conv.title}
+            disabled={busy && conv.id !== convId}
+            onClick={() => onOpen(conv.id)}
+          >
+            <span>{conv.title}</span>
+          </Button>
+          <ActionIcon className="conv-del" icon={Trash2} size="small" title="删除" disabled={busy} onClick={() => onDelete(conv.id)} />
+        </div>
+      ))}
+    </>
   )
 }

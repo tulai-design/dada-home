@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useIsMobile } from '../lib/useMedia'
 import { Alert, Button, Drawer, Empty, Flexbox, Markdown, Tag } from '@lobehub/ui'
 import { Check, Copy, ExternalLink, MessageSquareText, Settings, Sparkles } from 'lucide-react'
 import type { Article } from '../lib/types'
@@ -17,6 +18,7 @@ type Props = {
 }
 
 export function Reader({ article, ai, onClose, onMarkRead, onAskAi, onOpenSettings }: Props) {
+  const mobile = useIsMobile()
   const [summary, setSummary] = useState('')
   const [summarizing, setSummarizing] = useState(false)
   const [error, setError] = useState('')
@@ -79,7 +81,7 @@ export function Reader({ article, ai, onClose, onMarkRead, onAskAi, onOpenSettin
   }
 
   return (
-    <Drawer open width={780} title={article.source} onClose={onClose}>
+    <Drawer open width={mobile ? '100%' : 780} title={article.source} onClose={onClose}>
       <Flexbox direction="vertical" gap={12} className="reader">
         <Tag>{relativeTime(article.date)}</Tag>
         <h1>{article.title}</h1>

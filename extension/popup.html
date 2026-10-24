@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body { width: 300px; margin: 0; padding: 16px; font: 13px/1.5 -apple-system, "PingFang SC", sans-serif; background: #f4f0e6; color: #1d1b16; }
+      h1 { font-size: 15px; margin: 0 0 4px; }
+      p { margin: 0 0 12px; color: #6b665a; font-size: 12px; }
+      button { font: inherit; width: 100%; padding: 8px 10px; border: 1px solid #1d1b16; background: #1d1b16; color: #f4f0e6; border-radius: 8px; cursor: pointer; }
+      button.ghost { background: transparent; color: #1d1b16; border-color: #c9c2b0; }
+      button:disabled { opacity: 0.5; cursor: default; }
+      .origin { font-family: ui-monospace, monospace; font-size: 12px; margin-bottom: 10px; word-break: break-all; }
+      ul { list-style: none; margin: 14px 0 0; padding: 0; border-top: 1px solid #d8d1bf; }
+      li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; border-bottom: 1px solid #d8d1bf; font-size: 12px; }
+      li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      li button { width: auto; padding: 3px 8px; }
+      .msg { margin-top: 10px; color: #b3261e; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <h1>搭搭书签桥</h1>
+    <p>只有你点了“启用”的网站，才能读取和整理你的书签。</p>
+    <div class="origin" id="origin"></div>
+    <button id="toggle" disabled>…</button>
+    <div class="msg" id="msg"></div>
+    <ul id="list"></ul>
+    <script src="popup.js" type="module"></script>
+  </body>
+</html>

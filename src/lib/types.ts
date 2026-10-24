@@ -41,7 +41,23 @@ export type AiConfig = {
   baseUrl: string
   apiKey: string
   model: string
-  temperature: number
+  /** 以下都是高级项：留空就不发给接口，用模型自己的默认值。 */
+  temperature?: number
+  topP?: number
+  /** 单次回答最多输出多少 token */
+  maxTokens?: number
+  presencePenalty?: number
+  frequencyPenalty?: number
+  /** 推理强度，只有推理模型认；不填则不发 */
+  reasoningEffort?: 'low' | 'medium' | 'high'
+  /** 用户自己的长期指令，附在搭搭的系统提示后面 */
+  systemPrompt?: string
+  /** 带给模型的历史轮数 */
+  contextTurns?: number
+  /** 一次回答里最多连续调用几轮工具 */
+  maxRounds?: number
+  /** 额外请求参数，JSON 对象的文本；不会覆盖 model、messages、tools、stream */
+  extraBody?: string
 }
 
 export type MonitorKind = 'coolify' | 'beszel' | 'http'

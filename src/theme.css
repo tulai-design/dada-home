@@ -871,21 +871,26 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   flex: none;
-  color: #fff;
-  font-family: var(--font-sans);
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1;
+  border-radius: 7px;
+  background: #fff;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--text) 12%, transparent);
 }
-.engine-logo[data-long='true'] {
-  font-size: 9px;
-  letter-spacing: -0.04em;
+.engine-logo img {
+  display: block;
+  width: 17px;
+  height: 17px;
+  object-fit: contain;
 }
 .engine-logo[data-ai='true'] {
-  background: var(--main);
+  background: transparent;
+  box-shadow: none;
+}
+.engine-logo[data-ai='true'] img {
+  width: 26px;
+  height: 26px;
 }
 
 .engine-panel {
@@ -1766,4 +1771,377 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+}
+
+/* ============================================================
+   主题库的小色块
+   ============================================================ */
+.theme-swatch {
+  position: relative;
+  display: inline-block;
+  width: 30px;
+  height: 22px;
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+.theme-swatch i {
+  position: absolute;
+  left: 6px;
+  top: 6px;
+  width: 12px;
+  height: 2px;
+  border-radius: 1px;
+  opacity: 0.8;
+}
+.theme-swatch b {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+/* ===== 对话列表（IndexedDB 历史） ===== */
+.conv-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border-radius: 8px;
+}
+.conv-row .lobe-button.ai-history-item {
+  flex: 1;
+  min-width: 0;
+  justify-content: flex-start;
+  text-align: left;
+  height: 34px;
+  padding-right: 30px;
+}
+.conv-row[data-on='true'] .lobe-button.ai-history-item {
+  background: color-mix(in srgb, var(--main) 10%, transparent);
+  font-weight: 600;
+}
+.conv-row .conv-del {
+  position: absolute;
+  right: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.conv-row:hover .conv-del,
+.conv-row .conv-del:focus-visible {
+  opacity: 1;
+}
+.conv-modal {
+  max-height: 55vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.chat-earlier {
+  align-self: center;
+  opacity: 0.7;
+}
+
+/* ===== 书签：编辑图标只在悬停时出现 ===== */
+.mark-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.mark-edit {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.mark-cell:hover .mark-edit,
+.mark-title:hover .mark-edit,
+.mark-edit:focus-visible {
+  opacity: 1;
+}
+.bm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.bm-chips {
+  margin-top: 2px;
+}
+
+/* ===== 品牌 logo ===== */
+.rail .rail-logo {
+  width: 48px !important;
+  height: 48px !important;
+  margin: 0 0 10px !important;
+  border-radius: 14px !important;
+}
+.rail .rail-logo .rail-logo-img {
+  display: block;
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.rail .rail-logo:hover .rail-logo-img {
+  transform: rotate(-6deg) scale(1.08);
+}
+
+/* ===== 搭搭 IP 形象 ===== */
+.mascot {
+  display: block;
+  object-fit: contain;
+  user-select: none;
+}
+.about-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0 22px;
+}
+.about-mascot {
+  filter: drop-shadow(0 10px 18px color-mix(in srgb, var(--main) 18%, transparent));
+}
+.about-name {
+  margin: 6px 0 0 !important;
+  font-family: var(--font-serif);
+  font-size: 28px !important;
+}
+.chat-empty .mascot {
+  margin: 0 auto 4px;
+}
+.ai-full-logo {
+  display: inline-block !important;
+  vertical-align: middle;
+  margin-right: 2px;
+}
+
+/* ============================================================
+   手机（≤760px）
+   侧栏变成底部标签栏，顶栏左边出现 logo，页面改成可上下滚动、组件单列。
+   断点和 lib/useMedia.ts 里的 MOBILE_QUERY 保持一致。
+   ============================================================ */
+.topbar-brand {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  :root {
+    --frame: 0px;
+    --gutter: 16px;
+  }
+  html,
+  body {
+    height: 100%;
+    overflow: hidden !important;
+  }
+  .app {
+    height: 100dvh !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+  }
+  /* 手机不画整屏红框，屏幕本身是圆角的 */
+  .app::after {
+    display: none;
+  }
+
+  /* 底部标签栏 */
+  .rail,
+  .rail[data-mobile='true'] {
+    order: 2;
+    flex: none;
+    width: 100% !important;
+    height: auto !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-around;
+    gap: 0 !important;
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom)) !important;
+    overflow: visible !important;
+    background: color-mix(in srgb, var(--text) 4%, var(--bg)) !important;
+    z-index: 20;
+  }
+  .rail .rail-slot {
+    flex: 1;
+    height: 48px;
+    min-width: 0;
+  }
+  .rail .rail-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .canvas {
+    order: 1;
+    flex: 1 1 auto !important;
+    min-width: 0;
+    min-height: 0;
+    width: 100%;
+    padding-top: env(safe-area-inset-top);
+  }
+
+  /* 顶栏：左边 logo，右边时钟和两个小图标 */
+  .canvas > .topbar {
+    height: 48px !important;
+    min-height: 48px;
+    padding: 0 10px 0 var(--gutter) !important;
+    justify-content: space-between !important;
+  }
+  .topbar-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--text);
+    font-family: var(--font-serif);
+    font-size: 17px;
+    font-weight: 700;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .topbar-brand img {
+    display: block;
+    width: 28px;
+    height: 28px;
+  }
+  .topbar-right {
+    gap: 8px;
+  }
+  .topbar .topbar-btn {
+    width: 36px !important;
+    height: 36px !important;
+  }
+
+  /* 页面：整页可以上下滑，组件单列 */
+  .page {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  .page-grid {
+    height: auto !important;
+    min-height: 100%;
+    grid-template-columns: minmax(0, 1fr) !important;
+    padding: 0 var(--gutter) 28px !important;
+    gap: 14px !important;
+  }
+  .page-grid > .widget {
+    grid-column: 1 / -1 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  .page-grid[data-align='center'] {
+    align-content: start;
+    padding-top: 6vh !important;
+  }
+  .page-pane {
+    padding-inline: 0 !important;
+  }
+
+  /* iOS 聚焦输入框时，字号小于 16px 会自动放大页面 */
+  input,
+  textarea,
+  .lobe-input input {
+    font-size: 16px !important;
+  }
+
+  /* 设置、市场等系统页 */
+  .page.sys-view {
+    overflow-y: auto !important;
+  }
+  .sys-page {
+    padding: 0 var(--gutter);
+  }
+
+  /* 弹窗不超出屏幕 */
+  .ant-modal {
+    max-width: calc(100vw - 24px) !important;
+    margin-inline: auto;
+  }
+
+  /* 全屏 AI：手机上没有侧栏，历史从图标进 */
+  .ai-full {
+    grid-template-columns: 1fr;
+  }
+  .ai-full-head {
+    padding: 10px 14px;
+  }
+  .ai-full-chat,
+  .chat-composer {
+    padding-inline: 14px;
+  }
+}
+
+/* 触屏没有悬停：悬停才出现的小图标常驻淡淡显示 */
+@media (hover: none) {
+  .mark-edit,
+  .conv-row .conv-del {
+    opacity: 0.55 !important;
+  }
+}
+
+@media (max-width: 760px) {
+  /* 系统页标题和工具条放不下一行时换行，而不是把标题挤成竖排 */
+  .sys-head {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 16px 0 10px;
+  }
+  .sys-head h1 {
+    font-size: 26px;
+    white-space: nowrap;
+  }
+  .sys-head > * {
+    min-width: 0;
+  }
+  /* 键盘提示在触屏上没用 */
+  .cmdk-foot,
+  .cmdk-row kbd {
+    display: none !important;
+  }
+}
+
+@media (max-width: 760px) {
+  /* 手机上设置是「先列表、再详情」，列表里不需要高亮当前项 */
+  .ios-row[data-selected='true'],
+  .ios-row[data-selected='true']:hover {
+    background: transparent;
+    color: inherit;
+  }
+  .ios-row[data-selected='true'] .ios-summary,
+  .ios-row[data-selected='true'] .ios-row-chevron {
+    color: var(--muted, inherit);
+  }
+}
+
+/* ===== AI 设置：服务商 / 模型下拉 ===== */
+.ai-select {
+  min-width: 200px;
+  max-width: 100%;
+}
+.ai-select .ant-select-selection-item,
+.ai-select .ant-select-selection-placeholder {
+  text-align: right;
+}
+
+.ai-number,
+.ai-number.lobe-input {
+  width: 110px;
+  flex: none;
+}
+.ai-number input {
+  text-align: right;
+  font-size: 14px !important;
+}
+.ai-textarea {
+  width: 100%;
+  font-size: 14px !important;
+}
+.ai-mono {
+  font-family: var(--font-mono, ui-monospace, monospace) !important;
+  font-size: 13px !important;
 }

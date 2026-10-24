@@ -11,6 +11,9 @@ importers:
       '@gsap/react':
         specifier: ^2.1.2
         version: 2.1.2(gsap@3.15.0)(react@19.3.1)
+      '@lobehub/icons':
+        specifier: ^6.4.0
+        version: 6.4.0(@lobehub/ui@6.5.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@lobehub/ui':
         specifier: ^6.5.1
         version: 6.5.1(@lobehub/fluent-emoji@5.0.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@lobehub/icons@6.4.0)(@shikijs/themes@4.5.0)(@splinetool/runtime@2.0.111)(@types/mdast@4.0.4)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(micromark-util-types@2.0.3)(micromark@4.0.3)(motion@14.5.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)

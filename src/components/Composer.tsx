@@ -1,6 +1,7 @@
 import {useRef} from 'react'
 import {Button, Tag, Text, TextArea} from '@lobehub/ui'
 import {CornerDownLeft, SendHorizontal, Square} from 'lucide-react'
+import {ModelIcon} from './ModelIcons'
 
 /**
  * 对话输入框。
@@ -22,6 +23,7 @@ export function Composer({
   busy,
   placeholder,
   hint,
+  model,
 }: {
   value: string
   onChange: (next: string) => void
@@ -31,6 +33,8 @@ export function Composer({
   placeholder: string
   /** 右侧的小字提示，例如当前模型名 */
   hint?: string
+  /** 当前模型名；给了就在提示前面画模型图标 */
+  model?: string
 }) {
   const composing = useRef(false)
   const canSend = value.trim().length > 0 && !busy
@@ -63,7 +67,11 @@ export function Composer({
         }}
       />
       <div className="composer-bar">
-        <div className="composer-bar-left">{hint ? <Tag variant="borderless">{hint}</Tag> : null}</div>
+        <div className="composer-bar-left">{hint ? (
+            <Tag variant="borderless" icon={model ? <ModelIcon model={model} size={14} /> : undefined}>
+              {hint}
+            </Tag>
+          ) : null}</div>
         <div className="composer-bar-right">
           <Text className="composer-hint" type="secondary">
             <CornerDownLeft size={11} /> 发送 · Shift+回车换行

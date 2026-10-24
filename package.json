@@ -6,11 +6,13 @@
   "description": "搭搭：tulai.design 的 AI 个人主页搭建助手",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "pack:ext": "mkdir -p public && rm -f public/dada-bookmarks-extension.zip && cd extension && zip -X -q -r ../public/dada-bookmarks-extension.zip . -x '*.DS_Store'",
+    "build": "pnpm pack:ext && tsc --noEmit && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
+    "@lobehub/icons": "^6.4.0",
     "@lobehub/ui": "^6.5.1",
     "@splinetool/react-spline": "^4.1.0",
     "@splinetool/runtime": "^2.0.111",

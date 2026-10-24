@@ -32,6 +32,9 @@ const SYSTEM_PROMPT = [
     '- 侧栏：add_page 新建页面时一定给 icon 和 4 字以内的 label；首页固定在第一位，不能删改。页面多了侧栏会自动把放不下的收进「更多」，不必限制数量，但顺序靠前的优先显示，常用的排前面。',
     '- 状态条（顶栏右侧）：set_statusbar 把组件的紧凑形态放上去看实时状态，默认只有时钟。只有 list_component_types 标了「可放状态条」的组件能放；保持克制，一般不超过 3 项；要保留的现有项要一并传回。',
     '',
+    '- 主题库：每个主题有名字、说明和一组变量，默认主题（default）永远在库里且不可改。用户想要新风格 → 先 list_themes，再 save_theme（起名、写一句说明、变量配全；深色风格带 mode:"dark" 并配好 bg/text）；想换回去或换别的 → apply_theme（回到最初就是 default）；微调当前主题用 set_theme。不要把调色结果只当作临时覆盖，要存成有名字的主题。',
+    '- 模板库：模板是整套页面设计（页面、组件、状态条、版式，可带主题）的快照，存在模板库里，另有几套内置预设。用户满意一版设计、或想存一下现在的布局 → save_template；想换一套布局、回到之前那版、要现成模板 → 先 list_templates，再 apply_template（会整体替换当前设计，当前设计没存过时先问用户要不要先存）。模板不含待办、便签这类用户数据。大改版之前主动建议先存一份模板。',
+    '- 书签：用 list_bookmarks 看，add_bookmarks 批量加（自动建分组、自动去重，别一个一个加），update_bookmark / move_bookmarks 改和归类，remove_bookmarks 删（高危）。用户说「整理书签」→ 先 list_bookmarks，按用途定好分组再 move_bookmarks。浏览器里真正的书签要靠扩展「搭搭书签桥」：list_browser_bookmarks 读、add/move/remove_browser_bookmarks 改（删除高危）、import_browser_bookmarks 导入搭搭、push_bookmarks_to_browser 同步过去；工具说没连上扩展，就让用户在书签页点「导入与同步」装扩展。分清「搭搭书签」和「浏览器书签」，用户没说清时先问或先看一眼。',
     '- 组件市场：热榜、订阅、书桌（待办+便签）、书签、服务监控默认没装。用户要用这些功能时，先 list_addons 看状态，没装就 install_addon 装上（装完会自动建好页面），再继续搭；用户说不要了可以 uninstall_addon，卸载是高危操作要先确认。',
     '',
     '做事顺序：',
@@ -55,6 +58,65 @@ const SYSTEM_PROMPT = [
 /** 单轮模型调用能执行的最大工具轮数；超出后停下，避免无限循环。 */
 const MAX_ROUNDS = 14
 
+/** 推理模型（o 系列、gpt-5）只认默认温度，带上会被接口拒绝。 */
+const FIXED_SAMPLING = /^(o[1-9]|gpt-5)/i
+
+function parseExtra(text: string | undefined): Record<string, unknown> {
+    if (!text?.trim()) return {}
+    try {
+        const value: unknown = JSON.parse(text)
+        return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
+    } catch {
+        return {}
+    }
+}
+
+/** 设置里的高级参数里，要写进请求体的那部分。没填的一律不发。 */
+export function requestExtras(config: AiConfig): Record<string, unknown> {
+    const fixed = FIXED_SAMPLING.test(config.model.trim())
+    const pick = (key: string, value: number | undefined, skip = false) => (value !== undefined && Number.isFinite(value) && !skip ? {[key]: value} : {})
+    return {
+        ...parseExtra(config.extraBody),
+        ...pick('temperature', config.temperature, fixed),
+        ...pick('top_p', config.topP, fixed),
+        ...pick('presence_penalty', config.presencePenalty, fixed),
+        ...pick('frequency_penalty', config.frequencyPenalty, fixed),
+    }
+}
+
+/**
+ * provider 只认 maxOutputTokens 和 reasoningEffort；温度、top_p 这些通过包一层 fetch 写进请求体。
+ * 请求里已有的字段（model、messages、tools、stream…）优先，额外参数只补充、不覆盖。
+ */
+function fetchWith(config: AiConfig): typeof fetch {
+    const extras = requestExtras(config)
+    if (!Object.keys(extras).length) return browserFetch
+    return (input, init) => {
+        if (typeof init?.body === 'string') {
+            try {
+                const body = JSON.parse(init.body) as Record<string, unknown>
+                return globalThis.fetch(input, {...init, body: JSON.stringify({...extras, ...body})})
+            } catch {
+                /* 不是 JSON 就原样发 */
+            }
+        }
+        return globalThis.fetch(input, init)
+    }
+}
+
+function providerInput(config: AiConfig) {
+    return {
+        baseUrl: config.baseUrl,
+        apiKey: config.apiKey,
+        model: config.model,
+        ...(config.maxTokens ? {maxOutputTokens: Math.trunc(config.maxTokens)} : {}),
+        ...(config.reasoningEffort ? {reasoningEffort: config.reasoningEffort} : {}),
+    }
+}
+
+const customInstructions = (config: AiConfig): string =>
+    config.systemPrompt?.trim() ? `\n\n用户的长期指令（照着做；与上面的工具规则冲突时以工具规则为准）：\n${config.systemPrompt.trim().slice(0, 2000)}` : ''
+
 /**
  * 取出绑定好全局 this 的 fetch。
  *
@@ -76,14 +138,12 @@ export async function streamText(
     signal?: AbortSignal,
 ): Promise<string> {
     const result = await streamChatCompletions({
-        baseUrl: config.baseUrl,
-        apiKey: config.apiKey,
-        model: config.model,
+        ...providerInput(config),
         messages,
     }, {
         onDelta,
         signal,
-        fetchImpl: browserFetch,
+        fetchImpl: fetchWith(config),
     })
     if (!result.ok) {
         if (result.aborted) return ''
@@ -125,21 +185,20 @@ export type RunOptions = {
 export async function runAgent(options: RunOptions): Promise<string> {
     const {config, host, onDelta, onReasoning, onTool, signal} = options
     const permissionMode = options.permissionMode ?? 'assist'
-    const messages: ChatMessage[] = [{role: 'system', content: SYSTEM_PROMPT}, ...options.messages]
+    const messages: ChatMessage[] = [{role: 'system', content: SYSTEM_PROMPT + customInstructions(config)}, ...options.messages]
+    const maxRounds = Math.max(1, Math.min(40, Math.trunc(config.maxRounds ?? MAX_ROUNDS)))
     const tools = toolSchemas()
 
-    for (let round = 0; round < MAX_ROUNDS; round += 1) {
+    for (let round = 0; round < maxRounds; round += 1) {
         const result = await streamChatCompletions({
-            baseUrl: config.baseUrl,
-            apiKey: config.apiKey,
-            model: config.model,
+            ...providerInput(config),
             messages,
             tools,
         }, {
             onDelta: (text) => onDelta(text),
             onReasoning: onReasoning ? (text) => onReasoning(text) : undefined,
             signal,
-            fetchImpl: browserFetch,
+            fetchImpl: fetchWith(config),
         })
 
         if (!result.ok) {
@@ -252,6 +311,14 @@ function describeTool(name: string, title: string, args: unknown): string {
         case 'remove_page': {
             const page = text(record.pageId)
             return page ? `${title}「${page}」及其全部组件和数据` : title
+        }
+        case 'apply_template': {
+            const ref = text(record.ref)
+            return ref ? `${title}「${ref}」，会替换当前所有页面和组件（可以撤销）` : title
+        }
+        case 'delete_template': {
+            const ref = text(record.ref)
+            return ref ? `${title}「${ref}」` : title
         }
         case 'move_component': {
             const ref = text(record.ref)

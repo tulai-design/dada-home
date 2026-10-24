@@ -3,6 +3,8 @@ import {WorkspaceError} from './errors'
 import {normalizeLayer} from '../fx/catalog'
 import {
   DEFAULT_LAYOUT,
+  DEFAULT_THEME,
+  DEFAULT_THEME_ID,
   FROZEN_PAGE_ID,
   MAX_PAGES,
   MAX_STATUS_ITEMS,
@@ -21,6 +23,7 @@ import {
 } from './workspace'
 import {ANIMATIONS, normalizeHost, normalizeWidget, sanitizeCss} from './customWidget'
 import {isPageIcon, PAGE_ICON_KEYS} from './pageIcons'
+import {tweakTheme} from './themes'
 import {ADDONS, addonOfType, getAddon, isInstalled, typeAvailable} from './market'
 
 /**
@@ -423,28 +426,13 @@ export function setLayers(workspace: Workspace, pageId: string, layers: unknown[
   return replacePage(workspace, rest)
 }
 
-export function setTheme(
-  workspace: Workspace,
-  input: {mode?: string; preset?: string; overrides?: Record<string, string> | null},
-): Workspace {
-  const theme = {...workspace.theme}
-  if (input.mode !== undefined) {
-    if (input.mode !== 'light' && input.mode !== 'dark') throw new WorkspaceError('主题模式只能是 light 或 dark')
-    theme.mode = input.mode
-  }
-  if (input.preset !== undefined) theme.preset = input.preset
-  if (input.overrides === null) theme.overrides = {}
-  else if (input.overrides) {
-    const next = {...theme.overrides}
-    for (const [name, value] of Object.entries(input.overrides)) {
-      if (!/^[a-z][a-z0-9-]*$/.test(name)) throw new WorkspaceError(`变量名不合法：${name}`)
-      if (typeof value !== 'string' || value.length > 120 || /[;{}]/.test(value)) throw new WorkspaceError(`变量值不合法：${name}`)
-      next[name] = value
-    }
-    theme.overrides = next
-  }
-  return {...workspace, theme}
+/** 改当前主题（明暗、变量）。当前是默认主题时会先另存为新主题，默认主题不会被改坏。 */
+export function setTheme(workspace: Workspace, input: {mode?: string; overrides?: Record<string, unknown> | null}) {
+  return tweakTheme(workspace, input)
 }
+
+export {applyTheme, removeTheme, saveTheme, setMode} from './themes'
+export {applyTemplate, removeTemplate, renameTemplate, saveTemplate} from './templates'
 
 /** 一份完整的默认工作空间，也是「重置」的目标。 */
 export function defaultWorkspace(): Workspace {
@@ -460,7 +448,8 @@ export function defaultWorkspace(): Workspace {
   }
   return {
     version: WORKSPACE_VERSION,
-    theme: {preset: 'paper', overrides: {}, mode: 'light'},
+    theme: {active: DEFAULT_THEME_ID, mode: 'light', base: 'light'},
+    themes: [DEFAULT_THEME],
     layout: {...DEFAULT_LAYOUT},
     widgets: [],
     network: [],
@@ -468,6 +457,7 @@ export function defaultWorkspace(): Workspace {
     statusbar: [{id: instanceId('status-clock'), type: 'clock', config: normalizeConfig(getDefinition('clock')!, {showSeconds: true})}],
     // 热榜、订阅、书桌、书签、监控都在组件市场里，默认一个都不装
     addons: [],
+    templates: [],
     pages: [
       {
         id: 'home',

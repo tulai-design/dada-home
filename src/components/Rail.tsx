@@ -2,10 +2,13 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ActionIcon, Badge, Button } from '@lobehub/ui'
 import { Ellipsis, LayoutGrid, Monitor, Settings, Sparkles } from 'lucide-react'
 import { pageIcon } from '../lib/pageIcons'
+import { useIsMobile } from '../lib/useMedia'
 import { FROZEN_PAGE_ID, type Page } from '../lib/workspace'
 
 /** 一个导航项占的高度（theme.css 里 .rail-slot 固定为 48）；实际以量到的为准。 */
 const SLOT_HEIGHT = 48
+/** 手机底栏每个入口的宽度。 */
+const MOBILE_SLOT_WIDTH = 60
 
 type View = 'page' | 'settings' | 'monitor' | 'market'
 
@@ -55,12 +58,19 @@ export function Rail({
   const home = pages.find((item) => item.id === FROZEN_PAGE_ID) ?? pages[0]
   const rest = useMemo(() => pages.filter((item) => item.id !== home?.id), [pages, home])
 
+  const mobile = useIsMobile()
   const midRef = useRef<HTMLDivElement>(null)
+  const barRef = useRef<HTMLElement>(null)
   const [capacity, setCapacity] = useState(99)
   useLayoutEffect(() => {
-    const el = midRef.current
+    // 电脑：竖排，量中间区域的高度；手机：底部横排，量整条的宽度，扣掉首页、AI、更多三个固定位
+    const el = mobile ? barRef.current : midRef.current
     if (!el) return
     const measure = () => {
+      if (mobile) {
+        setCapacity(Math.max(0, Math.floor(el.clientWidth / MOBILE_SLOT_WIDTH) - 3))
+        return
+      }
       const slot = el.closest('.rail')?.querySelector('.rail-slot')
       const height = slot?.getBoundingClientRect().height || SLOT_HEIGHT
       setCapacity(Math.max(0, Math.floor(el.clientHeight / height)))
@@ -69,7 +79,7 @@ export function Rail({
     const observer = new ResizeObserver(measure)
     observer.observe(el)
     return () => observer.disconnect()
-  }, [])
+  }, [mobile])
 
   // 放得下就全放；放不下留一格给「更多」，并保证当前页可见
   const overflow = rest.length > capacity
@@ -89,8 +99,8 @@ export function Rail({
         className="rail-btn"
         icon={Icon}
         title={title}
-        tooltipProps={{ placement: 'right', mouseEnterDelay: 0.1 }}
-        size={{ blockSize: 40, size: 19, borderRadius: 12 }}
+        tooltipProps={{ placement: mobile ? 'top' : 'right', mouseEnterDelay: 0.1 }}
+        size={{ blockSize: mobile ? 44 : 40, size: 19, borderRadius: 12 }}
         active={on}
         data-on={on}
         data-busy={extra?.busy ? 'true' : undefined}
@@ -115,10 +125,30 @@ export function Rail({
   const pageEntry = (item: Page) =>
     entry(item.id, item.name, pageIcon(item.icon), view === 'page' && page === item.id, () => onPage(item.id), { count: badges?.[item.id] })
 
+  // 手机：底部标签栏。页面放不下的收进「更多」，那里也有市场、监控、设置
+  if (mobile) {
+    const slots = Math.max(0, capacity)
+    let tabs = rest
+    if (rest.length > slots) {
+      tabs = rest.slice(0, slots)
+      const active = rest.findIndex((item) => item.id === page)
+      if (active >= slots && slots > 0) tabs = [...tabs.slice(0, slots - 1), rest[active]]
+      else if (active >= slots) tabs = []
+    }
+    return (
+      <nav className="rail" data-mobile="true" aria-label="底部导航" ref={barRef}>
+        {home && pageEntry(home)}
+        {tabs.map(pageEntry)}
+        {entry('ai', '搭搭 AI', Sparkles, false, onAssistant, { busy: assistantBusy })}
+        {entry('more', '更多', Ellipsis, view !== 'page' && view !== undefined, onMore)}
+      </nav>
+    )
+  }
+
   return (
     <nav className="rail" aria-label="侧边导航">
       <Button className="rail-logo" type="text" onClick={() => home && onPage(home.id)} aria-label="搭搭">
-        搭
+        <img className="rail-logo-img" src={`${import.meta.env.BASE_URL}brand/dada-logo.png`} alt="" width={36} height={36} draggable={false} />
       </Button>
 
       {home && <div className="rail-fixed">{pageEntry(home)}</div>}
