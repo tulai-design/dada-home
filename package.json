@@ -2,6 +2,7 @@
   "name": "tada-home",
   "private": true,
   "version": "0.1.0",
+  "packageManager": "pnpm@10.20.0",
   "type": "module",
   "description": "搭搭：tulai.design 的 AI 个人主页搭建助手",
   "scripts": {

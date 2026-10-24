@@ -1,0 +1,10 @@
+node_modules
+dist
+.git
+.github
+.idea
+.pnpm-store
+.probe
+.smoke
+.DS_Store
+*.log

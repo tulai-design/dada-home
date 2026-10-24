@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # build 脚本里已经包含类型检查
+      - run: pnpm build
+      - name: Docker 镜像能构建
+        run: docker build -t dada-home:ci .
+      - name: 容器冒烟测试
+        run: |
+          docker run -d --name smoke -p 8080:80 -e UMAMI_WEBSITE_ID=00000000-0000-4000-8000-000000000000 dada-home:ci
+          for i in $(seq 1 20); do curl -fs http://127.0.0.1:8080/healthz && break || sleep 1; done
+          curl -fs http://127.0.0.1:8080/ | grep -q '<div id="root">'
+          curl -fs http://127.0.0.1:8080/config.js | grep -q 'umami'
+          docker rm -f smoke
