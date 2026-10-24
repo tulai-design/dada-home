@@ -130,6 +130,17 @@ function pwa() {
         { urlPattern: ({ url }) => url.pathname === '/config.js', handler: 'NetworkOnly' },
         { urlPattern: ({ url }) => url.pathname.startsWith('/__proxy'), handler: 'NetworkOnly' },
         {
+          // 主题引入的 Google Fonts：样式表允许稍旧，字体文件内容不变，缓存优先；缓存过的字体离线也能用
+          urlPattern: ({ url }) => url.origin === 'https://fonts.googleapis.com',
+          handler: 'StaleWhileRevalidate',
+          options: { cacheName: 'dada-font-css', expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 30 }, cacheableResponse: { statuses: [0, 200] } },
+        },
+        {
+          urlPattern: ({ url }) => url.origin === 'https://fonts.gstatic.com',
+          handler: 'CacheFirst',
+          options: { cacheName: 'dada-font-files', expiration: { maxEntries: 120, maxAgeSeconds: 60 * 60 * 24 * 365 }, cacheableResponse: { statuses: [0, 200] } },
+        },
+        {
           // 带哈希的构建产物内容永远不变，缓存优先
           urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith('/assets/'),
           handler: 'CacheFirst',

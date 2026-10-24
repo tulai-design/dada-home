@@ -26,6 +26,7 @@
   --radius-lg: 0px;
   --side-width: 84px;
   --gutter: 28px;
+  /* 外框：frame 粗细（0px 即去掉），frame-gap 外框占的边距（默认同粗细），frame-color 颜色（默认主色） */
   --frame: 7px;
 }
 
@@ -50,7 +51,7 @@ body {
 /* ---------- 外框：整屏一圈红 ---------- */
 
 .app {
-  padding: var(--frame);
+  padding: var(--frame-gap, var(--frame));
   gap: 0;
   background: var(--bg);
   position: relative;
@@ -66,7 +67,7 @@ body {
 }
 .frame-bar {
   position: absolute;
-  background: var(--main);
+  background: var(--frame-color, var(--main));
   animation: frame-in 1.2s cubic-bezier(0.08, 0.82, 0.2, 1) both;
 }
 .frame-t,
@@ -721,7 +722,7 @@ body {
 /* ---------- AI 全屏 ---------- */
 .ai-full {
   position: fixed;
-  inset: var(--frame, 7px);
+  inset: var(--frame-gap, var(--frame, 7px));
   z-index: 250;
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);

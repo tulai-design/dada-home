@@ -1,4 +1,5 @@
 import {WorkspaceError} from './errors'
+import {cleanFonts, readFonts} from './fonts'
 import {DEFAULT_THEME, DEFAULT_THEME_ID, MAX_THEMES, activeTheme, type ThemeEntry, type Workspace} from './workspace'
 
 /**
@@ -40,6 +41,7 @@ export function readThemes(raw: unknown): ThemeEntry[] {
         name: item.name.trim().slice(0, 20) || '未命名',
         description: typeof item.description === 'string' ? item.description.slice(0, 120) : '',
         overrides: cleanOverrides(item.overrides),
+        ...(readFonts(item.fonts).length ? {fonts: readFonts(item.fonts)} : {}),
         ...(item.mode === 'light' || item.mode === 'dark' ? {mode: item.mode} : {}),
       })
     } catch {
@@ -67,10 +69,16 @@ function activate(workspace: Workspace, entry: ThemeEntry): Workspace {
   return {...workspace, theme: {...workspace.theme, active: entry.id, mode: entry.mode ?? workspace.theme.base}}
 }
 
+/** fonts 字段：空数组表示清掉，所以不写进主题。 */
+function fontsField(raw: unknown): {fonts?: ReturnType<typeof cleanFonts>} {
+  const fonts = cleanFonts(raw)
+  return fonts.length ? {fonts} : {}
+}
+
 /** 存一个主题：id 或同名的已有主题会被更新，否则新建；默认启用。 */
 export function saveTheme(
   workspace: Workspace,
-  input: {id?: string; name?: string; description?: string; overrides?: unknown; mode?: string; activate?: boolean},
+  input: {id?: string; name?: string; description?: string; overrides?: unknown; fonts?: unknown; mode?: string; activate?: boolean},
 ): {workspace: Workspace; theme: ThemeEntry; created: boolean} {
   if (input.mode !== undefined && input.mode !== 'light' && input.mode !== 'dark') throw new WorkspaceError('mode 只能是 light 或 dark')
   const name = input.name?.trim().slice(0, 20)
@@ -88,6 +96,7 @@ export function saveTheme(
       name: name || existing.name,
       description: input.description !== undefined ? input.description.trim().slice(0, 120) : existing.description,
       overrides: input.overrides !== undefined ? cleanOverrides(input.overrides) : existing.overrides,
+      ...(input.fonts !== undefined ? fontsField(input.fonts) : existing.fonts ? {fonts: existing.fonts} : {}),
       ...(input.mode ? {mode: input.mode} : {}),
     }
     themes = workspace.themes.map((item) => (item.id === existing.id ? theme : item))
@@ -99,6 +108,7 @@ export function saveTheme(
       name,
       description: (input.description ?? '').trim().slice(0, 120),
       overrides: cleanOverrides(input.overrides),
+      ...fontsField(input.fonts),
       ...(input.mode ? {mode: input.mode} : {}),
     }
     themes = [...workspace.themes, theme]
@@ -130,28 +140,44 @@ export function setMode(workspace: Workspace, mode: 'light' | 'dark'): Workspace
  * 改当前主题的明暗或变量。
  * 当前是默认主题时先另存一份「自定义 N」再改，默认主题保持原样。
  */
-export function tweakTheme(workspace: Workspace, input: {mode?: string; overrides?: Record<string, unknown> | null}): {workspace: Workspace; forked?: ThemeEntry} {
+export function tweakTheme(workspace: Workspace, input: {mode?: string; overrides?: Record<string, unknown> | null; fonts?: unknown}): {workspace: Workspace; forked?: ThemeEntry} {
   let next = workspace
   if (input.mode !== undefined) {
     if (input.mode !== 'light' && input.mode !== 'dark') throw new WorkspaceError('主题模式只能是 light 或 dark')
     next = setMode(next, input.mode)
   }
-  if (input.overrides === undefined) return {workspace: next}
+  if (input.overrides === undefined && input.fonts === undefined) return {workspace: next}
 
   const current = activeTheme(next)
   if (input.overrides === null) {
     if (current.builtin) return {workspace: next}
-    return {workspace: {...next, themes: next.themes.map((item) => (item.id === current.id ? {...item, overrides: {}} : item))}}
+    const {fonts: _fonts, ...rest} = current
+    void _fonts
+    return {workspace: {...next, themes: next.themes.map((item) => (item.id === current.id ? {...rest, overrides: {}} : item))}}
   }
-  const patch = cleanOverrides(input.overrides)
+  const patch = input.overrides === undefined ? {} : cleanOverrides(input.overrides)
+  const fonts = input.fonts === undefined ? undefined : cleanFonts(input.fonts)
   if (current.builtin) {
     if (next.themes.length >= MAX_THEMES) throw new WorkspaceError(`主题库满了，最多 ${MAX_THEMES} 个，先删掉不用的。`)
     let n = 1
     while (next.themes.some((item) => item.name === `自定义 ${n}`)) n += 1
-    const forked: ThemeEntry = {id: uniqueId(next, `custom-${n}`), name: `自定义 ${n}`, description: '', overrides: patch}
+    const forked: ThemeEntry = {id: uniqueId(next, `custom-${n}`), name: `自定义 ${n}`, description: '', overrides: patch, ...(fonts?.length ? {fonts} : {})}
     return {workspace: {...next, themes: [...next.themes, forked], theme: {...next.theme, active: forked.id}}, forked}
   }
-  return {workspace: {...next, themes: next.themes.map((item) => (item.id === current.id ? {...item, overrides: {...item.overrides, ...patch}} : item))}}
+  return {
+    workspace: {
+      ...next,
+      themes: next.themes.map((item) => {
+        if (item.id !== current.id) return item
+        const merged: ThemeEntry = {...item, overrides: {...item.overrides, ...patch}}
+        if (fonts) {
+          if (fonts.length) merged.fonts = fonts
+          else delete merged.fonts
+        }
+        return merged
+      }),
+    },
+  }
 }
 
 /** 列表里的色块：从主题变量里取背景、文字、主色；没覆盖的用默认主题的值。 */

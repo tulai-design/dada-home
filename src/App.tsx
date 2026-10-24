@@ -4,6 +4,7 @@ import {SquaresFour as LayoutGrid, Monitor, Moon, Palette, ArrowsClockwise as Re
 import { pageIcon } from './lib/pageIcons'
 import { FROZEN_PAGE_ID, activeTheme } from './lib/workspace'
 import { applyTheme, setMode } from './lib/themes'
+import { fontVars, syncFonts } from './lib/fonts'
 import { useStored } from './lib/store'
 import { SEARCH_ENGINES, defaultBookmarks, defaultFeeds, defaultSettings } from './lib/defaults'
 import { hotOrigin } from './lib/hot'
@@ -147,8 +148,11 @@ export default function App() {
     root.dataset.theme = workspace.theme.mode
     root.dataset.primaryColor = 'red'
     for (const name of appliedVars.current) root.style.removeProperty(`--${name}`)
-    appliedVars.current = Object.keys(theme.overrides)
-    for (const [name, value] of Object.entries(theme.overrides)) root.style.setProperty(`--${name}`, value)
+    // 字体接管的变量在前，主题自己写的变量在后（后者优先）
+    const vars = { ...fontVars(theme.fonts), ...theme.overrides }
+    appliedVars.current = Object.keys(vars)
+    for (const [name, value] of Object.entries(vars)) root.style.setProperty(`--${name}`, value)
+    syncFonts(theme.fonts, (family) => toast.error(`字体「${family}」没加载出来：检查名字是否是 Google Fonts 上的，或网络能不能访问 fonts.googleapis.com。`))
     document.title = `${settings.name === '朋友' ? '' : `${settings.name} · `}搭搭`
   }, [workspace.theme.mode, theme, settings.name])
 

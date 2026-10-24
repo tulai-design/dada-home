@@ -345,14 +345,15 @@ export const HOME_TOOLS = [
         parse: (raw) => {
           const value = obj(raw)
           const overrides = value.overrides === null ? null : value.overrides && typeof value.overrides === 'object' ? (value.overrides as Record<string, string>) : undefined
-          return {mode: optStr(value.mode), overrides}
+          return {mode: optStr(value.mode), overrides, fonts: value.fonts}
         },
       },
       json: {
         type: 'object',
         properties: {
           mode: {type: 'string', enum: ['light', 'dark']},
-          overrides: {type: 'object', description: 'CSS 变量覆盖，键不带 `--`，例如 {"main":"#2b6cf6","radius":"8px"}；传 null 清空'},
+          overrides: {type: 'object', description: 'CSS 变量覆盖，键不带 `--`，例如 {"main":"#2b6cf6","radius":"8px","frame":"0px"}；传 null 清空（连同字体）'},
+          fonts: {type: 'array', description: '从 Google Fonts 引入的字体，一次传整个数组；传 [] 清掉', items: {type: 'object', properties: {family: {type: 'string'}, role: {type: 'string', enum: ['serif', 'sans', 'mono']}}, required: ['family']}},
         },
       },
     },
@@ -360,14 +361,15 @@ export const HOME_TOOLS = [
       name: 'set_theme',
       title: '调整主题',
       description:
-        '微调当前主题：切换明暗，或覆盖变量（main 主色、bg 背景、bg2、text 文字、radius 圆角等），只写要改的。当前是默认主题时会自动另存为「自定义 N」再改，默认主题不会被改坏。要整套新风格并起名保存，用 save_theme。',
+        '微调当前主题：切换明暗、覆盖变量、引入字体，只写要改的。可改的变量（键不带 `--`）：main 主色；bg/bg2/bg3 背景层级；text/text2/text3/text4 文字层级；border、rule 线条；radius、radius-lg 圆角（默认 0，方角）；gutter 页面左右留白；frame 外框粗细（默认 7px，设 0px 就去掉外框，同时去掉外框占的边距）；frame-gap 外框占的边距（只想去掉红框但保留边距时，frame 设 0px 并把 frame-gap 设为 7px）；frame-color 外框颜色（默认跟随 main）；side-width 侧栏宽度。字体：用 fonts 从 Google Fonts 引入，例如 [{"family":"Playfair Display","role":"serif"},{"family":"Noto Sans SC","role":"sans"}]。role 决定它接管哪一类：serif=标题、大数字和正文（默认的衬线），sans=界面控件和小字，mono=数字、标签和顶栏的等宽字。不写 role 只加载不接管（再自己用 font-serif 等变量引用）。family 必须是 Google Fonts 上真实存在的名字，中文内容记得选支持中文的（Noto Serif SC、Noto Sans SC、ZCOOL XiaoWei、LXGW WenKai 等）。最多 4 个，一次传整个数组。当前是默认主题时会自动另存为「自定义 N」再改，默认主题不会被改坏。要整套新风格并起名保存，用 save_theme。',
       effect: 'write',
       highRisk: () => false,
       execute: (args) =>
         guard(() => {
           const result = ops.setTheme(getWorkspace(), args)
           commit(result.workspace)
-          return result.forked ? `当前是默认主题，已另存为「${result.forked.name}」并应用修改。想起个名字可以用 save_theme。` : '主题已更新。'
+          const loaded = args.fonts !== undefined ? '字体来自 Google Fonts，需要联网加载；加载失败页面会提示。' : ''
+          return loaded + (result.forked ? `当前是默认主题，已另存为「${result.forked.name}」并应用修改。想起个名字可以用 save_theme。` : '主题已更新。')
         }),
     },
   ),
@@ -384,7 +386,7 @@ export const HOME_TOOLS = [
       execute: async () => {
         const workspace = getWorkspace()
         return workspace.themes
-          .map((item) => `${item.id}｜${item.name}｜${item.id === workspace.theme.active ? '使用中' : '未使用'}${item.builtin ? '｜默认（不可改删）' : ''}${item.mode ? `｜自带${item.mode}` : ''}\n  ${item.description || '（无说明）'}\n  变量 ${JSON.stringify(item.overrides)}`)
+          .map((item) => `${item.id}｜${item.name}｜${item.id === workspace.theme.active ? '使用中' : '未使用'}${item.builtin ? '｜默认（不可改删）' : ''}${item.mode ? `｜自带${item.mode}` : ''}\n  ${item.description || '（无说明）'}\n  变量 ${JSON.stringify(item.overrides)}${item.fonts?.length ? `\n  字体 ${JSON.stringify(item.fonts)}` : ''}`)
           .join('\n')
       },
     },
@@ -394,7 +396,7 @@ export const HOME_TOOLS = [
       schema: {
         parse: (raw) => {
           const value = obj(raw)
-          return {id: optStr(value.id), name: optStr(value.name), description: optStr(value.description), overrides: value.overrides, mode: optStr(value.mode), activate: value.activate === false ? false : undefined}
+          return {id: optStr(value.id), name: optStr(value.name), description: optStr(value.description), overrides: value.overrides, fonts: value.fonts, mode: optStr(value.mode), activate: value.activate === false ? false : undefined}
         },
       },
       json: {
@@ -402,7 +404,8 @@ export const HOME_TOOLS = [
         properties: {
           name: {type: 'string', description: '主题名，20 字以内，例如「深海」「黄昏」'},
           description: {type: 'string', description: '一两句话说明这个主题的气质，之后在列表里看'},
-          overrides: {type: 'object', description: 'CSS 变量覆盖，键不带 `--`：main 主色、bg/bg2/bg3 背景层级、text/text2/text3 文字层级、radius 圆角等'},
+          overrides: {type: 'object', description: 'CSS 变量覆盖，键不带 `--`：main 主色、bg/bg2/bg3 背景层级、text/text2/text3 文字层级、radius 圆角、frame 外框粗细（0px 去掉外框）等'},
+          fonts: {type: 'array', description: '从 Google Fonts 引入的字体，例如 [{"family":"Playfair Display","role":"serif"}]；role 为 serif / sans / mono，决定接管哪类字体', items: {type: 'object', properties: {family: {type: 'string'}, role: {type: 'string', enum: ['serif', 'sans', 'mono']}}, required: ['family']}},
           mode: {type: 'string', enum: ['light', 'dark'], description: '主题自带的明暗；启用时会一并切过去'},
           id: {type: 'string', description: '要更新的已有主题 id；不填则按名字匹配，匹配不到就新建'},
           activate: {type: 'boolean', description: '存完是否立刻启用，默认启用'},
@@ -413,7 +416,7 @@ export const HOME_TOOLS = [
       name: 'save_theme',
       title: '保存主题',
       description:
-        '把一套配色存进主题库并（默认）启用。用户让你「做一个xx风格的主题」时用这个：起一个好记的名字、写一句说明、给出完整的变量。同名或同 id 的会被更新；默认主题不能改。深色类主题记得带 mode:"dark" 并把 bg/text 一起配好。',
+        '把一套配色存进主题库并（默认）启用。用户让你「做一个xx风格的主题」时用这个：起一个好记的名字、写一句说明、给出完整的变量；风格需要时一并配上字体（fonts）和外框（frame）。可改的变量（键不带 `--`）：main 主色；bg/bg2/bg3 背景层级；text/text2/text3/text4 文字层级；border、rule 线条；radius、radius-lg 圆角（默认 0，方角）；gutter 页面左右留白；frame 外框粗细（默认 7px，设 0px 就去掉外框，同时去掉外框占的边距）；frame-gap 外框占的边距（只想去掉红框但保留边距时，frame 设 0px 并把 frame-gap 设为 7px）；frame-color 外框颜色（默认跟随 main）；side-width 侧栏宽度。字体：用 fonts 从 Google Fonts 引入，例如 [{"family":"Playfair Display","role":"serif"},{"family":"Noto Sans SC","role":"sans"}]。role 决定它接管哪一类：serif=标题、大数字和正文（默认的衬线），sans=界面控件和小字，mono=数字、标签和顶栏的等宽字。不写 role 只加载不接管（再自己用 font-serif 等变量引用）。family 必须是 Google Fonts 上真实存在的名字，中文内容记得选支持中文的（Noto Serif SC、Noto Sans SC、ZCOOL XiaoWei、LXGW WenKai 等）。最多 4 个，一次传整个数组。同名或同 id 的会被更新；默认主题不能改。深色类主题记得带 mode:"dark" 并把 bg/text 一起配好。',
       effect: 'write',
       highRisk: () => false,
       execute: (args) =>

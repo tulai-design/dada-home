@@ -457,7 +457,7 @@ export function setLayers(workspace: Workspace, pageId: string, layers: unknown[
 }
 
 /** 改当前主题（明暗、变量）。当前是默认主题时会先另存为新主题，默认主题不会被改坏。 */
-export function setTheme(workspace: Workspace, input: {mode?: string; overrides?: Record<string, unknown> | null}) {
+export function setTheme(workspace: Workspace, input: {mode?: string; overrides?: Record<string, unknown> | null; fonts?: unknown}) {
   return tweakTheme(workspace, input)
 }
 

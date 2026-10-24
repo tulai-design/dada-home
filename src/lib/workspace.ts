@@ -13,6 +13,7 @@
 
 /** 当前工作空间结构版本。改结构就加一，并在 migrate 里补一条迁移。 */
 import type {DockStyle} from './dock'
+import type {ThemeFont} from './fonts'
 
 export const WORKSPACE_VERSION = 3
 
@@ -245,6 +246,8 @@ export type ThemeEntry = {
   description: string
   /** CSS 变量覆盖，键名不含 `--` 前缀，例如 {main: '#f5223f'} */
   overrides: Record<string, string>
+  /** 从 Google Fonts 引入的字体；带 role 的会接管对应的字体变量（serif / sans / mono） */
+  fonts?: ThemeFont[]
   /** 主题自带明暗时，启用它会同时切到这个明暗；不填则沿用当前 */
   mode?: 'light' | 'dark'
   builtin?: boolean
