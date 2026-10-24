@@ -14,6 +14,7 @@ import {PRESETS} from './presets'
 import {MEMORY_KINDS, addMemory, aiEditSoul, getPersona, removeMemory} from './persona'
 import {isSynced, summarize} from './templates'
 import {SITE_TOOLS} from './siteTools'
+import {SEARCH_TOOLS} from './searchTools'
 
 /**
  * AI 可调用的工作空间工具。
@@ -1527,6 +1528,9 @@ export const HOME_TOOLS = [
 
   // ───── 站点功能：订阅、热榜、待办、便签、天气、监控、设置、技能 ─────
   ...SITE_TOOLS,
+
+  // ───── 搜索：帮用户去搜（open_search）、自己联网查（web_search / web_fetch） ─────
+  ...SEARCH_TOOLS,
 ] as const
 
 type AnyHomeTool = ToolDefinition<unknown, HomeToolContext, void, unknown>

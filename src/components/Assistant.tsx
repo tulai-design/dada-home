@@ -30,7 +30,7 @@ type Props = {
   onClose: () => void
   onOpenSettings: () => void
   /** 用户对确认卡片的选择 */
-  onApprovalAnswer: (approved: boolean) => void
+  onApprovalAnswer: (approved: boolean | 'always') => void
 }
 
 /** 距底部多少像素内算「贴底」，超过就认为用户在看历史，不再自动跟随。 */
@@ -241,7 +241,7 @@ export function Assistant({open, mode, onMode, ai, turns, ready, convs, convId, 
 }
 
 /** 一轮对话：用户提问 → 思考 → 工具 → 回答 → 失败/耗时。 */
-function TurnView({turn, busy, onApprovalAnswer}: {turn: Turn; busy: boolean; onApprovalAnswer: (approved: boolean) => void}) {
+function TurnView({turn, busy, onApprovalAnswer}: {turn: Turn; busy: boolean; onApprovalAnswer: (approved: boolean | 'always') => void}) {
   const active = isActive(turn) && busy
   const thinking = active && !turn.answer && (!turn.tools.length || turn.tools.every((t) => t.ok))
   const seconds = elapsed(turn)

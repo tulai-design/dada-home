@@ -8,6 +8,8 @@ import {probe, summarize} from './monitor'
 import {fetchAllFeeds, plainText} from './rss'
 import {findSkill, SKILLS} from './skills'
 import {readStored, uid, writeStored} from './store'
+import {isAlwaysAllowed} from './permissions'
+import {providerInfo, readSearchConfig, searchReady} from './webSearch'
 import type {Article, Feed, Settings, Todo} from './types'
 import {fetchWeather, geocode} from './weather'
 import {getWorkspace} from './workspaceStore'
@@ -99,7 +101,14 @@ function slotFor(type: 'todos' | 'note', ref: string | undefined): Slot {
 
 const todosOf = (id: string) => readData<Todo[]>(id, [])
 
-const SECTION_HINT = 'profile 个人｜appearance 外观｜templates 模板｜sidebar 侧栏｜statusbar 状态条｜ai 搭搭 AI｜soul 灵魂｜memory 记忆｜network 网络｜data 数据｜about 关于｜feeds 订阅｜hot 热榜｜bookmarks 书签｜weather 天气｜monitor 监控'
+function searchLine(): string {
+  const config = readSearchConfig()
+  const info = providerInfo(config.provider)
+  if (!info) return '未开启（web_search 不可用；密钥由用户自己在设置里填，你不能改）'
+  return `${info.name}｜${searchReady(config) ? '已配好，可用 web_search' : '还没配好（缺密钥或地址）'}`
+}
+
+const SECTION_HINT = 'profile 个人｜appearance 外观｜templates 模板｜sidebar 侧栏｜statusbar 状态条｜ai 搭搭 AI｜soul 灵魂｜memory 记忆｜network 网络｜search 联网搜索｜data 数据｜about 关于｜feeds 订阅｜hot 热榜｜bookmarks 书签｜weather 天气｜monitor 监控'
 
 export const SITE_TOOLS = [
   /* ───── 订阅 ───── */
@@ -478,6 +487,8 @@ export const SITE_TOOLS = [
           `壁纸：${s.wallpaper}`,
           `热榜关注：${(s.hotBoards ?? []).join('、') || '（默认）'}`,
           `监控：${s.monitor?.length ?? 0} 个`,
+          `联网搜索：${searchLine()}`,
+          `「搜索并跳转」${isAlwaysAllowed('open_search') ? '已设为总是允许（不再询问）' : '每次都要用户确认'}`,
           `AI：模型 ${s.ai.model}｜${s.ai.apiKey ? '已填密钥' : '未填密钥'}（接口地址、密钥、模型由用户自己在设置里填，你不能改）`,
           `侧栏进入 AI 的方式：${readStored<string>('sidebarAi', 'full') === 'full' ? '全屏' : '侧栏'}`,
           `已安装的市场组件：${ws.addons.join('、') || '（无）'}`,

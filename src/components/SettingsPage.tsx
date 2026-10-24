@@ -1,17 +1,19 @@
 import {useRef, useState, type ReactNode} from 'react'
 import {ActionIcon, Modal, Segmented, Text} from '@lobehub/ui'
-import {Brain, ChevronLeft, Database, Download, Globe, Heart, Info, LayoutDashboard, LayoutTemplate, Palette, PanelLeft, PanelTop, RotateCcw, Upload, Sparkles, User} from 'lucide-react'
+import {Brain, ChevronLeft, Database, Download, Globe, Heart, Info, LayoutDashboard, LayoutTemplate, Palette, PanelLeft, PanelTop, RotateCcw, Search, Upload, Sparkles, User} from 'lucide-react'
 import type {LucideIcon} from 'lucide-react'
 import {appVisible} from '../lib/market'
 import {defaultWorkspace} from '../lib/ops'
 import {AppSettingsCtx, listApps, type AppSettingsContext} from '../lib/apps'
 import {PROXY_PRESETS} from '../lib/rss'
 import {useStored} from '../lib/store'
+import {SEARCH_KEY, defaultSearchConfig, providerInfo, searchReady, type SearchConfig} from '../lib/webSearch'
 import {Group, Row, TextRow, Tile} from './ios'
 import {SidebarSettings, StatusbarSettings} from './LayoutSettings'
 import {exportIdb, importBackup, parseBackup, type BackupSummary} from '../lib/storage'
 import {useIsMobile} from '../lib/useMedia'
 import {AiSettings} from './AiSettings'
+import {SearchSettings} from './SearchSettings'
 import {AboutPanel} from './About'
 import {AppearanceSettings} from './ThemeSettings'
 import {TemplateSettings} from './TemplateSettings'
@@ -81,6 +83,8 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, onSection, o
       setImportError(error instanceof Error ? error.message : String(error))
     }
   }
+  const [searchConfig] = useStored<SearchConfig>(SEARCH_KEY, defaultSearchConfig())
+  const searchSummary = providerInfo(searchConfig.provider) ? (searchReady(searchConfig) ? providerInfo(searchConfig.provider)?.name : '未配好') : '未启用'
   const [assistantMode, setAssistantMode] = useStored<'drawer' | 'full'>('sidebarAi', 'full')
 
   const general: Section[] = [
@@ -164,6 +168,15 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, onSection, o
           </Group>
         </>
       ),
+    },
+    {
+      id: 'search',
+      name: '联网搜索',
+      icon: Search,
+      color: '#0a84ff',
+      summary: searchSummary,
+      description: '让搭搭自己上网查资料：Tavily、Firecrawl、SearXNG 等。也可以管理「搜索并跳转」是否每次询问。',
+      render: () => <SearchSettings />,
     },
     {
       id: 'soul',

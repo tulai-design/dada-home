@@ -71,7 +71,7 @@ export default function App() {
   const [busy, setBusy] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   /** 待答复的确认请求：由 ask 写入，由确认卡片按钮调用。 */
-  const settleRef = useRef<((approved: boolean) => void) | null>(null)
+  const settleRef = useRef<((approved: boolean | 'always') => void) | null>(null)
 
   const [pageId, setPageId] = useStored<string>('page', 'home')
   const [pendingPage, setPendingPage] = useState<string | null>(null)
@@ -217,7 +217,7 @@ export default function App() {
        * 答复函数存进 ref，让界面上的按钮能触发；只 resolve 一次，之后清空。
        */
       const onApproval = (request: ApprovalRequest) =>
-        new Promise<boolean>((resolve) => {
+        new Promise<boolean | 'always'>((resolve) => {
           settleRef.current = (approved) => {
             settleRef.current = null
             patch({ pending: undefined })
@@ -278,7 +278,7 @@ export default function App() {
 
   /** 用户点了确认卡片上的允许/拒绝。 */
   const answerApproval = useCallback(
-    (approved: boolean) => {
+    (approved: boolean | 'always') => {
       const current = settleRef.current
       settleRef.current = null
       if (current) current(approved)

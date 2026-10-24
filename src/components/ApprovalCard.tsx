@@ -15,7 +15,7 @@ export function ApprovalCard({
   onAnswer,
 }: {
   request: ApprovalRequest
-  onAnswer: (approved: boolean) => void
+  onAnswer: (approved: boolean | 'always') => void
 }) {
   return (
     <Flexbox className="approval-card" gap={8}>
@@ -31,6 +31,11 @@ export function ApprovalCard({
         <Button type="primary" size="small" icon={<Check size={14} />} onClick={() => onAnswer(true)}>
           允许
         </Button>
+        {request.remember && (
+          <Button size="small" onClick={() => onAnswer('always')} title={`以后「${request.remember}」不再询问，可以在设置里随时关掉`}>
+            总是允许
+          </Button>
+        )}
         <Button size="small" icon={<X size={14} />} onClick={() => onAnswer(false)}>
           拒绝
         </Button>

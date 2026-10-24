@@ -12,6 +12,8 @@ import * as registry from './registry'
 import {getWorkspace} from './workspaceStore'
 import {personaPrompt} from './persona'
 import {skillIndex} from './skills'
+import {REMEMBERABLE, setAlwaysAllowed} from './permissions'
+import {OPEN_TARGETS} from './defaults'
 
 /** 会话消息。wire 格式由 provider 定义，这里直接沿用它的形状。 */
 export type ChatMessage =
@@ -52,7 +54,8 @@ const SYSTEM_PROMPT = [
     '- 待办与便签：list_todos / add_todos / complete_todos / remove_todos，read_note / write_note。页面上没有这些组件时，先 install_addon 装 desk。有多个同类组件时用 ref 指定。',
     '- 天气与监控：get_weather 读当前天气；list_monitors 看服务状态（监控的令牌由用户自己填）。',
     '- 设置：get_settings 看全局设置，update_settings 改称呼、城市、时钟秒数、站点图标、输入框默认引擎、侧栏进入 AI 的方式；open_settings 带用户去设置页的某一项。',
-    '  你不能改 AI 的接口地址、密钥、模型，也不能改监控令牌和取数代理——它们涉及密钥和数据流向。用户要改这些，用 open_settings 带他去，并说明要填什么。',
+    '  你不能改 AI 的接口地址、密钥、模型，也不能改联网搜索的密钥、监控令牌和取数代理，更不能给自己加「总是允许」——它们涉及密钥和数据流向。用户要改这些，用 open_settings 带他去，并说明要填什么。',
+    '- 搜索有两种，别混：用户要「去某个搜索引擎搜 xx」「在 B 站/GitHub/知乎找 xx」→ open_search，在新标签页打开结果页，用户自己看（需要他点同意，他可能选过「总是允许」）；你自己要查资料、核对事实、了解最新消息再回答 → web_search（可跟 web_fetch 读正文），回答里附上来源链接。web_search 要用户在设置的「联网搜索」里配好服务商和密钥（Tavily、Firecrawl、SearXNG、Exa、Brave），没配好就告诉他怎么配，或者先用 open_search 顶上。',
     '- 外观与结构：页面、组件、主题、模板、壁纸、特效图层、状态条、市场组件，见上面各条。',
     '',
     '技能（遇到匹配的任务，先 use_skill 取方法说明，再照着做）：',
@@ -168,13 +171,16 @@ export type ApprovalRequest = {
     tool: string
     /** 一句话说清要做什么、对谁做 */
     summary: string
+    /** 有值表示这类操作可以选「总是允许」，值是它在界面上的名字 */
+    remember?: string
 }
 export type RunOptions = {
     config: AiConfig
     messages: ChatMessage[]
     host: ToolHost
     permissionMode?: AgentPermissionMode
-    onApproval?: (request: ApprovalRequest) => boolean | Promise<boolean>
+    /** 返回 'always' 表示允许，并且以后同类操作不再询问 */
+    onApproval?: (request: ApprovalRequest) => boolean | 'always' | Promise<boolean | 'always'>
     onDelta: (chunk: string) => void
     /** 模型的思考过程，部分模型才会返回。 */
     onReasoning?: (chunk: string) => void
@@ -266,7 +272,8 @@ async function dispatchTool(
         if (!onApproval) {
             return {name, title: label, ok: false, text: `这个操作需要确认，但当前没有可用的确认入口：${summary}`}
         }
-        const approved = await onApproval({tool: tool.title, summary})
+        const approved = await onApproval({tool: tool.title, summary, remember: REMEMBERABLE[name]?.label})
+        if (approved === 'always') setAlwaysAllowed(name, true)
         if (!approved) return {name, title: label, ok: false, text: `用户拒绝了：${summary}`}
     }
 
@@ -324,6 +331,10 @@ function describeTool(name: string, title: string, args: unknown): string {
         case 'apply_template': {
             const ref = text(record.ref)
             return ref ? `${title}「${ref}」，会替换当前所有页面和组件（可以撤销）` : title
+        }
+        case 'open_search': {
+            const target = OPEN_TARGETS.find((t) => t.id === text(record.engine))
+            return `在新标签页打开${target ? target.label : '默认搜索引擎'}，搜索「${(text(record.query) ?? '').slice(0, 60)}」`
         }
         case 'remove_feed':
             return `${title}（id ${text(record.id) ?? '?'}）`
