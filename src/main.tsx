@@ -7,6 +7,7 @@ import '@lobehub/ui/style.css'
 import App from './App'
 import { initAnalytics } from './lib/analytics'
 import { initStorage } from './lib/storage'
+import { startAutoSync } from './lib/sync'
 import './styles.css'
 import './theme.css'
 import './dock.css'
@@ -55,7 +56,8 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
 }
 
 // 先把 IndexedDB 里的数据读进内存再渲染：组件一挂载就要同步拿到自己的数据。
-void initStorage().then(() =>
+void initStorage().then(() => {
+  startAutoSync()
   createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ConfigProvider motion={motion}>
@@ -63,5 +65,5 @@ void initStorage().then(() =>
       <App />
     </ConfigProvider>
   </StrictMode>,
-  ),
-)
+  )
+})

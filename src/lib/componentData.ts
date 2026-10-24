@@ -32,7 +32,7 @@ function notify(instanceId: string) {
 }
 
 /** 合并短时间内对同一个实例的多次写入（比如在便签里打字），一次落库。 */
-async function flush() {
+export async function flush() {
   window.clearTimeout(timer)
   timer = undefined
   const rows = [...pending].map(([k, v]) => ({k, v}))

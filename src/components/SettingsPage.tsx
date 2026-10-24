@@ -1,6 +1,6 @@
 import {useRef, useState, type ReactNode} from 'react'
 import {ActionIcon, Modal, Segmented, Text} from '@lobehub/ui'
-import {Brain, CaretLeft as ChevronLeft, Database, DownloadSimple as Download, Globe, Heart, Info, Layout as LayoutDashboard, Layout as LayoutTemplate, Palette, SidebarSimple as PanelLeft, Browser as PanelTop, ArrowCounterClockwise as RotateCcw, MagnifyingGlass as Search, UploadSimple as Upload, Sparkle as Sparkles, User} from '@phosphor-icons/react'
+import {ArrowsClockwise, Brain, CaretLeft as ChevronLeft, Database, DownloadSimple as Download, Globe, Heart, Info, Layout as LayoutDashboard, Layout as LayoutTemplate, Palette, SidebarSimple as PanelLeft, Browser as PanelTop, ArrowCounterClockwise as RotateCcw, MagnifyingGlass as Search, UploadSimple as Upload, Sparkle as Sparkles, User} from '@phosphor-icons/react'
 import type {Icon as PhosphorIcon} from '@phosphor-icons/react'
 import {appVisible} from '../lib/market'
 import {defaultWorkspace} from '../lib/ops'
@@ -13,6 +13,8 @@ import {SidebarSettings, StatusbarSettings} from './LayoutSettings'
 import {exportIdb, importBackup, parseBackup, type BackupSummary} from '../lib/storage'
 import {useIsMobile} from '../lib/useMedia'
 import {AiSettings} from './AiSettings'
+import {SyncSettings} from './SyncSettings'
+import {readSyncConfig, syncConfigured, useSyncStatus} from '../lib/sync'
 import {SearchSettings} from './SearchSettings'
 import {AboutPanel} from './About'
 import {AppearanceSettings} from './ThemeSettings'
@@ -66,6 +68,7 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, onSection, o
   const {settings, patch} = ctx
   const mobile = useIsMobile()
   const persona = usePersona()
+  const syncStatus = useSyncStatus()
   // 手机上一次只显示一栏：直接点进设置先看列表；从别处跳来指定某一项时直接显示那一项
   const [pane, setPane] = useState<'list' | 'detail'>(mobile && section === 'profile' ? 'list' : 'detail')
   const [resetOpen, setResetOpen] = useState(false)
@@ -215,6 +218,15 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, onSection, o
           </Group>
         </>
       ),
+    },
+    {
+      id: 'sync',
+      name: '同步',
+      icon: ArrowsClockwise,
+      color: '#0a84ff',
+      summary: syncConfigured(readSyncConfig()) ? (syncStatus.phase === 'error' ? '出错了' : readSyncConfig().auto ? '自动' : '手动') : '未开启',
+      description: '把数据同步到你自己的存储里，在多台设备间保持一致。',
+      render: () => <SyncSettings />,
     },
     {
       id: 'data',

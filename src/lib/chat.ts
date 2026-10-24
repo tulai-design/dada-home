@@ -143,7 +143,7 @@ export function initChat(): Promise<void> {
 }
 
 /** 把脏的轮次写进库，并更新对话的标题和时间。 */
-async function flush() {
+export async function flush() {
   window.clearTimeout(timer)
   timer = undefined
   const {turns, convId} = state
