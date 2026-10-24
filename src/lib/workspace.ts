@@ -24,6 +24,7 @@ export type BuiltinType =
   | 'feeds'
   | 'hot'
   | 'search'
+  | 'links'
   | 'quote'
   | 'monitor'
   /** 特效素材：背景 / 文字 / 卡片 / 3D 场景，来自 src/fx 的素材库 */

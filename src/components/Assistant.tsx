@@ -1,7 +1,6 @@
 import {useEffect, useLayoutEffect, useRef, useState} from 'react'
 import {ActionIcon, Button, Drawer, Empty, Flexbox, Markdown, Modal, Text} from '@lobehub/ui'
 import {ArrowDown, History, Maximize2, MessageSquare, Minimize2, Plus, Settings, Square, Trash2, X} from 'lucide-react'
-import {useStored} from '../lib/store'
 import type {AiConfig} from '../lib/types'
 import {useIsMobile} from '../lib/useMedia'
 import {Mascot} from './About'
@@ -13,6 +12,8 @@ import {ApprovalCard} from './ApprovalCard'
 
 type Props = {
   open: boolean
+  mode: 'drawer' | 'full'
+  onMode: (mode: 'drawer' | 'full') => void
   ai: AiConfig
   turns: Turn[]
   /** 对话记录是否已从 IndexedDB 读完 */
@@ -29,7 +30,7 @@ type Props = {
   onClose: () => void
   onOpenSettings: () => void
   /** 用户对确认卡片的选择 */
-  onApprovalAnswer: (approved: boolean) => void
+  onApprovalAnswer: (approved: boolean | 'always') => void
 }
 
 /** 距底部多少像素内算「贴底」，超过就认为用户在看历史，不再自动跟随。 */
@@ -37,8 +38,7 @@ const FOLLOW_THRESHOLD = 120
 /** 一次渲染多少轮。 */
 const PAGE = 40
 
-export function Assistant({open, ai, turns, ready, convs, convId, onNewConv, onOpenConv, onDeleteConv, busy, seed, onSend, onStop, onClose, onOpenSettings, onApprovalAnswer}: Props) {
-  const [mode, setMode] = useStored<'drawer' | 'full'>('assistantMode', 'drawer')
+export function Assistant({open, mode, onMode, ai, turns, ready, convs, convId, onNewConv, onOpenConv, onDeleteConv, busy, seed, onSend, onStop, onClose, onOpenSettings, onApprovalAnswer}: Props) {
   const [input, setInput] = useState('')
   const logRef = useRef<HTMLDivElement>(null)
   const followRef = useRef(true)
@@ -109,7 +109,7 @@ export function Assistant({open, ai, turns, ready, convs, convId, onNewConv, onO
       {(mode !== 'full' || mobile) && <ActionIcon icon={History} title="历史对话" onClick={() => setListOpen(true)} />}
       {turns.length > 0 && <ActionIcon icon={Trash2} title="删除这个对话" disabled={busy} onClick={() => setPendingDelete(convId)} />}
       <ActionIcon icon={Settings} title="设置" onClick={onOpenSettings} />
-      <ActionIcon icon={mode === 'full' ? Minimize2 : Maximize2} title={mode === 'full' ? '退出全屏' : '全屏'} onClick={() => setMode(mode === 'full' ? 'drawer' : 'full')} />
+      <ActionIcon icon={mode === 'full' ? Minimize2 : Maximize2} title={mode === 'full' ? '退出全屏' : '全屏'} onClick={() => onMode(mode === 'full' ? 'drawer' : 'full')} />
     </Flexbox>
   )
 
@@ -124,10 +124,10 @@ export function Assistant({open, ai, turns, ready, convs, convId, onNewConv, onO
           <Empty
             image={<Mascot size={120} className="mascot chat-mascot" />}
             imageSize={120}
-            title={configured ? '说说你想怎么改' : '模型未接入'}
+            title={configured ? '想让搭搭做点什么？' : '模型未接入'}
             description={
               configured
-                ? '例如「加一个便签页」「把天气挪到右上」「换成深色主题」。搭搭会直接改页面，改错可以撤销。'
+                ? '可以聊天、查资料、总结订阅，也可以让它直接动手：「加一个便签页」「换成深色主题」「记一个待办」。改页面改错了可以撤销。'
                 : '在设置里填写兼容 OpenAI 的接口地址和模型。'
             }
             action={!configured ? <Button type="primary" icon={<Settings size={14} />} onClick={onOpenSettings}>去设置</Button> : undefined}
@@ -159,7 +159,7 @@ export function Assistant({open, ai, turns, ready, convs, convId, onNewConv, onO
           onSend={submit}
           onStop={onStop}
           busy={busy}
-          placeholder={configured ? '说一句话，让搭搭改页面' : '先配置模型'}
+          placeholder={configured ? '问点什么，或者让搭搭动手做点事' : '先配置模型'}
           hint={configured ? ai.model : '未配置模型'}
           model={configured ? ai.model : undefined}
         />
@@ -241,7 +241,7 @@ export function Assistant({open, ai, turns, ready, convs, convId, onNewConv, onO
 }
 
 /** 一轮对话：用户提问 → 思考 → 工具 → 回答 → 失败/耗时。 */
-function TurnView({turn, busy, onApprovalAnswer}: {turn: Turn; busy: boolean; onApprovalAnswer: (approved: boolean) => void}) {
+function TurnView({turn, busy, onApprovalAnswer}: {turn: Turn; busy: boolean; onApprovalAnswer: (approved: boolean | 'always') => void}) {
   const active = isActive(turn) && busy
   const thinking = active && !turn.answer && (!turn.tools.length || turn.tools.every((t) => t.ok))
   const seconds = elapsed(turn)

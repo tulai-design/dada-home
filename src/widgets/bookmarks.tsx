@@ -1,8 +1,9 @@
 import {useState} from 'react'
-import {ActionIcon, A, Button, Empty, Flexbox, Text} from '@lobehub/ui'
+import {ActionIcon, Button, Empty, Flexbox, Text} from '@lobehub/ui'
 import {Bookmark, FileDown, FileUp, Pencil, Plus} from 'lucide-react'
 import {BookmarkEditor, GroupEditor} from '../components/BookmarkEditor'
 import {BookmarkSync} from '../components/BookmarkSync'
+import {Favicon} from '../components/Favicon'
 import {download, hostOf, normalizeUrl, toHtml} from '../lib/bookmarks'
 import {registerApp, useAppSettings} from '../lib/apps'
 import {Group, Row} from '../components/ios'
@@ -17,9 +18,8 @@ type BookmarksConfig = {
   singleGroup: boolean
 }
 
-function favicon(url: string) {
-  return `https://www.google.com/s2/favicons?domain=${hostOf(url)}&sz=64`
-}
+/** 每组先显示这么多，其余收起来：导入浏览器书签后一个分组可能有几百条。 */
+const GROUP_PREVIEW = 18
 
 function Bookmarks({config, host}: ComponentProps<BookmarksConfig>) {
   // 书签是共享数据：多个书签卡片显示同一批分组
@@ -29,6 +29,7 @@ function Bookmarks({config, host}: ComponentProps<BookmarksConfig>) {
   const [groupEditing, setGroupEditing] = useState<BookmarkGroup | null>(null)
 
   const [syncOpen, setSyncOpen] = useState(false)
+  const [opened, setOpened] = useState<string[]>([])
 
   return (
     <Flexbox className="page-pane" direction="vertical" gap={16}>
@@ -41,33 +42,45 @@ function Bookmarks({config, host}: ComponentProps<BookmarksConfig>) {
       </Flexbox>
       {shown.length ? (
         <div className="mark-board page-list">
-          {shown.map((group) => (
-            <section key={group.id}>
-              <h3 className="mark-title">
-                {group.name}
-                <ActionIcon className="mark-edit" icon={Pencil} size="small" title="编辑分组" onClick={() => setGroupEditing(group)} />
-              </h3>
-              <div className="mark-grid">
-                {group.items.map((item) => {
-                  const href = normalizeUrl(item.url)
-                  const icon = config.showFavicons && host.profile.showFavicons && href ? favicon(href) : ''
-                  return (
-                    <Flexbox key={item.id} direction="horizontal" align="center" gap={4} className="mark-cell" width="100%">
-                      {href ? (
-                        <A href={href} target="_blank" rel="noreferrer noopener">
-                          {icon ? <img src={icon} alt="" width={16} height={16} /> : null}
-                          {item.name}
-                        </A>
-                      ) : (
-                        <Text type="secondary">{item.name}</Text>
-                      )}
-                      <ActionIcon className="mark-edit" icon={Pencil} size="small" title="编辑" onClick={() => setEditing({bookmark: item, group: group.name})} />
-                    </Flexbox>
-                  )
-                })}
-              </div>
-            </section>
-          ))}
+          {shown.map((group) => {
+            const open = opened.includes(group.id)
+            const items = open ? group.items : group.items.slice(0, GROUP_PREVIEW)
+            const hidden = group.items.length - items.length
+            return (
+              <section key={group.id}>
+                <h3 className="mark-title">
+                  {group.name}
+                  <span className="mark-count">{group.items.length}</span>
+                  <ActionIcon className="mark-edit" icon={Pencil} size="small" title="编辑分组" onClick={() => setGroupEditing(group)} />
+                </h3>
+                <div className="mark-grid">
+                  {items.map((item) => {
+                    const href = normalizeUrl(item.url)
+                    return (
+                      <div key={item.id} className="mark-cell">
+                        {href ? (
+                          <a className="mark-link" href={href} target="_blank" rel="noreferrer noopener" title={`${item.name}\n${href}`}>
+                            <Favicon url={href} name={item.name} size={16} enabled={config.showFavicons && host.profile.showFavicons} />
+                            <span className="mark-name">{item.name}</span>
+                          </a>
+                        ) : (
+                          <span className="mark-link mark-link-off" title={item.name}>
+                            <span className="mark-name">{item.name}</span>
+                          </span>
+                        )}
+                        <ActionIcon className="mark-edit" icon={Pencil} size="small" title="编辑" onClick={() => setEditing({bookmark: item, group: group.name})} />
+                      </div>
+                    )
+                  })}
+                </div>
+                {group.items.length > GROUP_PREVIEW && (
+                  <button type="button" className="mark-more" onClick={() => setOpened((list) => (open ? list.filter((id) => id !== group.id) : [...list, group.id]))}>
+                    {open ? '收起' : `展开其余 ${hidden} 个`}
+                  </button>
+                )}
+              </section>
+            )
+          })}
         </div>
       ) : (
         <Empty

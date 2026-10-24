@@ -171,7 +171,7 @@ const EFFORTS = [
   {value: 'high', label: '高'},
 ]
 
-const ADVANCED_KEYS = ['temperature', 'topP', 'maxTokens', 'presencePenalty', 'frequencyPenalty', 'reasoningEffort', 'systemPrompt', 'contextTurns', 'maxRounds', 'extraBody'] as const
+const ADVANCED_KEYS = ['temperature', 'topP', 'maxTokens', 'presencePenalty', 'frequencyPenalty', 'reasoningEffort', 'contextTurns', 'maxRounds', 'extraBody'] as const
 
 function extraBodyError(text: string | undefined): string | undefined {
   if (!text?.trim()) return undefined
@@ -196,7 +196,7 @@ function AdvancedAi({ai, onChange}: {ai: AiConfig; onChange: (next: AiConfig) =>
   return (
     <>
       <Group>
-        <Row label="高级设置" hint={touched ? `已自定义 ${touched} 项` : '采样参数、推理强度、上下文、自定义指令'} chevron={!open} onClick={() => setOpen(!open)}>
+        <Row label="高级设置" hint={touched ? `已自定义 ${touched} 项` : '采样参数、推理强度、上下文长度'} chevron={!open} onClick={() => setOpen(!open)}>
           {open ? <ChevronUp size={16} /> : undefined}
         </Row>
       </Group>
@@ -223,19 +223,6 @@ function AdvancedAi({ai, onChange}: {ai: AiConfig; onChange: (next: AiConfig) =>
           <Group title="对话" footer="历史轮数越多，模型记得越久，也越贵。工具轮数是搭搭一次回答里最多连着改几次页面。">
             <NumberRow label="带上的历史" hint="最近多少轮问答" value={ai.contextTurns} min={1} max={100} step={1} placeholder="24" onChange={(v) => set({contextTurns: v && Math.round(v)})} />
             <NumberRow label="工具轮数上限" hint="一次回答最多连续操作几轮" value={ai.maxRounds} min={1} max={40} step={1} placeholder="14" onChange={(v) => set({maxRounds: v && Math.round(v)})} />
-          </Group>
-          <Group title="自定义指令" footer="每次对话都会附在搭搭的系统提示后面，比如「标题都用衬线字体」「回答尽量简短」。最多 2000 字。">
-            <Row stack>
-              <TextArea
-                className="ai-textarea"
-                variant="borderless"
-                autoSize={{minRows: 3, maxRows: 10}}
-                maxLength={2000}
-                value={ai.systemPrompt ?? ''}
-                placeholder="告诉搭搭你的长期偏好…"
-                onChange={(event) => set({systemPrompt: event.target.value || undefined})}
-              />
-            </Row>
           </Group>
           <Group
             title="额外请求参数"

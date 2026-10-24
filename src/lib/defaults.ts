@@ -95,3 +95,17 @@ export const SEARCH_ENGINES = [
   { id: 'ddg', label: 'DuckDuckGo', tag: 'ddg', mark: 'D', color: '#de5833', url: 'https://duckduckgo.com/?q=' },
   { id: 'ecosia', label: 'Ecosia', tag: 'eco', mark: 'E', color: '#36acb6', url: 'https://www.ecosia.org/search?q=' },
 ] as const
+
+/**
+ * 搭搭帮用户「搜索并跳转」时能去的地方：上面的通用搜索引擎，加上几个常用站内搜索。
+ * 只给模型用，输入框里的引擎列表不受影响。
+ */
+export const OPEN_TARGETS: readonly {id: string; label: string; url: string}[] = [
+  ...SEARCH_ENGINES.map((e) => ({id: e.id as string, label: e.label as string, url: e.url as string})),
+  { id: 'github', label: 'GitHub', url: 'https://github.com/search?q=' },
+  { id: 'youtube', label: 'YouTube', url: 'https://www.youtube.com/results?search_query=' },
+  { id: 'bilibili', label: 'B 站', url: 'https://search.bilibili.com/all?keyword=' },
+  { id: 'zhihu', label: '知乎', url: 'https://www.zhihu.com/search?q=' },
+  { id: 'wikipedia', label: '维基百科', url: 'https://zh.wikipedia.org/w/index.php?search=' },
+  { id: 'maps', label: '谷歌地图', url: 'https://www.google.com/maps/search/' },
+]

@@ -466,11 +466,14 @@ export function defaultWorkspace(): Workspace {
         icon: 'home',
         // 默认不铺照片：纸张底色是这套界面的核心。想要壁纸，对搭搭说一声即可。
         align: 'center',
+        // 一层很淡的波纹线做装饰，不抢时钟和搜索框；在设置 › 外观里可换可关
+        layers: [{effect: 'waves', params: {opacity: 0.45, fade: 0.55, spacing: 14, amplitude: 34, speed: 0.5}}],
         components: [
-          // 首页像一个搜索页：时钟（含一行天气）+ 一个搜索/对话框，别的都不放。
+          // 首页像一个搜索页：时钟（含一行天气）+ 搜索/对话框 + 一排常用网站。
           // 其他功能在组件市场里，装了再说。
           make('clock'),
           make('search'),
+          make('links'),
         ],
       },
     ],

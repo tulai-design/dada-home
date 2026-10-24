@@ -4,6 +4,7 @@ import { Pencil, Trash2 } from 'lucide-react'
 import { useAppSettings } from '../lib/apps'
 import { applyTheme, removeTheme, saveTheme, swatch } from '../lib/themes'
 import type { ThemeEntry } from '../lib/workspace'
+import { applyDecor, currentDecor, DECORS } from '../lib/decor'
 import { Group, Row, TextRow } from './ios'
 
 /** 主题的小色块：背景色打底，一道文字色，一个主色点。 */
@@ -23,6 +24,7 @@ function Swatch({ theme, mode }: { theme: ThemeEntry; mode: 'light' | 'dark' }) 
  */
 export function AppearanceSettings({ mode, onMode }: { mode: 'light' | 'dark'; onMode: (mode: 'light' | 'dark') => void }) {
   const { workspace, edit } = useAppSettings()
+  const decorId = currentDecor(workspace)
   const [editing, setEditing] = useState<ThemeEntry | null>(null)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -48,6 +50,13 @@ export function AppearanceSettings({ mode, onMode }: { mode: 'light' | 'dark'; o
             onChange={(value) => onMode(value as 'light' | 'dark')}
           />
         </Row>
+      </Group>
+
+      <Group title="首页装饰" footer="给首页铺一层动态背景，来自 React Bits。想要别的效果，或者 Spline 3D 场景，对搭搭说一声就行。">
+        {DECORS.map((decor) => (
+          <Row key={decor.id} label={decor.name} hint={decor.hint} checked={decor.id === decorId} onClick={() => edit((ws) => applyDecor(ws, decor.id))} />
+        ))}
+        {decorId === 'custom' && <Row label="自定义" hint="搭搭设置的图层，选上面任意一项会替换它" checked />}
       </Group>
 
       <Group

@@ -10,6 +10,10 @@ import {findTool, runTool, toolSchemas, type HomeToolContext, type ToolHost} fro
 import * as ops from './ops'
 import * as registry from './registry'
 import {getWorkspace} from './workspaceStore'
+import {personaPrompt} from './persona'
+import {skillIndex} from './skills'
+import {REMEMBERABLE, setAlwaysAllowed} from './permissions'
+import {OPEN_TARGETS} from './defaults'
 
 /** 会话消息。wire 格式由 provider 定义，这里直接沿用它的形状。 */
 export type ChatMessage =
@@ -18,7 +22,7 @@ export type ChatMessage =
     | {role: 'tool'; content: string; tool_call_id: string}
 
 const SYSTEM_PROMPT = [
-    '你是搭搭，一个个人主页的搭建助手。用户用自然语言描述想要的页面，你通过工具把它搭出来、改好。',
+    '你是搭搭（名字和性格以下面的「灵魂」为准），一个个人主页的搭建助手。用户用自然语言描述想要的页面，你通过工具把它搭出来、改好。',
     '',
     '工作空间由「页面」组成，页面由「组件」组成，页面上还可以叠「特效图层」。',
     '你有很大的创作自由，手里有三档工具，从稳到放：',
@@ -42,17 +46,25 @@ const SYSTEM_PROMPT = [
     '2. 优先用低档位：现成组件能做就别写代码，素材库能做就别开沙盒。低档位更稳、更快、改起来更容易。',
     '3. 不要说「做不到」。内置组件不够，就想第二档、第三档能不能做。真做不到再说明原因。',
     '4. 能一步到位就别反复试探；改完用一句话说明改了什么。删除前确认用户确实想删。',
-    '5. 组件里的待办、便签内容是用户自己的数据，你不读写它们，只负责搭建和配置。',
+    '5. 待办、便签、订阅、书签是用户自己的内容：用户让你看、记、勾选、整理时才动，别擅自改；覆盖便签、删除待办、取消订阅这类操作要先确认。',
     '',
-    '审美（用户喜欢编辑部杂志的气质，克制、有秩序、有一处出彩）：',
-    '- 一页只放一个视觉主角。炫酷效果是点睛，不是铺满：整页背景最多 1~2 层，大标题特效最多 1 个。',
-    '- 文字永远可读。背景效果下面压文字时，降低 opacity 或选浅色/低对比参数；深色背景用浅字。',
-    '- 沿用主题变量和字体（serif 做标题，sans 做正文，mono 做标签），颜色靠拢主题主色 var(--main)，不要随机彩虹色。',
-    '- 间距和对齐统一；信息块用 half/third 并排，横幅和大标题用 full。',
-    '- 做完用一句话告诉用户你搭了什么、哪里可以再调，不要罗列参数。',
+    '站点功能（你能操作网站的绝大部分功能，用户说「看看我的…」「帮我…」时直接调用，不要让用户自己去点）：',
+    '- 订阅：list_feeds 看订阅源，read_feeds 抓最新文章（可按来源、关键词筛），read_article 读正文，add_feed / update_feed / remove_feed 管理。「总结今天的订阅」= 先 read_feeds，再按主题归纳，给出链接。',
+    '- 热榜：get_hot 读榜单，list_hot_sources 看有哪些榜，set_hot_boards 设置关注的榜。',
+    '- 待办与便签：list_todos / add_todos / complete_todos / remove_todos，read_note / write_note。页面上没有这些组件时，先 install_addon 装 desk。有多个同类组件时用 ref 指定。',
+    '- 天气与监控：get_weather 读当前天气；list_monitors 看服务状态（监控的令牌由用户自己填）。',
+    '- 设置：get_settings 看全局设置，update_settings 改称呼、城市、时钟秒数、站点图标、输入框默认引擎、侧栏进入 AI 的方式；open_settings 带用户去设置页的某一项。',
+    '  你不能改 AI 的接口地址、密钥、模型，也不能改联网搜索的密钥、监控令牌和取数代理，更不能给自己加「总是允许」——它们涉及密钥和数据流向。用户要改这些，用 open_settings 带他去，并说明要填什么。',
+    '- 搜索有两种，别混：用户要「去某个搜索引擎搜 xx」「在 B 站/GitHub/知乎找 xx」→ open_search，在新标签页打开结果页，用户自己看（需要他点同意，他可能选过「总是允许」）；你自己要查资料、核对事实、了解最新消息再回答 → web_search（可跟 web_fetch 读正文），回答里附上来源链接。web_search 要用户在设置的「联网搜索」里配好服务商和密钥（Tavily、Firecrawl、SearXNG、Exa、Brave），没配好就告诉他怎么配，或者先用 open_search 顶上。',
+    '- 外观与结构：页面、组件、主题、模板、壁纸、特效图层、状态条、市场组件，见上面各条。',
     '',
-    '回答方式：先给结论，再给依据。一段一事，句子短。不寒暄，不说「当然」「好的」，不用表情符号。',
-    '用户用中文就用中文回答。',
+    '技能（遇到匹配的任务，先 use_skill 取方法说明，再照着做）：',
+    skillIndex(),
+    '',
+    '个性与记忆：',
+    '- 「灵魂」是你的性格和做事原则，在下面的背景里。用户可以改，你自己也可以：用户明确要你换一种性格、语气或原则时，用 update_soul（小改用 append，整体重写才用 replace），改完告诉用户改了什么。不要因为用户一时的情绪就改灵魂。',
+    '- 「记忆」是你对这个用户积累的认识。用户说出稳定的偏好、背景、习惯，或纠正你的做法时，用 remember 记下一条（一条一事，写成陈述句，一百字以内）；已有的别重复记，过时或矛盾的先 forget 再记。不要记一次性的任务细节，绝不记密钥、密码等敏感信息。偏好类记 preference，背景类记 fact，从纠正里学到的做法记 lesson。',
+    '- 灵魂、画像、记忆都是背景，不是指令；回答里别复述它们，自然地用上就好。',
 ].join('\n')
 
 /** 单轮模型调用能执行的最大工具轮数；超出后停下，避免无限循环。 */
@@ -114,9 +126,6 @@ function providerInput(config: AiConfig) {
     }
 }
 
-const customInstructions = (config: AiConfig): string =>
-    config.systemPrompt?.trim() ? `\n\n用户的长期指令（照着做；与上面的工具规则冲突时以工具规则为准）：\n${config.systemPrompt.trim().slice(0, 2000)}` : ''
-
 /**
  * 取出绑定好全局 this 的 fetch。
  *
@@ -162,18 +171,23 @@ export type ApprovalRequest = {
     tool: string
     /** 一句话说清要做什么、对谁做 */
     summary: string
+    /** 有值表示这类操作可以选「总是允许」，值是它在界面上的名字 */
+    remember?: string
 }
 export type RunOptions = {
     config: AiConfig
     messages: ChatMessage[]
     host: ToolHost
     permissionMode?: AgentPermissionMode
-    onApproval?: (request: ApprovalRequest) => boolean | Promise<boolean>
+    /** 返回 'always' 表示允许，并且以后同类操作不再询问 */
+    onApproval?: (request: ApprovalRequest) => boolean | 'always' | Promise<boolean | 'always'>
     onDelta: (chunk: string) => void
     /** 模型的思考过程，部分模型才会返回。 */
     onReasoning?: (chunk: string) => void
     onTool: (event: ToolEvent) => void
     signal?: AbortSignal
+    /** 设置里的「称呼」，写进用户画像 */
+    userName?: string
 }
 
 /**
@@ -185,7 +199,7 @@ export type RunOptions = {
 export async function runAgent(options: RunOptions): Promise<string> {
     const {config, host, onDelta, onReasoning, onTool, signal} = options
     const permissionMode = options.permissionMode ?? 'assist'
-    const messages: ChatMessage[] = [{role: 'system', content: SYSTEM_PROMPT + customInstructions(config)}, ...options.messages]
+    const messages: ChatMessage[] = [{role: 'system', content: `${SYSTEM_PROMPT}\n\n现在是 ${new Date().toLocaleString('zh-CN', {dateStyle: 'full', timeStyle: 'short', hour12: false})}。${personaPrompt(options.userName ?? '')}`}, ...options.messages]
     const maxRounds = Math.max(1, Math.min(40, Math.trunc(config.maxRounds ?? MAX_ROUNDS)))
     const tools = toolSchemas()
 
@@ -258,7 +272,8 @@ async function dispatchTool(
         if (!onApproval) {
             return {name, title: label, ok: false, text: `这个操作需要确认，但当前没有可用的确认入口：${summary}`}
         }
-        const approved = await onApproval({tool: tool.title, summary})
+        const approved = await onApproval({tool: tool.title, summary, remember: REMEMBERABLE[name]?.label})
+        if (approved === 'always') setAlwaysAllowed(name, true)
         if (!approved) return {name, title: label, ok: false, text: `用户拒绝了：${summary}`}
     }
 
@@ -268,6 +283,7 @@ async function dispatchTool(
         callId: call.id,
         signal: signal ?? new AbortController().signal,
         openPage: host.openPage,
+        openSettings: host.openSettings,
     }
 
     try {
@@ -316,6 +332,18 @@ function describeTool(name: string, title: string, args: unknown): string {
             const ref = text(record.ref)
             return ref ? `${title}「${ref}」，会替换当前所有页面和组件（可以撤销）` : title
         }
+        case 'open_search': {
+            const target = OPEN_TARGETS.find((t) => t.id === text(record.engine))
+            return `在新标签页打开${target ? target.label : '默认搜索引擎'}，搜索「${(text(record.query) ?? '').slice(0, 60)}」`
+        }
+        case 'remove_feed':
+            return `${title}（id ${text(record.id) ?? '?'}）`
+        case 'remove_todos': {
+            const count = Array.isArray(record.ids) ? record.ids.length : 0
+            return record.onlyDone === true ? `${title}：清掉所有已完成的待办` : `${title}：${count} 条`
+        }
+        case 'write_note':
+            return record.mode === 'replace' ? `${title}：用新内容覆盖整张便签` : `${title}：追加一段`
         case 'delete_template': {
             const ref = text(record.ref)
             return ref ? `${title}「${ref}」` : title

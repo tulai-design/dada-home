@@ -3553,7 +3553,7 @@ kbd {
 
 .rail .rail-item[data-on='true'] {
   color: var(--main);
-  background: color-mix(in srgb, var(--main) 10%, transparent);
+  background: transparent;
 }
 
 .rail .rail-item[data-on='true']::before {

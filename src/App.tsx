@@ -15,7 +15,7 @@ import { TopBar } from './components/TopBar'
 import { StatusBar } from './components/StatusBar'
 import { PageSwitcher } from './components/PageSwitcher'
 import { PageView } from './components/PageView'
-import { FxLayers } from './fx/Fx'
+import { FxLayers, hasBackdrop } from './fx/Fx'
 import { Reader } from './components/Reader'
 import { Assistant } from './components/Assistant'
 import { CommandPalette } from './components/CommandPalette'
@@ -71,13 +71,27 @@ export default function App() {
   const [busy, setBusy] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   /** 待答复的确认请求：由 ask 写入，由确认卡片按钮调用。 */
-  const settleRef = useRef<((approved: boolean) => void) | null>(null)
+  const settleRef = useRef<((approved: boolean | 'always') => void) | null>(null)
 
   const [pageId, setPageId] = useStored<string>('page', 'home')
   const [pendingPage, setPendingPage] = useState<string | null>(null)
 
   const [reader, setReader] = useState<Article | null>(null)
   const [assistantOpen, setAssistantOpen] = useState(false)
+  // 对话面板有两种样子：侧栏（快速看一眼）和全屏。
+  // 从侧栏图标、⌘J 进来用用户的偏好（默认全屏）；在首页输入框发出的消息先用侧栏，直接看到回答。
+  const [assistantMode, setAssistantMode] = useState<'drawer' | 'full'>('drawer')
+  const [sidebarAi] = useStored<'drawer' | 'full'>('sidebarAi', 'full')
+  const [fxRoot, setFxRoot] = useState<HTMLDivElement | null>(null)
+  const assistantOpenRef = useRef(false)
+  assistantOpenRef.current = assistantOpen
+  const openAssistant = useCallback(
+    (mode?: 'drawer' | 'full') => {
+      setAssistantMode(mode ?? sidebarAi)
+      setAssistantOpen(true)
+    },
+    [sidebarAi],
+  )
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [switcherOpen, setSwitcherOpen] = useState(false)
   // 当前画布显示什么：普通页面、设置、监控。设置和监控是整页，不再用抽屉
@@ -203,7 +217,7 @@ export default function App() {
        * 答复函数存进 ref，让界面上的按钮能触发；只 resolve 一次，之后清空。
        */
       const onApproval = (request: ApprovalRequest) =>
-        new Promise<boolean>((resolve) => {
+        new Promise<boolean | 'always'>((resolve) => {
           settleRef.current = (approved) => {
             settleRef.current = null
             patch({ pending: undefined })
@@ -217,8 +231,9 @@ export default function App() {
       try {
         await runAgent({
           config: settings.ai,
+          userName: settings.name,
           messages: [...history, { role: 'user', content: text }],
-          host: { openPage: (next: string) => setPendingPage(next) },
+          host: { openPage: (next: string) => setPendingPage(next), openSettings: (section?: string) => openSettings(section) },
           onApproval,
           onReasoning: (chunk) => {
             reasoning += chunk
@@ -263,7 +278,7 @@ export default function App() {
 
   /** 用户点了确认卡片上的允许/拒绝。 */
   const answerApproval = useCallback(
-    (approved: boolean) => {
+    (approved: boolean | 'always') => {
       const current = settleRef.current
       settleRef.current = null
       if (current) current(approved)
@@ -325,13 +340,17 @@ export default function App() {
       openPage: (id) => setPendingPage(id),
       openSettings,
       openMonitor,
-      openAssistant: () => setAssistantOpen(true),
+      openAssistant: () => openAssistant(assistantOpenRef.current ? assistantMode : 'drawer'),
       openArticle,
       readIds,
       markRead: (id: string) => setReadIds((prev: string[]) => (prev.includes(id) ? prev : [...prev, id].slice(-500))),
       proxy: settings.proxy,
       hotSource: settings.hotSource,
-      ask: (text) => void ask(text),
+      ask: (text) => {
+        // 已经开着就保持现状；没开就用侧栏打开，让回答实时出现在眼前
+        if (!assistantOpenRef.current) openAssistant('drawer')
+        void ask(text)
+      },
       aiConfigured,
       aiModel: settings.ai.model,
       aiBusy: busy,
@@ -349,7 +368,7 @@ export default function App() {
         showFavicons: settings.showFavicons,
       },
     }),
-    [settings, readIds, setReadIds, ask, aiConfigured, busy, doSearch, openArticle, edit, workspace.network, openSettings, openMonitor, monitorInfo],
+    [settings, readIds, setReadIds, ask, aiConfigured, busy, doSearch, openArticle, edit, workspace.network, openSettings, openMonitor, monitorInfo, openAssistant, assistantMode],
   )
 
   const onUpdateConfig = useCallback(
@@ -388,7 +407,8 @@ export default function App() {
         setPaletteOpen((v) => !v)
       } else if (meta && e.key.toLowerCase() === 'j') {
         e.preventDefault()
-        setAssistantOpen((v) => !v)
+        if (assistantOpenRef.current) setAssistantOpen(false)
+        else openAssistant()
       } else if (meta && e.key === ',') {
         e.preventDefault()
         openSettings()
@@ -414,7 +434,7 @@ export default function App() {
         icon: pageIcon(page.icon),
         run: () => goPage(page.id),
       })),
-      { id: 'cmd-ai', label: '和搭搭对话', hint: '⌘J', group: '动作', icon: Sparkles, run: () => setAssistantOpen(true) },
+      { id: 'cmd-ai', label: '和搭搭对话', hint: '⌘J', group: '动作', icon: Sparkles, run: () => openAssistant() },
       ...(isInstalled(workspace, 'monitor') ? [{ id: 'cmd-monitor', label: '服务监控', group: '动作', icon: Monitor, run: openMonitor }] : []),
       { id: 'cmd-market', label: '组件市场', group: '动作', icon: LayoutGrid, run: openMarket },
       { id: 'cmd-settings', label: '设置', hint: '⌘,', group: '动作', icon: Settings, run: () => openSettings() },
@@ -473,14 +493,23 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <div className="app">
+      <div className="app" data-fx={view === 'page' && hasBackdrop(currentPage?.layers) ? 'on' : undefined}>
+        {/* 页面背景特效铺在最底层，覆盖整个窗口，侧栏和顶栏透明地叠在上面 */}
+        <div className="fx-root" ref={setFxRoot} aria-hidden="true" />
+        {/* 外框：四条红边进场时从各自的方向滑进来（来自 anyway.fm 的做法） */}
+        <div className="frame" aria-hidden="true">
+          <i className="frame-bar frame-t" />
+          <i className="frame-bar frame-b" />
+          <i className="frame-bar frame-l" />
+          <i className="frame-bar frame-r" />
+        </div>
         <Rail
           pages={workspace.pages}
           page={currentPage?.id ?? ''}
           onPage={goPage}
           view={view}
           onMore={() => setSwitcherOpen(true)}
-          onAssistant={() => setAssistantOpen(true)}
+          onAssistant={() => (assistantOpen ? setAssistantOpen(false) : openAssistant())}
           assistantBusy={busy}
           onMonitor={openMonitor}
           onMarket={openMarket}
@@ -503,7 +532,7 @@ export default function App() {
             data-paper={paperUrl ? 'on' : 'off'}
             style={paperUrl ? { ['--paper' as string]: `url("${paperUrl}")` } : undefined}
           >
-            <FxLayers layers={currentPage?.layers}>
+            <FxLayers layers={currentPage?.layers} portal={fxRoot}>
               {currentPage && (
                 <PageView
                   page={currentPage}
@@ -578,7 +607,7 @@ export default function App() {
           onMarkRead={() => undefined}
           onAskAi={(prompt) => {
             setReader(null)
-            setAssistantOpen(true)
+            openAssistant('drawer')
             void ask(prompt)
           }}
           onOpenSettings={() => openSettings('ai')}
@@ -586,6 +615,8 @@ export default function App() {
 
         <Assistant
           open={assistantOpen}
+          mode={assistantMode}
+          onMode={setAssistantMode}
           ai={settings.ai}
           turns={turns}
           ready={chat.ready}

@@ -9,6 +9,7 @@
  */
 import './clock'
 import './search'
+import './links'
 import './weather'
 import './todos'
 import './note'

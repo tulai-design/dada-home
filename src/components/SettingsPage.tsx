@@ -1,20 +1,24 @@
-import {useState, type ReactNode} from 'react'
+import {useRef, useState, type ReactNode} from 'react'
 import {ActionIcon, Modal, Segmented, Text} from '@lobehub/ui'
-import {ChevronLeft, Database, Download, Globe, Info, LayoutDashboard, LayoutTemplate, Palette, PanelLeft, PanelTop, RotateCcw, Sparkles, User} from 'lucide-react'
+import {Brain, ChevronLeft, Database, Download, Globe, Heart, Info, LayoutDashboard, LayoutTemplate, Palette, PanelLeft, PanelTop, RotateCcw, Search, Upload, Sparkles, User} from 'lucide-react'
 import type {LucideIcon} from 'lucide-react'
 import {appVisible} from '../lib/market'
 import {defaultWorkspace} from '../lib/ops'
 import {AppSettingsCtx, listApps, type AppSettingsContext} from '../lib/apps'
 import {PROXY_PRESETS} from '../lib/rss'
 import {useStored} from '../lib/store'
+import {SEARCH_KEY, defaultSearchConfig, providerInfo, searchReady, type SearchConfig} from '../lib/webSearch'
 import {Group, Row, TextRow, Tile} from './ios'
 import {SidebarSettings, StatusbarSettings} from './LayoutSettings'
-import {exportIdb} from '../lib/storage'
+import {exportIdb, importBackup, parseBackup, type BackupSummary} from '../lib/storage'
 import {useIsMobile} from '../lib/useMedia'
 import {AiSettings} from './AiSettings'
+import {SearchSettings} from './SearchSettings'
 import {AboutPanel} from './About'
 import {AppearanceSettings} from './ThemeSettings'
 import {TemplateSettings} from './TemplateSettings'
+import {MemorySettings, ProfileForm, SoulSettings} from './PersonaSettings'
+import {usePersona} from '../lib/persona'
 
 /**
  * 设置页，仿 iOS 设置：左边是分组列表，右边是当前项的详情。
@@ -61,10 +65,27 @@ async function exportBackup() {
 export function SettingsPage({ctx, themeMode, onThemeMode, section, onSection, onReset}: Props) {
   const {settings, patch} = ctx
   const mobile = useIsMobile()
+  const persona = usePersona()
   // 手机上一次只显示一栏：直接点进设置先看列表；从别处跳来指定某一项时直接显示那一项
   const [pane, setPane] = useState<'list' | 'detail'>(mobile && section === 'profile' ? 'list' : 'detail')
   const [resetOpen, setResetOpen] = useState(false)
-  const [assistantMode, setAssistantMode] = useStored<'drawer' | 'full'>('assistantMode', 'drawer')
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [pendingImport, setPendingImport] = useState<{dump: Record<string, unknown>; summary: BackupSummary; name: string} | null>(null)
+  const [importError, setImportError] = useState('')
+  const [importing, setImporting] = useState(false)
+  const pickBackup = async (file: File | undefined) => {
+    if (!file) return
+    setImportError('')
+    try {
+      const {dump, summary} = parseBackup(await file.text())
+      setPendingImport({dump, summary, name: file.name})
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : String(error))
+    }
+  }
+  const [searchConfig] = useStored<SearchConfig>(SEARCH_KEY, defaultSearchConfig())
+  const searchSummary = providerInfo(searchConfig.provider) ? (searchReady(searchConfig) ? providerInfo(searchConfig.provider)?.name : '未配好') : '未启用'
+  const [assistantMode, setAssistantMode] = useStored<'drawer' | 'full'>('sidebarAi', 'full')
 
   const general: Section[] = [
     {
@@ -73,11 +94,14 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, onSection, o
       icon: User,
       color: '#8e8e93',
       summary: settings.name,
-      description: '搭搭怎么称呼你。',
+      description: '搭搭怎么称呼你，以及它该了解你的哪些背景。',
       render: () => (
-        <Group footer="用在首页的问候语里。">
-          <TextRow label="称呼" value={settings.name} placeholder="朋友" onChange={(v) => patch({name: v})} />
-        </Group>
+        <>
+          <Group footer="用在首页的问候语里，也是搭搭称呼你的方式。">
+            <TextRow label="称呼" value={settings.name} placeholder="朋友" onChange={(v) => patch({name: v})} />
+          </Group>
+          <ProfileForm />
+        </>
       ),
     },
     {
@@ -129,8 +153,8 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, onSection, o
       render: () => (
         <>
           <AiSettings ai={settings.ai} proxy={settings.proxy} onChange={(ai) => patch({ai})} />
-          <Group title="对话面板" footer="也可以随时点面板右上角的图标切换。">
-            <Row label="打开方式">
+          <Group title="对话面板" footer="在首页输入框里发消息，总是先用侧栏打开，让你直接看到回答；面板右上角的图标可以随时切换全屏。">
+            <Row label="从侧栏图标进入时">
               <Segmented
                 size="small"
                 value={assistantMode}
@@ -144,6 +168,33 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, onSection, o
           </Group>
         </>
       ),
+    },
+    {
+      id: 'search',
+      name: '联网搜索',
+      icon: Search,
+      color: '#0a84ff',
+      summary: searchSummary,
+      description: '让搭搭自己上网查资料：Tavily、Firecrawl、SearXNG 等。也可以管理「搜索并跳转」是否每次询问。',
+      render: () => <SearchSettings />,
+    },
+    {
+      id: 'soul',
+      name: '灵魂',
+      icon: Heart,
+      color: '#ff375f',
+      summary: persona.soul.name,
+      description: '搭搭是谁、怎么说话、按什么原则做事。你可以改，它自己也可以（可关）。',
+      render: () => <SoulSettings />,
+    },
+    {
+      id: 'memory',
+      name: '记忆',
+      icon: Brain,
+      color: '#bf5af2',
+      summary: `${persona.memory.items.length} 条`,
+      description: '搭搭在聊天里积累的、对你的认识。看得见，改得了，删得掉。',
+      render: () => <MemorySettings />,
     },
     {
       id: 'network',
@@ -173,8 +224,9 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, onSection, o
       description: '所有数据都只在这台浏览器里。',
       render: () => (
         <>
-          <Group footer="导出订阅、书签、待办、页面和配置。密钥也在其中，请妥善保管。">
+          <Group footer={importError ? <span style={{color: 'var(--lobe-color-error, #d4380d)'}}>{importError}</span> : '导出订阅、书签、待办、页面、对话和配置，密钥也在其中，请妥善保管。导入会用备份整体替换现在的数据。'}>
             <Row label="导出备份" icon={<Download size={16} />} chevron onClick={exportBackup} />
+            <Row label="导入备份" icon={<Upload size={16} />} chevron onClick={() => fileRef.current?.click()} />
           </Group>
           <Group footer="只把页面、侧栏、状态条和已装的组件恢复成初始状态；订阅、书签、待办、密钥和已存的模板都保留。">
             <Row label="恢复默认布局" icon={<LayoutTemplate size={16} />} onClick={() => ctx.edit((ws) => ({...defaultWorkspace(), theme: ws.theme, themes: ws.themes, templates: ws.templates}))} />
@@ -232,9 +284,9 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, onSection, o
           <h1 className="ios-large">设置</h1>
           <Group>{general.slice(0, 2).map(row)}</Group>
           <Group>{general.slice(2).map(row)}</Group>
-          <Group>{system.slice(0, 2).map(row)}</Group>
+          <Group>{system.slice(0, 3).map(row)}</Group>
           {apps.length > 0 && <Group title="应用">{apps.map(row)}</Group>}
-          <Group>{system.slice(2).map(row)}</Group>
+          <Group>{system.slice(3).map(row)}</Group>
         </aside>
 
         <main className="ios-detail">
@@ -250,6 +302,42 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, onSection, o
         </main>
       </div>
 
+      <input
+        ref={fileRef}
+        type="file"
+        accept="application/json,.json"
+        hidden
+        onChange={(event) => {
+          void pickBackup(event.target.files?.[0])
+          event.target.value = ''
+        }}
+      />
+      <Modal
+        open={Boolean(pendingImport)}
+        title="导入备份"
+        onCancel={() => setPendingImport(null)}
+        okText="替换并导入"
+        cancelText="取消"
+        confirmLoading={importing}
+        onOk={async () => {
+          if (!pendingImport) return
+          setImporting(true)
+          try {
+            await importBackup(pendingImport.dump)
+          } catch (error) {
+            setImporting(false)
+            setPendingImport(null)
+            setImportError(error instanceof Error ? error.message : String(error))
+          }
+        }}
+      >
+        {pendingImport && (
+          <Text>
+            {pendingImport.name}：{pendingImport.summary.keys} 项配置，{pendingImport.summary.data} 份组件数据，{pendingImport.summary.convs} 段对话。
+            导入会替换现在的订阅、书签、待办、页面、对话和配置，不能撤销，建议先导出一份当前的备份。完成后页面会自动刷新。
+          </Text>
+        )}
+      </Modal>
       <Modal
         open={resetOpen}
         title="恢复默认"
