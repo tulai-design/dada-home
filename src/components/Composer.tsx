@@ -1,6 +1,6 @@
 import {useRef} from 'react'
 import {Button, Tag, Text, TextArea} from '@lobehub/ui'
-import {CornerDownLeft, Square} from 'lucide-react'
+import {CornerDownLeft, SendHorizontal, Square} from 'lucide-react'
 
 /**
  * 对话输入框。
@@ -73,7 +73,7 @@ export function Composer({
               停止
             </Button>
           ) : (
-            <Button type="primary" size="small" disabled={!canSend} onClick={submit}>
+            <Button type="primary" size="small" icon={<SendHorizontal size={13} />} disabled={!canSend} onClick={submit}>
               发送
             </Button>
           )}

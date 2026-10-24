@@ -1,7 +1,13 @@
-import {getDefinition, normalizeConfig} from './registry'
+import {getDefinition, listDefinitions, normalizeConfig} from './registry'
+import {WorkspaceError} from './errors'
+import {normalizeLayer} from '../fx/catalog'
 import {
   DEFAULT_LAYOUT,
+  FROZEN_PAGE_ID,
+  MAX_PAGES,
+  MAX_STATUS_ITEMS,
   WORKSPACE_VERSION,
+  type StatusItem,
   instanceId,
   type ComponentInstance,
   type ComponentSpan,
@@ -14,6 +20,8 @@ import {
   isCustomType,
 } from './workspace'
 import {ANIMATIONS, normalizeHost, normalizeWidget, sanitizeCss} from './customWidget'
+import {isPageIcon, PAGE_ICON_KEYS} from './pageIcons'
+import {ADDONS, addonOfType, getAddon, isInstalled, typeAvailable} from './market'
 
 /**
  * 工作空间的全部编辑操作。
@@ -23,7 +31,7 @@ import {ANIMATIONS, normalizeHost, normalizeWidget, sanitizeCss} from './customW
  * 都能共用同一份实现，行为不会各写各的。
  */
 
-export class WorkspaceError extends Error {}
+export {WorkspaceError}
 
 const SPANS: ComponentSpan[] = ['full', 'half', 'third', 'two-thirds']
 
@@ -56,27 +64,49 @@ function replacePage(workspace: Workspace, next: Page): Workspace {
   return {...workspace, pages: workspace.pages.map((page) => (page.id === next.id ? next : page))}
 }
 
-export function addPage(workspace: Workspace, input: {name: string; label?: string; id?: string}): {workspace: Workspace; page: Page} {
+function readIcon(value: unknown): string | undefined {
+  if (value === undefined || value === null || value === '') return undefined
+  if (typeof value !== 'string' || !isPageIcon(value)) {
+    throw new WorkspaceError(`没有这个图标：${String(value)}。可选：${PAGE_ICON_KEYS.join('、')}`)
+  }
+  return value
+}
+
+export function addPage(
+  workspace: Workspace,
+  input: {name: string; label?: string; id?: string; icon?: string},
+): {workspace: Workspace; page: Page} {
   const name = input.name.trim()
   if (!name) throw new WorkspaceError('页面需要名称')
-  if (workspace.pages.length >= 12) throw new WorkspaceError('页面太多了，最多 12 页')
+  if (workspace.pages.length >= MAX_PAGES) throw new WorkspaceError(`页面太多了，最多 ${MAX_PAGES} 页`)
   const base = (input.id ?? name).trim().toLowerCase().replace(/[^a-z0-9一-龥]+/g, '-').replace(/^-+|-+$/g, '') || 'page'
   let id = base
   for (let n = 2; workspace.pages.some((page) => page.id === id); n += 1) id = `${base}-${n}`
   const label = (input.label ?? name).trim().slice(0, 4) || name.slice(0, 4)
-  const page: Page = {id, name, label, components: []}
+  const icon = readIcon(input.icon)
+  const page: Page = {id, name, label, components: [], ...(icon ? {icon} : {})}
   return {workspace: {...workspace, pages: [...workspace.pages, page]}, page}
 }
 
-export function renamePage(workspace: Workspace, pageId: string, input: {name?: string; label?: string}): Workspace {
+export function renamePage(
+  workspace: Workspace,
+  pageId: string,
+  input: {name?: string; label?: string; icon?: string},
+): Workspace {
   const page = findPage(workspace, pageId)
+  if (page.id === FROZEN_PAGE_ID) throw new WorkspaceError('首页是固定项，不能修改名称和图标。')
   const name = input.name?.trim() || page.name
   const label = input.label?.trim().slice(0, 4) || page.label
-  return replacePage(workspace, {...page, name, label})
+  const icon = input.icon === undefined ? page.icon : readIcon(input.icon)
+  const next: Page = {...page, name, label}
+  if (icon) next.icon = icon
+  else delete next.icon
+  return replacePage(workspace, next)
 }
 
 export function removePage(workspace: Workspace, pageId: string): Workspace {
   findPage(workspace, pageId)
+  if (pageId === FROZEN_PAGE_ID) throw new WorkspaceError('首页是固定项，不能删除。')
   if (workspace.pages.length <= 1) throw new WorkspaceError('至少要保留一个页面')
   return {...workspace, pages: workspace.pages.filter((page) => page.id !== pageId)}
 }
@@ -105,12 +135,89 @@ export function setPageStyle(
 export function movePage(workspace: Workspace, pageId: string, toIndex: number): Workspace {
   const from = workspace.pages.findIndex((page) => page.id === pageId)
   if (from < 0) findPage(workspace, pageId)
-  const to = Math.max(0, Math.min(workspace.pages.length - 1, Math.trunc(toIndex)))
+  if (pageId === FROZEN_PAGE_ID) throw new WorkspaceError('首页是固定项，始终排第一。')
+  // 首页固定在最前，其他页面最靠前也只能排第二
+  const floor = workspace.pages[0]?.id === FROZEN_PAGE_ID ? 1 : 0
+  const to = Math.max(floor, Math.min(workspace.pages.length - 1, Math.trunc(toIndex)))
   const pages = [...workspace.pages]
   const [moved] = pages.splice(from, 1)
   pages.splice(to, 0, moved)
   return {...workspace, pages}
 }
+
+/**
+ * 整体设置状态条。每项必须是声明了 status 形态的组件；配置经组件自己的 schema 规整。
+ */
+export function setStatusbar(workspace: Workspace, raw: unknown): Workspace {
+  if (!Array.isArray(raw)) throw new WorkspaceError('items 必须是数组')
+  if (raw.length > MAX_STATUS_ITEMS) throw new WorkspaceError(`状态条最多 ${MAX_STATUS_ITEMS} 项`)
+  const items: StatusItem[] = raw.map((entry, index) => {
+    const value = entry && typeof entry === 'object' ? (entry as Record<string, unknown>) : {}
+    const type = typeof value.type === 'string' ? value.type : ''
+    const definition = getDefinition(type as ComponentType)
+    if (!definition) throw new WorkspaceError(`第 ${index + 1} 项：没有这个组件类型「${type}」`)
+    if (!typeAvailable(workspace, type)) throw new WorkspaceError(notInstalled(type))
+    if (!definition.status) {
+      const ok = listStatusTypes(workspace).map((d) => `${d.type}（${d.name}）`).join('、')
+      throw new WorkspaceError(`「${definition.name}」没有状态条形态，不能放进状态条。可放的有：${ok}`)
+    }
+    const id = typeof value.id === 'string' && value.id ? value.id : instanceId(`status-${type}`)
+    return {id, type: type as ComponentType, config: normalizeConfig(definition, value.config)}
+  })
+  return {...workspace, statusbar: items}
+}
+
+/** 声明了状态条形态的组件。 */
+export function listStatusTypes(workspace?: Workspace) {
+  return listDefinitions().filter((definition) => definition.status && (!workspace || typeAvailable(workspace, definition.type)))
+}
+
+function notInstalled(type: string): string {
+  const addon = addonOfType(type)
+  return addon ? `「${addon.name}」来自组件市场，还没安装。先用 install_addon 安装（id：${addon.id}），再来用它。` : `组件 ${type} 不可用`
+}
+
+/** 安装一个市场组件：登记为已安装，需要页面的话顺手建好。 */
+export function installAddon(workspace: Workspace, id: string): {workspace: Workspace; addon: (typeof ADDONS)[number]} {
+  const addon = getAddon(id)
+  if (!addon) throw new WorkspaceError(`市场里没有「${id}」。现有：${ADDONS.map((item) => `${item.id}（${item.name}）`).join('、')}`)
+  if (isInstalled(workspace, id)) throw new WorkspaceError(`「${addon.name}」已经安装过了。`)
+  let next: Workspace = {...workspace, addons: [...workspace.addons, id]}
+  if (addon.page && !next.pages.some((page) => page.id === addon.page!.id)) {
+    if (next.pages.length >= MAX_PAGES) throw new WorkspaceError(`页面太多了，最多 ${MAX_PAGES} 页，先删掉不用的再装。`)
+    const spec = addon.page
+    const components: ComponentInstance[] = spec.components.map((item) => {
+      const definition = getDefinition(item.type)!
+      return {id: instanceId(item.type), type: item.type, config: normalizeConfig(definition, item.config), span: item.span ?? definition.defaultSpan}
+    })
+    next = {...next, pages: [...next.pages, {id: spec.id, name: spec.name, label: spec.label, icon: spec.icon, components}]}
+  }
+  return {workspace: next, addon}
+}
+
+/**
+ * 卸载：页面和状态条上这个组件的实例都会移除；它建的页面空了就一并删掉。
+ * 组件自己存的数据（待办、便签…）留在本机，重装不会找回旧实例，但也不会误删。
+ */
+export function uninstallAddon(workspace: Workspace, id: string): {workspace: Workspace; addon: (typeof ADDONS)[number]} {
+  const addon = getAddon(id)
+  if (!addon) throw new WorkspaceError(`市场里没有「${id}」`)
+  if (!isInstalled(workspace, id)) throw new WorkspaceError(`「${addon.name}」没有安装。`)
+  const owned = new Set<string>(addon.types)
+  const pages = workspace.pages
+    .map((page) => ({...page, components: page.components.filter((item) => !owned.has(item.type))}))
+    .filter((page) => !(page.id === addon.page?.id && page.components.length === 0))
+  return {
+    workspace: {
+      ...workspace,
+      addons: workspace.addons.filter((item) => item !== id),
+      pages,
+      statusbar: workspace.statusbar.filter((item) => !owned.has(item.type)),
+    },
+    addon,
+  }
+}
+
 
 export function addComponent(
   workspace: Workspace,
@@ -120,6 +227,7 @@ export function addComponent(
   // 内置组件来自注册表，自定义组件来自工作空间自身
   const custom = isCustomType(input.type) ? workspace.widgets.find((w) => `custom:${w.id}` === input.type) : undefined
   const definition = getDefinition(input.type as ComponentType)
+  if (definition && !typeAvailable(workspace, input.type)) throw new WorkspaceError(notInstalled(input.type))
   if (!custom && !definition) throw new WorkspaceError(`没有这种组件：${input.type}。先用 create_widget 建一个，或用 list_component_types 看有哪些。`)
   const single = definition ? !definition.multiple : false
   if (single && workspace.pages.some((p) => p.components.some((c) => c.type === input.type))) {
@@ -153,7 +261,19 @@ export function updateComponent(
   const exists = definition || (isCustomType(instance.type) && workspace.widgets.some((w) => `custom:${w.id}` === instance.type))
   if (!exists) throw new WorkspaceError(`组件类型已失效：${instance.type}`)
   const next: ComponentInstance = {...instance}
-  if (patch.config !== undefined && definition) next.config = normalizeConfig(definition, {...instance.config, ...(patch.config as object)})
+  if (patch.config !== undefined && definition) {
+    const incoming = patch.config && typeof patch.config === 'object' ? (patch.config as Record<string, unknown>) : {}
+    const merged: Record<string, unknown> = {...instance.config, ...incoming}
+    // json 字段按键浅合并：AI 只改一个参数时，不应把其余参数冲掉
+    for (const [key, field] of Object.entries(definition.configSchema)) {
+      const before = instance.config[key]
+      const after = incoming[key]
+      if (field.kind === 'json' && before && after && typeof before === 'object' && typeof after === 'object') {
+        merged[key] = {...(before as object), ...(after as object)}
+      }
+    }
+    next.config = normalizeConfig(definition, merged)
+  }
   if (patch.look !== undefined) {
     const look = normalizeLook(patch.look)
     if (Object.keys(look).length) next.look = {...instance.look, ...look}
@@ -291,6 +411,18 @@ export function setWallpaper(
   return replacePage(workspace, {...page, wallpaper})
 }
 
+/** 整体替换一页的特效图层（最多 3 层）。传空数组即清空。 */
+export function setLayers(workspace: Workspace, pageId: string, layers: unknown[]): Workspace {
+  const page = findPage(workspace, pageId)
+  if (!Array.isArray(layers)) throw new WorkspaceError('layers 必须是数组')
+  if (layers.length > 3) throw new WorkspaceError('一页最多叠 3 层特效')
+  const next = layers.map((layer) => normalizeLayer(layer))
+  const rest = {...page}
+  if (next.length) rest.layers = next
+  else delete rest.layers
+  return replacePage(workspace, rest)
+}
+
 export function setTheme(
   workspace: Workspace,
   input: {mode?: string; preset?: string; overrides?: Record<string, string> | null},
@@ -332,24 +464,25 @@ export function defaultWorkspace(): Workspace {
     layout: {...DEFAULT_LAYOUT},
     widgets: [],
     network: [],
+    // 状态条默认只放一个时钟；天气、监控等想看的，让搭搭放上来
+    statusbar: [{id: instanceId('status-clock'), type: 'clock', config: normalizeConfig(getDefinition('clock')!, {showSeconds: true})}],
+    // 热榜、订阅、书桌、书签、监控都在组件市场里，默认一个都不装
+    addons: [],
     pages: [
       {
         id: 'home',
         name: '首页',
         label: '首页',
-        wallpaper: {mode: 'unsplash', index: 0},
+        icon: 'home',
+        // 默认不铺照片：纸张底色是这套界面的核心。想要壁纸，对搭搭说一声即可。
+        align: 'center',
         components: [
+          // 首页像一个搜索页：时钟（含一行天气）+ 一个搜索/对话框，别的都不放。
+          // 其他功能在组件市场里，装了再说。
           make('clock'),
           make('search'),
-          make('weather', {}, 'third'),
-          make('todos', {limit: 5}, 'third', '待办'),
-          make('feeds', {limit: 5, compact: true}, 'third', '今日'),
         ],
       },
-      {id: 'feeds', name: '订阅', label: '订阅', components: [make('feeds', {limit: 80})]},
-      {id: 'desk', name: '书桌', label: '书桌', components: [make('todos', {}, 'half'), make('note', {}, 'half')]},
-      {id: 'marks', name: '书签', label: '书签', components: [make('bookmarks')]},
-      {id: 'hot', name: '热榜', label: '热榜', components: [make('hot')]},
     ],
   }
 }

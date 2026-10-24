@@ -1,50 +1,41 @@
-import { ActionIcon, Flexbox, Hotkey, Tag, Text } from '@lobehub/ui'
-import { Command, Settings } from 'lucide-react'
+import type { ReactNode } from 'react'
+import { ActionIcon } from '@lobehub/ui'
+import { Moon, Search, Sun } from 'lucide-react'
 
+/**
+ * 顶栏（状态条）。
+ *   右：可配置的状态项（默认只有时钟），然后是两个固定的小图标：快速跳转、深浅色。
+ *   最后一个图标贴着窗口右上角。
+ */
 export function TopBar({
-  clock,
-  city,
-  pageLabel,
+  status,
+  theme,
+  onTheme,
   onPalette,
-  onSettings,
-  onMonitor,
-  monitorTone,
-  monitorLabel,
 }: {
-  clock: string
-  city: string
-  pageLabel: string
+  status: ReactNode
+  theme: 'dark' | 'light'
+  onTheme: () => void
   onPalette: () => void
-  onSettings: () => void
-  onMonitor: () => void
-  monitorTone: 'ok' | 'err' | 'loading' | ''
-  monitorLabel: string
 }) {
-  const tone = monitorTone === 'ok' ? 'success' : monitorTone === 'err' ? 'error' : monitorTone === 'loading' ? 'warning' : 'gray'
+  const small = { blockSize: 28, size: 15, borderRadius: 8 }
   return (
-    <Flexbox className="topbar" direction="horizontal" align="center" justify="space-between" gap={12} width="100%">
-      <Flexbox direction="horizontal" align="center" gap={10}>
-        <Text as="b" className="brand-title">
-          搭搭
-        </Text>
-        <Tag size="small" variant="borderless">
-          {pageLabel}
-        </Tag>
-      </Flexbox>
-      <Flexbox direction="horizontal" align="center" gap={8}>
-        <Text type="secondary" className="clock-small">
-          {clock}
-        </Text>
-        <Tag color={tone} variant="filled" onClick={onMonitor} style={{ cursor: 'pointer' }}>
-          {monitorLabel}
-        </Tag>
-        <Tag variant="borderless" onClick={onMonitor} style={{ cursor: 'pointer' }}>
-          {city}
-        </Tag>
-        <ActionIcon icon={Command} title="命令面板" onClick={onPalette} />
-        <Hotkey keys="mod+k" />
-        <ActionIcon icon={Settings} title="设置" onClick={onSettings} />
-      </Flexbox>
-    </Flexbox>
+    <div className="topbar">
+      <div className="topbar-right">
+        {status}
+        <span className="topbar-tools">
+          <ActionIcon className="topbar-btn" icon={Search} size={small} title="快速跳转 · ⌘K" aria-label="快速跳转" tooltipProps={{ placement: 'bottomRight' }} onClick={onPalette} />
+          <ActionIcon
+            className="topbar-btn"
+            icon={theme === 'dark' ? Sun : Moon}
+            size={small}
+            title={theme === 'dark' ? '切换到浅色' : '切换到深色'}
+            aria-label="深浅色切换"
+            tooltipProps={{ placement: 'bottomRight' }}
+            onClick={onTheme}
+          />
+        </span>
+      </div>
+    </div>
   )
 }

@@ -1,6 +1,9 @@
 import {useMemo, useState} from 'react'
-import {ActionIcon, Block, Button, Empty, Flexbox, Tag, Text} from '@lobehub/ui'
-import {RefreshCw} from 'lucide-react'
+import {ActionIcon, Block, Button, Empty, Flexbox, Switch, Tag, Text} from '@lobehub/ui'
+import {Plus, RefreshCw, Rss, Trash2} from 'lucide-react'
+import {registerApp, useAppSettings} from '../lib/apps'
+import {Group, Row, TextRow} from '../components/ios'
+import {uid} from '../lib/store'
 import {useComponentData, SHARED} from '../lib/componentData'
 import {relativeTime} from '../lib/date'
 import {registerComponent, type ComponentProps} from '../lib/registry'
@@ -59,9 +62,7 @@ function Feeds({config, host}: ComponentProps<FeedsConfig>) {
         <Text as="h2">{config.heading}</Text>
         <Flexbox direction="horizontal" gap={4}>
           <ActionIcon icon={RefreshCw} title="刷新" loading={resource.loading} spin={resource.loading} onClick={() => void resource.refresh()} />
-          <Button size="small" type="text" onClick={host.openSettings}>
-            订阅源
-          </Button>
+          <ActionIcon icon={Rss} title="管理订阅源" onClick={() => host.openSettings('feeds')} />
         </Flexbox>
       </Flexbox>
 
@@ -96,10 +97,11 @@ function Feeds({config, host}: ComponentProps<FeedsConfig>) {
           {shown.map((article) =>
             config.compact ? (
               <Button key={article.id} type="text" block onClick={() => open(article)}>
-                <span className="dock-line">
-                  <em>{article.source}</em>
-                  {article.title}
+                <span className="digest-source">
+                  <b style={{color: `var(--c-${tagColor(article.source)}, var(--main))`}}>●</b> {article.source}
+                  <i>{relativeTime(article.date)}</i>
                 </span>
+                <span className="digest-title">{article.title}</span>
               </Button>
             ) : (
               <Block
@@ -145,4 +147,44 @@ registerComponent<FeedsConfig>({
   defaultSpan: 'full',
   component: Feeds,
   multiple: true,
+})
+
+
+/* ---------- 应用设置：订阅 ---------- */
+
+function FeedSettings() {
+  const {feeds, setFeeds} = useAppSettings()
+  const patchFeed = (id: string, part: Partial<Feed>) => setFeeds(feeds.map((f) => (f.id === id ? {...f, ...part} : f)))
+
+  return (
+    <>
+      <Group title={`订阅源 · ${feeds.length} 个`} footer="支持 RSS / Atom。跨域取数走「网络」里设置的代理。">
+        <Row
+          label="添加订阅源"
+          icon={<Plus size={16} />}
+          onClick={() => setFeeds([...feeds, {id: uid(), title: '新的订阅', url: '', enabled: true}])}
+        />
+      </Group>
+      {feeds.map((feed) => (
+        <Group key={feed.id}>
+          <TextRow label="名称" value={feed.title} onChange={(v) => patchFeed(feed.id, {title: v})} />
+          <TextRow label="地址" value={feed.url} placeholder="https://example.com/feed.xml" onChange={(v) => patchFeed(feed.id, {url: v})} />
+          <Row label="启用">
+            <Switch checked={feed.enabled !== false} onChange={(v) => patchFeed(feed.id, {enabled: v})} />
+          </Row>
+          <Row label="删除这个订阅源" icon={<Trash2 size={16} />} danger onClick={() => setFeeds(feeds.filter((f) => f.id !== feed.id))} />
+        </Group>
+      ))}
+    </>
+  )
+}
+
+registerApp({
+  id: 'feeds',
+  name: '订阅',
+  icon: Rss,
+  color: '#ff9f0a',
+  description: '管理要阅读的订阅源。阅读器会按这里的开关取数。',
+  summary: (ctx) => `${ctx.feeds.filter((f) => f.enabled !== false).length} 个源`,
+  Panel: FeedSettings,
 })

@@ -19,6 +19,9 @@ export type ConfigField =
   | {kind: 'number'; label: string; description?: string; min?: number; max?: number}
   | {kind: 'boolean'; label: string; description?: string}
   | {kind: 'select'; label: string; description?: string; options: {value: string; label: string}[]}
+  | {kind: 'color'; label: string; description?: string}
+  /** 嵌套对象。内容的校验交给组件自己的 normalize。更新时按键浅合并。 */
+  | {kind: 'json'; label: string; description?: string}
 
 export type ConfigSchema = Record<string, ConfigField>
 
@@ -41,7 +44,8 @@ export type ComponentProps<Config = Record<string, unknown>> = {
  */
 export type ComponentHost = {
   openPage: (pageId: string) => void
-  openSettings: () => void
+  /** 打开设置页；section 可指定落在哪一项，例如 'hot'、'ai'。 */
+  openSettings: (section?: string) => void
   openMonitor: () => void
   openAssistant: () => void
   /** 打开阅读器看一篇文章。 */
@@ -68,6 +72,8 @@ export type ComponentHost = {
   networkGrants: string[]
   /** 请求用户授权一个域名；用户同意后写入工作空间。 */
   requestNetworkGrant: (host: string) => void
+  /** 监控接入的实时概况，状态条和监控组件用。 */
+  monitor: {online: number; total: number; tone: 'ok' | 'err' | 'loading' | ''; items: {id: string; name: string; tone: 'ok' | 'err' | 'loading' | ''; text: string}[]}
   /** 全局设置里组件需要读的部分。 */
   profile: {name: string; city: string; lat: number; lon: number; showSeconds: boolean; showFavicons: boolean}
 }
@@ -87,10 +93,17 @@ export type ComponentDefinition<Config = Record<string, unknown>> = {
   /** 渲染入口 */
   component: ReactComponentType<ComponentProps<Config>>
   /**
+   * 状态条形态（可选）：一小段内联内容，用来在顶栏实时显示这个组件的状态。
+   * 声明了它，AI 就能用 set_statusbar 把这个组件放进状态条。要求：单行、很窄、自己更新。
+   */
+  status?: ReactComponentType<ComponentProps<Config>>
+  /**
    * 是否允许同一工作空间放多个实例。
    * 例如便签、待办的数据按实例隔离；而 monitor 依赖全局监控配置，只允许一个。
    */
   multiple: boolean
+  /** 通用校验之后的二次规整，用于 schema 表达不了的约束（如 json 字段的内部结构）。 */
+  normalize?: (config: Record<string, unknown>) => Record<string, unknown>
 }
 
 const registry = new Map<ComponentType, ComponentDefinition<never>>()
@@ -134,7 +147,20 @@ export function normalizeConfig(definition: ComponentDefinition, raw: unknown): 
       case 'select':
         if (typeof value === 'string' && field.options.some((option) => option.value === value)) result[key] = value
         break
+      case 'color':
+        if (typeof value === 'string' && isColor(value)) result[key] = value
+        break
+      case 'json':
+        if (value && typeof value === 'object' && !Array.isArray(value)) result[key] = value
+        break
     }
   }
-  return result
+  return definition.normalize ? definition.normalize(result) : result
+}
+
+const COLOR = /^(#[0-9a-f]{3,8}|(rgb|hsl)a?\([\d\s.,%/-]+\))$/i
+
+/** 只接受十六进制和 rgb()/hsl()，不接受 url()、var() 之类可能携带副作用的写法。 */
+export function isColor(value: string): boolean {
+  return COLOR.test(value.trim())
 }

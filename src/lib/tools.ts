@@ -1,9 +1,12 @@
 import {createToolFactory, type AgentToolSchema, type ToolContext, type ToolDefinition} from '@tulai-design/agent-core'
 import {removeData} from './componentData'
 import * as ops from './ops'
-import {WorkspaceError} from './ops'
+import {WorkspaceError} from './errors'
+import {FX_DEFS, describeFx, getFx} from '../fx/catalog'
 import {getDefinition, listDefinitions} from './registry'
 import {getWorkspace, commit} from './workspaceStore'
+import {PAGE_ICON_KEYS} from './pageIcons'
+import {ADDONS, typeAvailable} from './market'
 
 /**
  * AI 可调用的工作空间工具。
@@ -50,11 +53,12 @@ export const HOME_TOOLS = [
     {
       name: 'list_component_types',
       title: '查看可用组件',
-      description: '列出所有可添加的组件类型，含用途、可配置项和默认值。添加或配置组件前先看这个。',
+      description: '列出当前可添加的组件类型（已安装的），含用途、可配置项和默认值。添加或配置组件前先看这个。没装的市场组件不在这里，用 list_addons 看。',
       effect: 'read',
       highRisk: () => false,
       execute: async () =>
         listDefinitions()
+          .filter((definition) => typeAvailable(getWorkspace(), definition.type))
           .map((definition) => {
             const fields = Object.entries(definition.configSchema)
               .map(([key, field]) => {
@@ -62,7 +66,7 @@ export const HOME_TOOLS = [
                 return `    ${key}（${field.kind}）${field.label}${field.description ? `：${field.description}` : ''}${extra}`
               })
               .join('\n')
-            return `${definition.type}｜${definition.name}｜${definition.multiple ? '可多个' : '仅一个'}｜默认宽度 ${definition.defaultSpan}\n  ${definition.description}\n  默认配置 ${JSON.stringify(definition.defaultConfig)}${fields ? `\n${fields}` : ''}`
+            return `${definition.type}｜${definition.name}｜${definition.multiple ? '可多个' : '仅一个'}｜默认宽度 ${definition.defaultSpan}${definition.status ? '｜可放状态条' : ''}\n  ${definition.description}\n  默认配置 ${JSON.stringify(definition.defaultConfig)}${fields ? `\n${fields}` : ''}`
           })
           .join('\n\n'),
     },
@@ -78,9 +82,11 @@ export const HOME_TOOLS = [
       execute: async () => {
         const workspace = getWorkspace()
         const pages = workspace.pages
-          .map((page) => `# ${page.id}｜${page.name}｜${page.components.length} 个组件\n${page.components.map((c) => `  - ${describeComponent(c)}`).join('\n') || '  （空）'}`)
+          .map((page) => `# ${page.id}｜${page.name}｜图标 ${page.icon ?? '默认'}｜${page.components.length} 个组件${page.id === 'home' ? '｜固定项' : ''}\n${page.components.map((c) => `  - ${describeComponent(c)}`).join('\n') || '  （空）'}`)
           .join('\n')
-        return `${pages}\n\n主题：${workspace.theme.mode}｜预设 ${workspace.theme.preset}｜覆盖 ${JSON.stringify(workspace.theme.overrides)}`
+        const status = workspace.statusbar.map((item) => `${item.type} ${JSON.stringify(item.config)}`).join('；') || '（空）'
+        const addons = workspace.addons.map((id) => ADDONS.find((a) => a.id === id)?.name ?? id).join('、') || '（无）'
+        return `${pages}\n\n已安装的市场组件：${addons}\n状态条：${status}\n主题：${workspace.theme.mode}｜预设 ${workspace.theme.preset}｜覆盖 ${JSON.stringify(workspace.theme.overrides)}`
       },
     },
   ),
@@ -88,17 +94,21 @@ export const HOME_TOOLS = [
   // ───── 写：页面 ─────
   define(
     {
-      schema: {parse: (raw) => ({name: str(obj(raw).name), label: optStr(obj(raw).label)})},
+      schema: {parse: (raw) => ({name: str(obj(raw).name), label: optStr(obj(raw).label), icon: optStr(obj(raw).icon)})},
       json: {
         type: 'object',
-        properties: {name: {type: 'string', description: '页面名称'}, label: {type: 'string', description: '侧栏短标签，不超过 4 字'}},
+        properties: {
+          name: {type: 'string', description: '页面名称'},
+          label: {type: 'string', description: '侧栏短标签，不超过 4 字'},
+          icon: {type: 'string', enum: PAGE_ICON_KEYS, description: '侧栏图标，按页面内容挑一个贴切的'},
+        },
         required: ['name'],
       },
     },
     {
       name: 'add_page',
       title: '新建页面',
-      description: '新建一个空页面，之后用 add_component 往里放组件。',
+      description: '新建一个空页面，之后用 add_component 往里放组件。页面会出现在侧栏；页面多了侧栏会自动把放不下的收进「更多」，不用担心。务必给一个贴切的图标。',
       effect: 'write',
       highRisk: () => false,
       execute: (args) =>
@@ -111,17 +121,17 @@ export const HOME_TOOLS = [
   ),
   define(
     {
-      schema: {parse: (raw) => ({pageId: str(obj(raw).pageId), name: optStr(obj(raw).name), label: optStr(obj(raw).label)})},
+      schema: {parse: (raw) => ({pageId: str(obj(raw).pageId), name: optStr(obj(raw).name), label: optStr(obj(raw).label), icon: optStr(obj(raw).icon)})},
       json: {
         type: 'object',
-        properties: {pageId: {type: 'string'}, name: {type: 'string'}, label: {type: 'string'}},
+        properties: {pageId: {type: 'string'}, name: {type: 'string'}, label: {type: 'string'}, icon: {type: 'string', enum: PAGE_ICON_KEYS}},
         required: ['pageId'],
       },
     },
     {
       name: 'rename_page',
       title: '重命名页面',
-      description: '修改页面的名称或侧栏标签。',
+      description: '修改页面的名称、侧栏标签或图标。首页是固定项，不能改。',
       effect: 'write',
       highRisk: () => false,
       execute: (args) =>
@@ -139,7 +149,7 @@ export const HOME_TOOLS = [
     {
       name: 'remove_page',
       title: '删除页面',
-      description: '删除一个页面及其全部组件和组件数据。至少保留一个页面。',
+      description: '删除一个页面及其全部组件和组件数据。首页是固定项，不能删除。',
       effect: 'write',
       highRisk: () => true,
       execute: (args) =>
@@ -165,7 +175,7 @@ export const HOME_TOOLS = [
     {
       name: 'move_page',
       title: '调整页面顺序',
-      description: '改变页面在侧栏中的位置。',
+      description: '改变页面在侧栏中的位置。首页固定在第一位，其他页面最靠前是第二位。靠前的页面在侧栏里优先显示。',
       effect: 'write',
       highRisk: () => false,
       execute: (args) =>
@@ -572,7 +582,283 @@ export const HOME_TOOLS = [
     },
   ),
 
+  // ───── 素材库：炫酷效果 ─────
+  define(
+    {
+      schema: {parse: (raw) => ({id: optStr(obj(raw).id), kind: optStr(obj(raw).kind)})},
+      json: {
+        type: 'object',
+        properties: {
+          id: {type: 'string', description: '效果 id；给了就返回该效果的完整参数表'},
+          kind: {type: 'string', enum: ['background', 'text', 'card', 'overlay', 'scene'], description: '只看某一类'},
+        },
+      },
+    },
+    {
+      name: 'list_effects',
+      title: '查看特效素材库',
+      description: [
+        '素材库里有二十多种现成的炫酷效果（来自 React Bits 和 Spline），你可以像搭积木一样自由组合。不带参数先看概览；要用某个效果，再带 id 查完整参数。',
+        '类别：',
+        '  background  动态背景（极光、丝绸、光束、星系、虹彩、液态金属、光球、粒子、丝线、波纹线、点阵）→ 用 set_page_layers 铺满整页，或 add_component(type:"fx") 做成横幅块',
+        '  text        会动的文字（分字入场、模糊显影、流光、渐变、解码、打字机、轮播词、数字滚动、毛边故障字、滚动字幕）→ add_component(type:"fx")',
+        '  card        带光效的卡片（聚光、扫光）→ add_component(type:"fx")',
+        '  overlay     整页质感层（胶片颗粒、点击火花）→ 只能 set_page_layers',
+        '  scene       Spline 3D 场景 → 整页图层或横幅块',
+        '组装思路：整页背景图层（1~2 层）+ 一个大标题特效块 + 若干信息组件。图层最多 3 层，别叠太多，保持可读。',
+      ].join('\n'),
+      effect: 'read',
+      highRisk: () => false,
+      execute: async (args) => {
+        if (args.id) {
+          const def = getFx(args.id)
+          if (!def) return `没有这个效果：${args.id}。可用：${FX_DEFS.map((d) => d.id).join('、')}`
+          return JSON.stringify(describeFx(def), null, 1)
+        }
+        return FX_DEFS.filter((def) => !args.kind || def.kind === args.kind)
+          .map((def) => {
+            const info = describeFx(def)
+            return `${def.id}｜${def.name}｜${def.kind}｜可用于 ${info.use.join('+')}\n  ${def.description}\n  参数：${Object.keys(def.params).join('、') || '无'}`
+          })
+          .join('\n')
+      },
+    },
+  ),
+  define(
+    {
+      schema: {parse: (raw) => ({pageId: str(obj(raw).pageId), layers: Array.isArray(obj(raw).layers) ? (obj(raw).layers as unknown[]) : []})},
+      json: {
+        type: 'object',
+        properties: {
+          pageId: {type: 'string'},
+          layers: {
+            type: 'array',
+            description: '图层数组，最多 3 层，整体替换。传 [] 清空。靠前的在下面。',
+            items: {
+              type: 'object',
+              properties: {
+                effect: {type: 'string', description: 'background / scene / overlay 类效果的 id'},
+                params: {type: 'object', description: '效果参数，键见 list_effects(id)；省略的参数用设计好的默认值'},
+              },
+              required: ['effect'],
+            },
+          },
+        },
+        required: ['pageId', 'layers'],
+      },
+    },
+    {
+      name: 'set_page_layers',
+      title: '设置页面特效图层',
+      description:
+        '给整页铺动态背景或叠质感层，整体替换该页现有图层。例如 [{"effect":"aurora","params":{"colorStops":["#ff5a3c","#ffb86b","#7c5cff"]}},{"effect":"noise"}]。文字、卡片类效果不能当图层，请用 add_component(type:"fx")。设置后用户立刻能看到。',
+      effect: 'write',
+      highRisk: () => false,
+      execute: (args) =>
+        guard(() => {
+          commit(ops.setLayers(getWorkspace(), args.pageId, args.layers))
+          return `已更新页面 ${args.pageId} 的特效图层（${args.layers.length} 层）。`
+        }),
+    },
+  ),
+
+  // ───── 沙盒应用：最大自由度 ─────
+  define(
+    {
+      schema: {
+        parse: (raw) => ({
+          pageId: str(obj(raw).pageId),
+          title: optStr(obj(raw).title),
+          html: typeof obj(raw).html === 'string' ? (obj(raw).html as string) : '',
+          css: typeof obj(raw).css === 'string' ? (obj(raw).css as string) : '',
+          js: typeof obj(raw).js === 'string' ? (obj(raw).js as string) : '',
+          height: num(obj(raw).height),
+          span: optStr(obj(raw).span),
+        }),
+      },
+      json: {
+        type: 'object',
+        properties: {
+          pageId: {type: 'string'},
+          title: {type: 'string', description: '应用名称，不超过 24 字'},
+          html: {type: 'string', description: 'body 内的 HTML 片段'},
+          css: {type: 'string', description: 'CSS'},
+          js: {type: 'string', description: 'JavaScript，作为 ES module 运行'},
+          height: {type: 'number', description: '高度 px，120~900，默认 320'},
+          span: {type: 'string', enum: ['full', 'two-thirds', 'half', 'third']},
+        },
+        required: ['pageId', 'html'],
+      },
+    },
+    {
+      name: 'create_app',
+      title: '创建沙盒应用',
+      description: [
+        '写一个完整的小应用放到页面上：小游戏、自定义图表、Canvas/Three.js 场景、番茄钟、计算器……素材库和声明式组件做不到时用它。',
+        '你写 html（body 内片段）、css、js；运行在隔离 iframe 里，不会影响主页，也读不到主页数据。',
+        '',
+        '可用能力：',
+        '  · 库：js 里直接 import，例如 import * as THREE from "https://esm.sh/three"、import gsap from "https://esm.sh/gsap"。只允许 esm.sh / cdn.jsdelivr.net / unpkg.com。',
+        '  · 样式：已注入主页的 CSS 变量（var(--bg) --text --text2 --text3 --border --main --font-serif/--font-sans/--font-mono）。',
+        '    请用这些变量，应用就能和主页风格一致、自动适配深浅色。内置类：.kicker（小标签）.muted .mono .serif .card .btn .btn.primary；input/textarea 已有基础样式。',
+        '  · window.tada.store.get(key) / .set(key, value)：本应用私有的持久存储，Promise，值需可 JSON 化，总共约 100KB。',
+        '  · window.tada.fetch(url)：取数，Promise<{ok,status,text,json}>。域名必须先被用户授权，未授权会自动弹出授权请求。应用自己不能直接 fetch/XHR。',
+        '  · window.tada.open(url)：新标签打开 https 链接。window.tada.ask(text)：把一句话发给搭搭助手。window.tada.dark：是否深色。',
+        '  · 图片只能来自 data:/blob:、images.unsplash.com 和已授权域名。',
+        '',
+        '写法建议：先把 html 结构写好，js 里用 const el=document.querySelector(...) 绑事件；动画优先用 requestAnimationFrame；',
+        '背景保持透明，让主页的纸张底色透出来；不要给 body 设置固定背景色。出错时用户会看到空白，所以先在脑子里走一遍代码。',
+      ].join('\n'),
+      effect: 'write',
+      highRisk: () => false,
+      execute: (args) =>
+        guard(() => {
+          const result = ops.addComponent(getWorkspace(), {
+            pageId: args.pageId,
+            type: 'app',
+            span: args.span,
+            title: args.title,
+            config: {html: args.html, css: args.css, js: args.js, ...(args.height ? {height: args.height} : {})},
+          })
+          commit(result.workspace)
+          return `已创建沙盒应用，id=${result.instance.id}。用 update_app 修改。`
+        }),
+    },
+  ),
+  define(
+    {
+      schema: {
+        parse: (raw) => ({
+          ref: str(obj(raw).ref),
+          pageId: optStr(obj(raw).pageId),
+          html: typeof obj(raw).html === 'string' ? (obj(raw).html as string) : undefined,
+          css: typeof obj(raw).css === 'string' ? (obj(raw).css as string) : undefined,
+          js: typeof obj(raw).js === 'string' ? (obj(raw).js as string) : undefined,
+          height: num(obj(raw).height),
+        }),
+      },
+      json: {
+        type: 'object',
+        properties: {
+          ref: {type: 'string', description: '应用的实例 id 或标题'},
+          pageId: {type: 'string'},
+          html: {type: 'string', description: '给了就整体替换 html'},
+          css: {type: 'string', description: '给了就整体替换 css'},
+          js: {type: 'string', description: '给了就整体替换 js'},
+          height: {type: 'number'},
+        },
+        required: ['ref'],
+      },
+    },
+    {
+      name: 'update_app',
+      title: '修改沙盒应用',
+      description: '修改已有沙盒应用的 html / css / js / 高度。只传要改的字段；传了的字段整体替换。能力和限制同 create_app。',
+      effect: 'write',
+      highRisk: () => false,
+      execute: (args) =>
+        guard(() => {
+          const config: Obj = {}
+          for (const key of ['html', 'css', 'js', 'height'] as const) if (args[key] !== undefined) config[key] = args[key]
+          const result = ops.updateComponent(getWorkspace(), args.ref, {config}, args.pageId)
+          if (result.instance.type !== 'app') throw new WorkspaceError(`${args.ref} 不是沙盒应用`)
+          commit(result.workspace)
+          return `已更新沙盒应用 ${result.instance.id}。`
+        }),
+    },
+  ),
+
   // ───── 视图 ─────
+  define(
+    {
+      schema: {parse: (raw) => ({items: obj(raw).items})},
+      json: {
+        type: 'object',
+        properties: {
+          items: {
+            type: 'array',
+            description: '状态条的完整内容，按从左到右的顺序。会整体替换现有的。传空数组清空。',
+            items: {
+              type: 'object',
+              properties: {
+                type: {type: 'string', description: '组件类型，必须是 list_component_types 里标了「可放状态条」的，如 clock / weather / monitor'},
+                config: {type: 'object', description: '该组件自己的配置，如 clock 的 {showSeconds:true}'},
+              },
+              required: ['type'],
+            },
+          },
+        },
+        required: ['items'],
+      },
+    },
+    {
+      name: 'set_statusbar',
+      title: '设置状态条',
+      description:
+        '设置顶栏右侧「状态条」里的内容：每一项是某个组件的紧凑形态，用来实时看一眼状态（时间、天气、服务在线数等）。整体替换，最多 5 项。默认只有一个时钟，别随意塞太多，要保持克制。先 get_workspace 看现有的，需要保留的要一并传回。',
+      effect: 'write',
+      highRisk: () => false,
+      execute: (args) =>
+        guard(() => {
+          commit(ops.setStatusbar(getWorkspace(), args.items))
+          const now = getWorkspace().statusbar
+          return `状态条已更新：${now.map((item) => item.type).join('、') || '空'}。`
+        }),
+    },
+  ),
+  // ───── 组件市场 ─────
+  define(
+    {schema: {parse: obj}, json: {type: 'object', properties: {}}},
+    {
+      name: 'list_addons',
+      title: '查看组件市场',
+      description: '列出组件市场里的所有组件，以及哪些已安装。热榜、订阅、书桌、书签、监控默认没装，用户需要时先看这个。',
+      effect: 'read',
+      highRisk: () => false,
+      execute: async () => {
+        const workspace = getWorkspace()
+        return ADDONS.map((addon) => `${addon.id}｜${addon.name}｜${workspace.addons.includes(addon.id) ? '已安装' : '未安装'}\n  ${addon.description}\n  安装后：${addon.after}`).join('\n\n')
+      },
+    },
+  ),
+  define(
+    {
+      schema: {parse: (raw) => ({id: str(obj(raw).id)})},
+      json: {type: 'object', properties: {id: {type: 'string', enum: ADDONS.map((addon) => addon.id), description: '市场组件 id'}}, required: ['id']},
+    },
+    {
+      name: 'install_addon',
+      title: '安装市场组件',
+      description: '安装组件市场里的一个组件。需要页面的会自动建好页面并出现在侧栏。装完才能 add_component 它的组件类型。',
+      effect: 'write',
+      highRisk: () => false,
+      execute: (args) =>
+        guard(() => {
+          const result = ops.installAddon(getWorkspace(), args.id)
+          commit(result.workspace)
+          return `已安装「${result.addon.name}」。${result.addon.after}`
+        }),
+    },
+  ),
+  define(
+    {
+      schema: {parse: (raw) => ({id: str(obj(raw).id)})},
+      json: {type: 'object', properties: {id: {type: 'string', enum: ADDONS.map((addon) => addon.id), description: '市场组件 id'}}, required: ['id']},
+    },
+    {
+      name: 'uninstall_addon',
+      title: '卸载市场组件',
+      description: '卸载一个市场组件：页面和状态条上它的组件会被移除，它自己建的页面空了就一并删掉。组件保存的数据留在本机。',
+      effect: 'write',
+      highRisk: () => true,
+      execute: (args) =>
+        guard(() => {
+          const result = ops.uninstallAddon(getWorkspace(), args.id)
+          commit(result.workspace)
+          return `已卸载「${result.addon.name}」。`
+        }),
+    },
+  ),
   define(
     {
       schema: {parse: (raw) => ({pageId: str(obj(raw).pageId)})},

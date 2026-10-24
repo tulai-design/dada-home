@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { Button } from '@lobehub/ui'
+import { RotateCcw } from 'lucide-react'
 
 type Props = { children: ReactNode }
 type State = { error: Error | null }
@@ -27,7 +28,7 @@ export class ErrorBoundary extends Component<Props, State> {
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--ink-faint)' }}>
             {this.state.error.message}
           </p>
-          <Button type="primary" onClick={() => this.setState({ error: null })}>
+          <Button type="primary" icon={<RotateCcw size={14} />} onClick={() => this.setState({ error: null })}>
             重新尝试
           </Button>
         </div>

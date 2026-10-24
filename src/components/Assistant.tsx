@@ -1,6 +1,7 @@
 import {useEffect, useLayoutEffect, useRef, useState} from 'react'
 import {ActionIcon, Button, Drawer, Empty, Flexbox, Markdown, Text} from '@lobehub/ui'
-import {ArrowDown, Square, Trash2} from 'lucide-react'
+import {ArrowDown, Maximize2, MessageSquare, Minimize2, Plus, Settings, Sparkles, Square, Trash2, X} from 'lucide-react'
+import {useStored} from '../lib/store'
 import type {AiConfig} from '../lib/types'
 import {elapsed, isActive, type Turn} from '../lib/chat'
 import {ThinkingPanel} from './ThinkingPanel'
@@ -27,6 +28,7 @@ type Props = {
 const FOLLOW_THRESHOLD = 120
 
 export function Assistant({open, ai, turns, busy, seed, onSend, onStop, onClose, onOpenSettings, onClear, onApprovalAnswer}: Props) {
+  const [mode, setMode] = useStored<'drawer' | 'full'>('assistantMode', 'drawer')
   const [input, setInput] = useState('')
   const logRef = useRef<HTMLDivElement>(null)
   const followRef = useRef(true)
@@ -37,6 +39,15 @@ export function Assistant({open, ai, turns, busy, seed, onSend, onStop, onClose,
     if (!open || !seed.text) return
     setInput(seed.text)
   }, [seed.key, open, seed.text])
+
+  useEffect(() => {
+    if (!open || mode !== 'full') return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, mode, onClose])
 
   // 用户往上滚就暂停跟随；回到底部再恢复。用布局副作用，避免流式时抖动。
   const onScroll = () => {
@@ -74,23 +85,18 @@ export function Assistant({open, ai, turns, busy, seed, onSend, onStop, onClose,
     setPaused(false)
   }
 
-  return (
-    <Drawer
-      open={open}
-      onClose={onClose}
-      title="搭搭"
-      width={720}
-      extra={
-        <Flexbox direction="horizontal" align="center" gap={6}>
-          {turns.length > 0 && <ActionIcon icon={Trash2} title="清空对话" onClick={onClear} />}
-          <Button size="small" type="text" onClick={onOpenSettings}>
-            设置
-          </Button>
-        </Flexbox>
-      }
-    >
+  const actions = (
+    <Flexbox direction="horizontal" align="center" gap={4}>
+      {turns.length > 0 && <ActionIcon icon={Trash2} title="清空对话" onClick={onClear} />}
+      <ActionIcon icon={Settings} title="设置" onClick={onOpenSettings} />
+      <ActionIcon icon={mode === 'full' ? Minimize2 : Maximize2} title={mode === 'full' ? '退出全屏' : '全屏'} onClick={() => setMode(mode === 'full' ? 'drawer' : 'full')} />
+    </Flexbox>
+  )
+
+  const chat = (
       <Flexbox direction="vertical" style={{height: '100%', position: 'relative'}}>
         {turns.length === 0 ? (
+          <div className="chat-empty">
           <Empty
             title={configured ? '说说你想怎么改' : '模型未接入'}
             description={
@@ -98,8 +104,9 @@ export function Assistant({open, ai, turns, busy, seed, onSend, onStop, onClose,
                 ? '例如「加一个便签页」「把天气挪到右上」「换成深色主题」。搭搭会直接改页面，改错可以撤销。'
                 : '在设置里填写兼容 OpenAI 的接口地址和模型。'
             }
-            action={!configured ? <Button type="primary" onClick={onOpenSettings}>去设置</Button> : undefined}
+            action={!configured ? <Button type="primary" icon={<Settings size={14} />} onClick={onOpenSettings}>去设置</Button> : undefined}
           />
+          </div>
         ) : (
           <div className="chat-log" ref={logRef} onScroll={onScroll}>
             {turns.map((turn) => (
@@ -110,9 +117,9 @@ export function Assistant({open, ai, turns, busy, seed, onSend, onStop, onClose,
         )}
 
         {paused && turns.length > 0 && (
-          <button type="button" className="chat-jump" onClick={jumpToBottom}>
-            <ArrowDown size={13} /> 回到最新
-          </button>
+          <Button className="chat-jump" size="small" icon={<ArrowDown size={13} />} onClick={jumpToBottom}>
+            回到最新
+          </Button>
         )}
 
         <Composer
@@ -125,6 +132,55 @@ export function Assistant({open, ai, turns, busy, seed, onSend, onStop, onClose,
           hint={configured ? ai.model : '未配置模型'}
         />
       </Flexbox>
+  )
+
+  // 全屏：占满整个窗口（红框之内），左边是历史标题，右边是对话
+  if (mode === 'full') {
+    if (!open) return null
+    return (
+      <div className="ai-full" role="dialog" aria-label="搭搭 AI">
+        <aside className="ai-full-side">
+          <div className="ai-full-brand">
+            <Sparkles size={16} /> 搭搭
+          </div>
+          <Button block icon={<Plus size={14} />} onClick={onClear} disabled={!turns.length}>
+            新对话
+          </Button>
+          <div className="ai-full-history-title">历史</div>
+          <div className="ai-full-history">
+            {turns.length === 0 && <Text type="secondary" fontSize={12}>还没有对话</Text>}
+            {[...turns].reverse().map((turn) => (
+              <Button
+                key={turn.id}
+                block
+                type="text"
+                className="ai-history-item"
+                icon={<MessageSquare size={13} />}
+                title={turn.prompt}
+                onClick={() => document.getElementById(`turn-${turn.id}`)?.scrollIntoView({behavior: 'smooth', block: 'start'})}
+              >
+                <span>{turn.prompt}</span>
+              </Button>
+            ))}
+          </div>
+        </aside>
+        <section className="ai-full-main">
+          <header className="ai-full-head">
+            <Text strong>对话</Text>
+            <Flexbox direction="horizontal" align="center" gap={4}>
+              {actions}
+              <ActionIcon icon={X} title="关闭" onClick={onClose} />
+            </Flexbox>
+          </header>
+          <div className="ai-full-chat">{chat}</div>
+        </section>
+      </div>
+    )
+  }
+
+  return (
+    <Drawer open={open} onClose={onClose} title="搭搭" width={720} extra={actions}>
+      {chat}
     </Drawer>
   )
 }
@@ -136,7 +192,7 @@ function TurnView({turn, busy, onApprovalAnswer}: {turn: Turn; busy: boolean; on
   const seconds = elapsed(turn)
 
   return (
-    <div className="turn">
+    <div className="turn" id={`turn-${turn.id}`}>
       <p className="turn-ask">{turn.prompt}</p>
 
       {turn.reasoning && (

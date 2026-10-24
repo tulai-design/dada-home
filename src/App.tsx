@@ -1,22 +1,28 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { A, ActionIcon, toast } from '@lobehub/ui'
-import { RefreshCw } from 'lucide-react'
+import { LayoutGrid, Monitor, Moon, RefreshCw, Rss, Settings, Sparkles, Sun } from 'lucide-react'
+import { pageIcon } from './lib/pageIcons'
 import { useStored } from './lib/store'
 import { SEARCH_ENGINES, defaultBookmarks, defaultFeeds, defaultSettings } from './lib/defaults'
 import { hotOrigin } from './lib/hot'
-import { probe, type MonitorState, type RangeId } from './lib/monitor'
+import { probe, summarize, type MonitorState, type RangeId } from './lib/monitor'
 import { runAgent, type ApprovalRequest, type ChatMessage } from './lib/ai'
 import { useInterval, useVisible } from './hooks'
-import { clockText } from './lib/date'
 import { Rail } from './components/Rail'
 import { TopBar } from './components/TopBar'
+import { StatusBar } from './components/StatusBar'
+import { PageSwitcher } from './components/PageSwitcher'
 import { PageView } from './components/PageView'
+import { FxLayers } from './fx/Fx'
 import { Reader } from './components/Reader'
 import { Assistant } from './components/Assistant'
 import { CommandPalette } from './components/CommandPalette'
-import { Settings } from './components/Settings'
+import { SettingsPage } from './components/SettingsPage'
+import type { AppSettingsContext } from './lib/apps'
 import { ErrorBoundary } from './components/ErrorBoundary'
-import { MonitorDrawer } from './components/Monitor'
+import { MonitorPage } from './components/Monitor'
+import { MarketPage } from './components/MarketPage'
+import { isInstalled } from './lib/market'
 import { beginTurn, useTurns, type Turn } from './lib/chat'
 import type { Article, BookmarkGroup, Feed, Settings as SettingsShape } from './lib/types'
 import type { ComponentHost } from './lib/registry'
@@ -67,11 +73,36 @@ export default function App() {
 
   const [reader, setReader] = useState<Article | null>(null)
   const [assistantOpen, setAssistantOpen] = useState(false)
-  const [monitorOpen, setMonitorOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
-  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [switcherOpen, setSwitcherOpen] = useState(false)
+  // 当前画布显示什么：普通页面、设置、监控。设置和监控是整页，不再用抽屉
+  const [view, setView] = useState<'page' | 'settings' | 'monitor' | 'market'>('page')
+  const [section, setSection] = useState('profile')
 
   const { workspace, edit } = useWorkspace()
+
+  const goPage = useCallback(
+    (id: string) => {
+      setPageId(id)
+      setView('page')
+    },
+    [setPageId],
+  )
+  /** 打开设置页；section 指定落在哪一项（热榜、ai…）。从对话面板、阅读器里打开时先收起它们。 */
+  const openSettings = useCallback((target?: string) => {
+    setAssistantOpen(false)
+    setReader(null)
+    if (typeof target === 'string' && target) setSection(target)
+    setView('settings')
+  }, [])
+  const openMonitor = useCallback(() => {
+    setAssistantOpen(false)
+    setView('monitor')
+  }, [])
+  const openMarket = useCallback(() => {
+    setAssistantOpen(false)
+    setView('market')
+  }, [])
 
   // 页面可能被删除或改名：存下来的 id 失效时回落到第一页
   const currentPage = workspace.pages.find((page) => page.id === pageId) ?? workspace.pages[0]
@@ -82,7 +113,10 @@ export default function App() {
   // AI 工具调用 open_page 时先记下目标，等下一帧再切，避免在渲染期间改状态
   useEffect(() => {
     if (!pendingPage) return
-    if (workspace.pages.some((page) => page.id === pendingPage)) setPageId(pendingPage)
+    if (workspace.pages.some((page) => page.id === pendingPage)) {
+      setPageId(pendingPage)
+      setView('page')
+    }
     setPendingPage(null)
   }, [pendingPage, workspace.pages, setPageId])
 
@@ -233,12 +267,12 @@ export default function App() {
       return
     }
     if (engine === 'monitor') {
-      setMonitorOpen(true)
+      openMonitor()
       return
     }
     const target = SEARCH_ENGINES.find((e) => e.id === engine) ?? SEARCH_ENGINES[0]
     window.open(target.url + encodeURIComponent(query), '_blank', 'noopener')
-  }, [])
+  }, [openMonitor])
 
   const openArticle = useCallback(
     (article: Article) => {
@@ -247,12 +281,40 @@ export default function App() {
     [],
   )
 
+  const monitorConfigs = settings.monitor
+  const onlineCount = monitorConfigs.filter((c) => monitorStates[c.id]?.status === 'ok').length
+  const tone: 'ok' | 'err' | 'loading' | '' = !monitorConfigs.length
+    ? ''
+    : onlineCount === monitorConfigs.length
+      ? 'ok'
+      : onlineCount === 0
+        ? 'err'
+        : 'loading'
+  const monitorInfo: ComponentHost['monitor'] = useMemo(
+    () => ({
+      online: onlineCount,
+      total: monitorConfigs.length,
+      tone,
+      items: monitorConfigs.map((config) => {
+        const state = monitorStates[config.id]
+        const itemTone: 'ok' | 'err' | 'loading' | '' = state?.status === 'ok' ? 'ok' : state?.status === 'error' ? 'err' : state?.status === 'loading' ? 'loading' : ''
+        return {
+          id: config.id,
+          name: config.name,
+          tone: itemTone,
+          text: state?.status === 'ok' ? summarize(state).primary : state?.status === 'error' ? '失败' : '',
+        }
+      }),
+    }),
+    [monitorConfigs, monitorStates, onlineCount, tone],
+  )
+
   /** 交给组件的应用能力。组件不直接碰 store，也不直接改工作空间。 */
   const host: ComponentHost = useMemo(
     () => ({
       openPage: (id) => setPendingPage(id),
-      openSettings: () => setSettingsOpen(true),
-      openMonitor: () => setMonitorOpen(true),
+      openSettings,
+      openMonitor,
       openAssistant: () => setAssistantOpen(true),
       openArticle,
       readIds,
@@ -264,6 +326,7 @@ export default function App() {
       aiModel: settings.ai.model,
       aiBusy: busy,
       search: doSearch,
+      monitor: monitorInfo,
       networkGrants: workspace.network.map((grant) => grant.host),
       // 用户点「允许访问」是明确的主动行为，直接授权，不再二次确认
       requestNetworkGrant: (host: string) => edit((ws) => grantHost(ws, host)),
@@ -276,13 +339,24 @@ export default function App() {
         showFavicons: settings.showFavicons,
       },
     }),
-    [settings, readIds, setReadIds, ask, aiConfigured, busy, doSearch, openArticle, edit, workspace.network],
+    [settings, readIds, setReadIds, ask, aiConfigured, busy, doSearch, openArticle, edit, workspace.network, openSettings, openMonitor, monitorInfo],
   )
 
   const onUpdateConfig = useCallback(
     (instanceId: string, patch: Record<string, unknown>) => {
       edit((ws) => updateComponent(ws, instanceId, { config: patch }).workspace)
     },
+    [edit],
+  )
+
+  const toggleTheme = useCallback(
+    () => edit((ws) => ({ ...ws, theme: { ...ws.theme, mode: ws.theme.mode === 'dark' ? 'light' : 'dark' } })),
+    [edit],
+  )
+
+  const onStatusConfig = useCallback(
+    (id: string, patch: Record<string, unknown>) =>
+      edit((ws) => ({ ...ws, statusbar: ws.statusbar.map((item) => (item.id === id ? { ...item, config: { ...item.config, ...patch } } : item)) })),
     [edit],
   )
 
@@ -307,62 +381,73 @@ export default function App() {
         setAssistantOpen((v) => !v)
       } else if (meta && e.key === ',') {
         e.preventDefault()
-        setSettingsOpen(true)
+        openSettings()
       } else if (!meta && !e.altKey && !typing && e.key >= '1' && e.key <= '9') {
         e.preventDefault()
         const next = workspace.pages[Number(e.key) - 1]
-        if (next) setPageId(next.id)
+        if (next) goPage(next.id)
       } else if (e.key === 'Escape') {
         setReader(null)
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [workspace.pages, setPageId])
+  }, [workspace.pages, goPage, openSettings])
 
   const paletteActions = useMemo(
     () => [
       ...workspace.pages.map((page, index) => ({
         id: `page-${page.id}`,
-        label: `打开${page.label}`,
+        label: page.name,
         hint: String(index + 1),
-        group: '分页',
-        glyph: '▣',
-        run: () => setPageId(page.id),
+        group: '页面',
+        icon: pageIcon(page.icon),
+        run: () => goPage(page.id),
       })),
-      { id: 'cmd-ai', label: '打开对话', hint: '⌘J', group: '动作', glyph: '✳', run: () => setAssistantOpen(true) },
-      { id: 'cmd-monitor', label: '打开服务监控', group: '动作', glyph: '◫', run: () => setMonitorOpen(true) },
-      { id: 'cmd-settings', label: '打开设置', hint: '⌘,', group: '动作', glyph: '⚙', run: () => setSettingsOpen(true) },
+      { id: 'cmd-ai', label: '和搭搭对话', hint: '⌘J', group: '动作', icon: Sparkles, run: () => setAssistantOpen(true) },
+      ...(isInstalled(workspace, 'monitor') ? [{ id: 'cmd-monitor', label: '服务监控', group: '动作', icon: Monitor, run: openMonitor }] : []),
+      { id: 'cmd-market', label: '组件市场', group: '动作', icon: LayoutGrid, run: openMarket },
+      { id: 'cmd-settings', label: '设置', hint: '⌘,', group: '动作', icon: Settings, run: () => openSettings() },
       {
         id: 'cmd-theme',
         label: workspace.theme.mode === 'dark' ? '切换到浅色' : '切换到深色',
         group: '动作',
-        glyph: '◐',
+        icon: workspace.theme.mode === 'dark' ? Sun : Moon,
         run: () => edit((ws) => ({ ...ws, theme: { ...ws.theme, mode: ws.theme.mode === 'dark' ? 'light' : 'dark' } })),
       },
-      ...feeds
+      ...(isInstalled(workspace, 'feeds') ? feeds : [])
         .filter((f) => f.enabled !== false)
         .map((f) => ({
           id: `feed-${f.id}`,
           label: f.title,
           group: '订阅源',
-          glyph: '§',
+          icon: Rss,
           run: () => window.open(f.url, '_blank', 'noopener'),
         })),
     ],
-    [workspace.pages, workspace.theme.mode, feeds, edit, setPageId],
+    [workspace.pages, workspace.theme.mode, workspace.addons, feeds, edit, goPage, openMonitor, openMarket, openSettings],
   )
 
-  const monitorConfigs = settings.monitor
-  const onlineCount = monitorConfigs.filter((c) => monitorStates[c.id]?.status === 'ok').length
-  const tone: 'ok' | 'err' | 'loading' | '' = !monitorConfigs.length
-    ? ''
-    : onlineCount === monitorConfigs.length
-      ? 'ok'
-      : onlineCount === 0
-        ? 'err'
-        : 'loading'
+  const appCtx: AppSettingsContext = useMemo(
+    () => ({
+      settings,
+      patch: (part) => setSettings({ ...settings, ...part }),
+      feeds,
+      setFeeds,
+      groups,
+      setGroups,
+      instances: (type) =>
+        workspace.pages.flatMap((page) =>
+          page.components.filter((c) => c.type === type).map((c) => ({ id: c.id, pageLabel: page.label, config: c.config })),
+        ),
+      updateConfig: onUpdateConfig,
+      workspace,
+      edit,
+    }),
+    [settings, setSettings, feeds, setFeeds, groups, setGroups, workspace, onUpdateConfig, edit],
+  )
 
+  const monitorOn = isInstalled(workspace, 'monitor')
   const paper = currentPage?.wallpaper
   const paperUrl = paper ? wallpaperUrl(paper.mode as never, paper.mode === 'unsplash' ? paper.index : 0, paper.mode === 'custom' ? paper.url : '') : ''
 
@@ -372,41 +457,42 @@ export default function App() {
         <Rail
           pages={workspace.pages}
           page={currentPage?.id ?? ''}
-          onPage={(id) => setPageId(id)}
-          onMonitor={() => setMonitorOpen(true)}
-          onSettings={() => setSettingsOpen(true)}
-          onTheme={() =>
-            edit((ws) => ({ ...ws, theme: { ...ws.theme, mode: ws.theme.mode === 'dark' ? 'light' : 'dark' } }))
-          }
-          theme={workspace.theme.mode}
+          onPage={goPage}
+          view={view}
+          onMore={() => setSwitcherOpen(true)}
+          onAssistant={() => setAssistantOpen(true)}
+          assistantBusy={busy}
+          onMonitor={openMonitor}
+          onMarket={openMarket}
+          monitorInstalled={monitorOn}
+          onSettings={() => openSettings()}
         />
 
         <div className="canvas">
           <TopBar
-            clock={clockText(new Date(), settings.showSeconds)}
-            city={settings.city}
-            pageLabel={currentPage?.label ?? ''}
+            status={<StatusBar items={workspace.statusbar} host={host} onConfig={onStatusConfig} />}
+            theme={workspace.theme.mode}
+            onTheme={toggleTheme}
             onPalette={() => setPaletteOpen((v) => !v)}
-            onSettings={() => setSettingsOpen(true)}
-            onMonitor={() => setMonitorOpen(true)}
-            monitorTone={tone}
-            monitorLabel={monitorConfigs.length ? `${onlineCount}/${monitorConfigs.length}` : '未接入'}
           />
 
+          {view === 'page' && (
           <div
             className="page"
             data-paper={paperUrl ? 'on' : 'off'}
             style={paperUrl ? { ['--paper' as string]: `url("${paperUrl}")` } : undefined}
           >
-            {currentPage && (
-              <PageView
-                page={currentPage}
-                workspace={workspace}
-                host={host}
-                onUpdateConfig={onUpdateConfig}
-                onRemove={onRemoveComponent}
-              />
-            )}
+            <FxLayers layers={currentPage?.layers}>
+              {currentPage && (
+                <PageView
+                  page={currentPage}
+                  workspace={workspace}
+                  host={host}
+                  onUpdateConfig={onUpdateConfig}
+                  onRemove={onRemoveComponent}
+                />
+              )}
+            </FxLayers>
             {paper?.mode === 'unsplash' && (
               <div className="home-paper-bar">
                 <A href="https://unsplash.com" target="_blank" rel="noreferrer noopener">
@@ -429,6 +515,42 @@ export default function App() {
               </div>
             )}
           </div>
+          )}
+          {view === 'settings' && (
+            <div className="page sys-view">
+              <SettingsPage
+                ctx={appCtx}
+                themeMode={workspace.theme.mode}
+                onThemeMode={(mode) => edit((ws) => ({ ...ws, theme: { ...ws.theme, mode } }))}
+                section={section}
+                onSection={setSection}
+                onReset={() => {
+                  localStorage.clear()
+                  location.reload()
+                }}
+              />
+            </div>
+          )}
+          {view === 'market' && (
+            <div className="page sys-view">
+              <MarketPage workspace={workspace} edit={edit} onOpenPage={goPage} onOpenMonitor={openMonitor} />
+            </div>
+          )}
+          {view === 'monitor' && monitorOn && (
+            <div className="page sys-view">
+              <MonitorPage
+                configs={monitorConfigs}
+                states={monitorStates}
+                range={range}
+                onRange={(r) => {
+                  setRange(r)
+                  void loadMonitors(r)
+                }}
+                onRefresh={() => void loadMonitors()}
+                onSettings={() => openSettings('monitor')}
+              />
+            </div>
+          )}
         </div>
 
         <Reader
@@ -441,7 +563,7 @@ export default function App() {
             setAssistantOpen(true)
             void ask(prompt)
           }}
-          onOpenSettings={() => setSettingsOpen(true)}
+          onOpenSettings={() => openSettings('ai')}
         />
 
         <Assistant
@@ -453,51 +575,27 @@ export default function App() {
           onSend={(text) => void ask(text)}
           onStop={() => abortRef.current?.abort()}
           onClose={() => setAssistantOpen(false)}
-          onOpenSettings={() => setSettingsOpen(true)}
+          onOpenSettings={() => openSettings('ai')}
           onClear={() => setTurns([])}
           onApprovalAnswer={answerApproval}
         />
 
-        {monitorOpen && (
-          <MonitorDrawer
-            configs={monitorConfigs}
-            states={monitorStates}
-            range={range}
-            onRange={(r) => {
-              setRange(r)
-              void loadMonitors(r)
-            }}
-            onClose={() => setMonitorOpen(false)}
-            onRefresh={() => void loadMonitors()}
-            onSettings={() => {
-              setMonitorOpen(false)
-              setSettingsOpen(true)
-            }}
-          />
-        )}
+        <PageSwitcher
+          open={switcherOpen}
+          pages={workspace.pages}
+          current={view === 'page' ? (currentPage?.id ?? '') : ''}
+          onPick={goPage}
+          onClose={() => setSwitcherOpen(false)}
+        />
 
         <CommandPalette
           open={paletteOpen}
-          groups={groups}
+          groups={isInstalled(workspace, 'bookmarks') ? groups : []}
           extra={paletteActions}
           onClose={() => setPaletteOpen(false)}
           onSearch={doSearch}
         />
 
-        <Settings
-          open={settingsOpen}
-          settings={settings}
-          feeds={feeds}
-          groups={groups}
-          onSettings={(next) => setSettings(next)}
-          onFeeds={(next) => setFeeds(next)}
-          onGroups={(next) => setGroups(next)}
-          onClose={() => setSettingsOpen(false)}
-          onReset={() => {
-            localStorage.clear()
-            location.reload()
-          }}
-        />
       </div>
     </ErrorBoundary>
   )

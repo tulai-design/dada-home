@@ -26,6 +26,10 @@ export type BuiltinType =
   | 'search'
   | 'quote'
   | 'monitor'
+  /** 特效素材：背景 / 文字 / 卡片 / 3D 场景，来自 src/fx 的素材库 */
+  | 'fx'
+  /** 沙盒应用：AI 写的 HTML/CSS/JS，跑在隔离 iframe 里 */
+  | 'app'
 
 /**
  * 组件类型：内置类型，或 `custom:<自定义组件 id>`。
@@ -168,6 +172,15 @@ export type Wallpaper =
   | {mode: 'unsplash'; index: number}
   | {mode: 'custom'; url: string}
 
+/**
+ * 页面特效图层：铺在页面内容之后（background / scene）或之上（overlay）。
+ * effect 是素材库 id；params 经 fx 目录校验，未知键会被丢弃。
+ */
+export type Layer = {
+  effect: string
+  params: Record<string, unknown>
+}
+
 /** 一个页面：组件实例的有序集合。 */
 export type Page = {
   id: string
@@ -177,11 +190,34 @@ export type Page = {
   components: ComponentInstance[]
   /** 不填等同于 {mode:'off'}。 */
   wallpaper?: Wallpaper
+  /** 特效图层，最多 3 层。不填等同于没有。 */
+  layers?: Layer[]
   /** 页面级自定义 CSS，作用在内容容器上 */
   css?: string
   /** 页面内容的对齐方式 */
   align?: 'start' | 'center'
+  /** 侧栏图标，取值见 pageIcons；不填用通用图标 */
+  icon?: string
 }
+
+/** 首页是固定项：不能删除、不能挪走、始终排第一。 */
+export const FROZEN_PAGE_ID = 'home'
+
+/**
+ * 状态条（顶栏右侧）里的一项：某个组件的「紧凑形态」。
+ * 组件在注册时声明 status 渲染才能放进来；config 沿用该组件自己的配置项。
+ */
+export type StatusItem = {
+  id: string
+  type: ComponentType
+  config: Record<string, unknown>
+}
+
+/** 状态条最多放几项，再多就挤不下了。 */
+export const MAX_STATUS_ITEMS = 5
+
+/** 页面数量上限。侧栏放不下的会自动收进「全部页面」。 */
+export const MAX_PAGES = 30
 
 /** 主题：只存差异，未列出的键沿用主题预设。 */
 export type ThemeConfig = {
@@ -203,6 +239,10 @@ export type Workspace = {
   widgets: CustomWidget[]
   /** 已授权可访问的域名 */
   network: NetworkGrant[]
+  /** 状态条：顶栏右侧的实时小组件，默认只有一个时钟 */
+  statusbar: StatusItem[]
+  /** 已安装的市场组件（见 market.ts）。没装的组件不出现在页面、侧栏和 AI 的可用清单里。 */
+  addons: string[]
 }
 
 export type LayoutConfig = {
@@ -214,7 +254,7 @@ export type LayoutConfig = {
 
 export const DEFAULT_LAYOUT: LayoutConfig = {
   columns: 12,
-  maxWidth: 1120,
+  maxWidth: 1480,
 }
 
 /** span 到栅格列数的映射；渲染器按这个算。 */

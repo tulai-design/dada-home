@@ -81,9 +81,17 @@ export const QUOTES = [
   '读书百遍，其义自见。',
 ]
 
+/**
+ * 搜索引擎。tag 是输入框里 # 快速切换用的口令（#gg + 空格），mark/color 是没有联网图标时的徽标。
+ * 想加引擎：这里加一行即可，输入框、命令面板都会自动出现。
+ */
 export const SEARCH_ENGINES = [
-  { id: 'bing', label: '必应', url: 'https://www.bing.com/search?q=' },
-  { id: 'google', label: '谷歌', url: 'https://www.google.com/search?q=' },
-  { id: 'baidu', label: '百度', url: 'https://www.baidu.com/s?wd=' },
-  { id: 'ddg', label: 'DuckDuckGo', url: 'https://duckduckgo.com/?q=' },
+  { id: 'google', label: '谷歌', tag: 'gg', mark: 'G', color: '#4285f4', url: 'https://www.google.com/search?q=' },
+  { id: 'bing', label: '必应', tag: 'bi', mark: 'b', color: '#008373', url: 'https://www.bing.com/search?q=' },
+  { id: 'baidu', label: '百度', tag: 'bd', mark: '百', color: '#2932e1', url: 'https://www.baidu.com/s?wd=' },
+  { id: 'sogou', label: '搜狗', tag: 'sg', mark: 'S', color: '#fb6c1d', url: 'https://www.sogou.com/web?query=' },
+  { id: 'so360', label: '360搜索', tag: '360', mark: '360', color: '#19b955', url: 'https://www.so.com/s?q=' },
+  { id: 'yahoo', label: '雅虎', tag: 'yh', mark: 'Y!', color: '#6001d2', url: 'https://search.yahoo.com/search?p=' },
+  { id: 'ddg', label: 'DuckDuckGo', tag: 'ddg', mark: 'D', color: '#de5833', url: 'https://duckduckgo.com/?q=' },
+  { id: 'ecosia', label: 'Ecosia', tag: 'eco', mark: 'E', color: '#36acb6', url: 'https://www.ecosia.org/search?q=' },
 ] as const

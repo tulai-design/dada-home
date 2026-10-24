@@ -39,7 +39,7 @@ function Todos({instance, config}: ComponentProps<TodosConfig>) {
           onValueChange={setDraft}
           onPressEnter={add}
           suffix={
-            <Button size="small" type="primary" disabled={!draft.trim()} onClick={add}>
+            <Button size="small" type="primary" icon={<Plus size={14} />} disabled={!draft.trim()} onClick={add}>
               添加
             </Button>
           }

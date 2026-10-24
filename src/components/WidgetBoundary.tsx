@@ -1,5 +1,6 @@
 import {Component, type ErrorInfo, type ReactNode} from 'react'
 import {Button, Flexbox, Text} from '@lobehub/ui'
+import {RotateCcw, Trash2} from 'lucide-react'
 
 type Props = {
   /** 出错时展示的组件名，帮用户（和 AI）认出是哪一块。 */
@@ -37,11 +38,11 @@ export class WidgetBoundary extends Component<Props, State> {
           {error.message}
         </Text>
         <Flexbox direction="horizontal" gap={8}>
-          <Button size="small" onClick={() => this.setState({error: null})}>
+          <Button size="small" icon={<RotateCcw size={13} />} onClick={() => this.setState({error: null})}>
             重试
           </Button>
           {this.props.onRemove && (
-            <Button size="small" danger onClick={this.props.onRemove}>
+            <Button size="small" danger icon={<Trash2 size={13} />} onClick={this.props.onRemove}>
               移除这一块
             </Button>
           )}

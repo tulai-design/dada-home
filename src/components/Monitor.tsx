@@ -11,8 +11,12 @@ import {
 } from '../lib/monitor'
 import type { MonitorConfig } from '../lib/types'
 import { relativeTime } from '../lib/date'
-import { ActionIcon, Button, Drawer, Empty, Flexbox, Segmented } from '@lobehub/ui'
-import { ExternalLink, RefreshCw } from 'lucide-react'
+import { ActionIcon, Button, Empty, Flexbox, Segmented, Select } from '@lobehub/ui'
+import { ExternalLink, Monitor as MonitorIcon, Plus, RefreshCw, Settings, Trash2 } from 'lucide-react'
+import { registerApp, useAppSettings } from '../lib/apps'
+import { Group, Row, TextRow } from './ios'
+import { SysPage } from './SysPage'
+import { uid } from '../lib/store'
 
 /* ---------------- 迷你折线图 ---------------- */
 
@@ -372,14 +376,13 @@ function AppRow({ app }: { app: CoolifyApp }) {
   )
 }
 
-/* ---------------- 监控抽屉 ---------------- */
+/* ---------------- 监控页 ---------------- */
 
-export function MonitorDrawer({
+export function MonitorPage({
   configs,
   states,
   range,
   onRange,
-  onClose,
   onRefresh,
   onSettings,
 }: {
@@ -387,7 +390,6 @@ export function MonitorDrawer({
   states: Record<string, MonitorState>
   range: RangeId
   onRange: (r: RangeId) => void
-  onClose: () => void
   onRefresh: () => void
   onSettings: () => void
 }) {
@@ -395,17 +397,12 @@ export function MonitorDrawer({
   const shown = configs.filter((c) => tab === '__all' || c.id === tab)
 
   return (
-    <Drawer
-      open
-      width={940}
+    <SysPage
       title="服务监控"
-      onClose={onClose}
       extra={
         <Flexbox direction="horizontal" align="center" gap={8}>
           <Segmented size="small" value={range} options={RANGES.map((r) => ({ value: r.id, label: r.label }))} onChange={(v) => onRange(v as RangeId)} />
-          <Button size="small" onClick={onSettings}>
-            管理
-          </Button>
+          <ActionIcon icon={Settings} title="管理接入" onClick={onSettings} />
           <ActionIcon icon={RefreshCw} title="刷新" onClick={onRefresh} />
         </Flexbox>
       }
@@ -424,7 +421,7 @@ export function MonitorDrawer({
             title="还没有接入监控"
             description="支持 Beszel 的历史曲线，以及 Coolify 的服务器、应用和部署记录。"
             action={
-              <Button type="primary" onClick={onSettings}>
+              <Button type="primary" icon={<Plus size={14} />} onClick={onSettings}>
                 去接入
               </Button>
             }
@@ -516,6 +513,69 @@ export function MonitorDrawer({
             )
           })}
       </Flexbox>
-    </Drawer>
+    </SysPage>
   )
 }
+
+
+/* ---------------- 应用设置：监控 ---------------- */
+
+const MONITOR_KINDS = [
+  { value: 'coolify', label: 'Coolify' },
+  { value: 'beszel', label: 'Beszel' },
+  { value: 'http', label: '网址探测' },
+]
+
+function MonitorSettings() {
+  const { settings, patch } = useAppSettings()
+  const items = settings.monitor
+  const update = (id: string, part: Partial<MonitorConfig>) => patch({ monitor: items.map((m) => (m.id === id ? { ...m, ...part } : m)) })
+
+  return (
+    <>
+      <Group title={`接入 · ${items.length} 个`} footer="支持 Beszel 的历史曲线，以及 Coolify 的服务器、应用和部署记录。密钥只存在这台浏览器。">
+        <Row
+          label="接入新的监控"
+          icon={<Plus size={16} />}
+          onClick={() =>
+            patch({ monitor: [...items, { id: uid(), name: '新的监测', kind: 'coolify', baseUrl: 'https://coolify.example.com', token: '' }] })
+          }
+        />
+      </Group>
+      {items.map((m) => (
+        <Group key={m.id}>
+          <TextRow label="名称" value={m.name} onChange={(v) => update(m.id, { name: v })} />
+          <Row label="类型">
+            <Select className="ios-select" variant="borderless" value={m.kind} options={MONITOR_KINDS} onChange={(v) => update(m.id, { kind: v as MonitorConfig['kind'] })} />
+          </Row>
+          {m.kind === 'http' ? (
+            <TextRow label="地址" value={m.url ?? ''} placeholder="https://example.com/health" onChange={(v) => update(m.id, { url: v })} />
+          ) : (
+            <>
+              <TextRow label="地址" value={m.baseUrl} placeholder="https://monitor.example.com" onChange={(v) => update(m.id, { baseUrl: v })} />
+              {m.kind === 'coolify' ? (
+                <TextRow label="Token" secret value={m.token ?? ''} placeholder="API Token" onChange={(v) => update(m.id, { token: v })} />
+              ) : (
+                <>
+                  <TextRow label="邮箱" value={m.identity ?? ''} onChange={(v) => update(m.id, { identity: v })} />
+                  <TextRow label="密码" secret value={m.password ?? ''} onChange={(v) => update(m.id, { password: v })} />
+                </>
+              )}
+            </>
+          )}
+          <Row label="删除这个接入" icon={<Trash2 size={16} />} danger onClick={() => patch({ monitor: items.filter((x) => x.id !== m.id) })} />
+        </Group>
+      ))}
+    </>
+  )
+}
+
+registerApp({
+  id: 'monitor',
+  name: '监控',
+  icon: MonitorIcon,
+  color: '#30d158',
+  description: '接入服务器和服务的状态来源。看数据请点侧栏的「监控」。',
+  summary: (ctx) => (ctx.settings.monitor.length ? `${ctx.settings.monitor.length} 个接入` : '未接入'),
+  Panel: MonitorSettings,
+})

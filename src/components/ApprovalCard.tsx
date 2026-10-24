@@ -1,5 +1,5 @@
 import {Button, Flexbox, Text} from '@lobehub/ui'
-import {ShieldQuestion} from 'lucide-react'
+import {Check, ShieldQuestion, X} from 'lucide-react'
 import type {ApprovalRequest} from '../lib/ai'
 
 /**
@@ -28,10 +28,10 @@ export function ApprovalCard({
       </Flexbox>
       <Text className="approval-summary">{request.summary}</Text>
       <Flexbox direction="horizontal" gap={8}>
-        <Button type="primary" size="small" onClick={() => onAnswer(true)}>
+        <Button type="primary" size="small" icon={<Check size={14} />} onClick={() => onAnswer(true)}>
           允许
         </Button>
-        <Button size="small" onClick={() => onAnswer(false)}>
+        <Button size="small" icon={<X size={14} />} onClick={() => onAnswer(false)}>
           拒绝
         </Button>
       </Flexbox>

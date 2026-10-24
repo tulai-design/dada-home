@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, Button, Drawer, Empty, Flexbox, Markdown, Tag } from '@lobehub/ui'
+import { Check, Copy, ExternalLink, MessageSquareText, Settings, Sparkles } from 'lucide-react'
 import type { Article } from '../lib/types'
 import { sanitizeHtml } from '../lib/rss'
 import { relativeTime } from '../lib/date'
@@ -83,11 +84,12 @@ export function Reader({ article, ai, onClose, onMarkRead, onAskAi, onOpenSettin
         <Tag>{relativeTime(article.date)}</Tag>
         <h1>{article.title}</h1>
         <Flexbox direction="horizontal" gap={8} wrap="wrap">
-          <Button size="small" loading={summarizing} onClick={() => void runSummary()}>
+          <Button size="small" loading={summarizing} icon={<Sparkles size={13} />} onClick={() => void runSummary()}>
             AI 摘要
           </Button>
           <Button
             size="small"
+            icon={<MessageSquareText size={13} />}
             onClick={() => {
               onMarkRead(article.id)
               onAskAi(`关于《${article.title}》，我的问题是：`)
@@ -95,10 +97,10 @@ export function Reader({ article, ai, onClose, onMarkRead, onAskAi, onOpenSettin
           >
             带着这篇文章去问
           </Button>
-          <Button size="small" onClick={() => void copyLink()}>
+          <Button size="small" icon={copied ? <Check size={13} /> : <Copy size={13} />} onClick={() => void copyLink()}>
             {copied ? '已复制' : '复制链接'}
           </Button>
-          <Button size="small" href={article.link} target="_blank">
+          <Button size="small" icon={<ExternalLink size={13} />} href={article.link} target="_blank">
             原文
           </Button>
         </Flexbox>
@@ -106,12 +108,12 @@ export function Reader({ article, ai, onClose, onMarkRead, onAskAi, onOpenSettin
           <Alert
             type="error"
             message={error}
-            extra={!aiConfigured ? <Button size="small" onClick={onOpenSettings}>打开设置</Button> : undefined}
+            extra={!aiConfigured ? <Button size="small" icon={<Settings size={13} />} onClick={onOpenSettings}>打开设置</Button> : undefined}
           />
         )}
         {(summary || summarizing) && <Markdown variant="chat">{summary || '正在摘要…'}</Markdown>}
         {article.linkOnly ? (
-          <Empty title="这个订阅源只给了标题和链接" action={<Button type="primary" href={article.link} target="_blank">去原文阅读</Button>} />
+          <Empty title="这个订阅源只给了标题和链接" action={<Button type="primary" icon={<ExternalLink size={14} />} href={article.link} target="_blank">去原文阅读</Button>} />
         ) : body.trim() ? (
           <div className="reader-article" dangerouslySetInnerHTML={{ __html: body }} />
         ) : (

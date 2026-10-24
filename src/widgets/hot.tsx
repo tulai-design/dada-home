@@ -1,8 +1,11 @@
-import {ActionIcon, A, Empty, Flexbox, Text} from '@lobehub/ui'
-import {RefreshCw} from 'lucide-react'
+import {useEffect, useState} from 'react'
+import {ActionIcon, A, Empty, Flexbox, Tag, Text} from '@lobehub/ui'
+import {Flame, RefreshCw} from 'lucide-react'
+import {registerApp, useAppSettings} from '../lib/apps'
+import {Group, Row, TextRow} from '../components/ios'
 import {registerComponent, type ComponentProps} from '../lib/registry'
 import {useResource} from '../lib/resource'
-import {DEFAULT_HOT_BOARDS, fetchBoards, type HotBoard} from '../lib/hot'
+import {DEFAULT_HOT_BOARDS, HOT_COLUMNS, fetchBoards, fetchSources, type HotBoard, type HotSource} from '../lib/hot'
 
 type HotConfig = {
   heading: string
@@ -79,4 +82,100 @@ registerComponent<HotConfig>({
   defaultSpan: 'full',
   component: Hot,
   multiple: true,
+})
+
+
+/* ---------- 应用设置：热榜 ---------- */
+
+function splitIds(value: unknown): string[] {
+  return String(value ?? '')
+    .split(/[,，\s]+/)
+    .map((id) => id.trim())
+    .filter(Boolean)
+}
+
+function HotSettings() {
+  const {settings, patch, instances, updateConfig} = useAppSettings()
+  const [sources, setSources] = useState<HotSource[]>([])
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    fetchSources(settings.hotSource, settings.proxy)
+      .then((list) => {
+        if (cancelled) return
+        setSources(list)
+        setError('')
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : '源列表读取失败')
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [settings.hotSource, settings.proxy])
+
+  const boards = instances('hot')
+  const columns = [...HOT_COLUMNS, {id: '', label: '其他'}]
+
+  return (
+    <>
+      <Group title="数据来源" footer={error ? <Text type="danger">{error}</Text> : '榜单数据来自 NewsHub 兼容接口。'}>
+        <TextRow label="源站" stack value={settings.hotSource} placeholder="https://newshub.shenzjd.com" onChange={(v) => patch({hotSource: v})} />
+      </Group>
+
+      {boards.length === 0 && (
+        <Group footer="对搭搭说「加一个热榜」，它就会出现在这里。">
+          <Row label="还没有热榜组件" />
+        </Group>
+      )}
+
+      {boards.map((instance) => {
+        const chosen = splitIds(instance.config.boards)
+        const toggle = (id: string) => {
+          const next = chosen.includes(id) ? chosen.filter((x) => x !== id) : [...chosen, id]
+          updateConfig(instance.id, {boards: next.join(',')})
+        }
+        return (
+          <Group key={instance.id} title={`${instance.pageLabel}页的热榜 · 已选 ${chosen.length} 个`}>
+            <div className="ios-chips">
+              {columns.map((column) => {
+                const group = sources.filter((source) => (source.column ?? '') === column.id)
+                if (!group.length) return null
+                return (
+                  <div key={column.id || 'other'} className="ios-chip-block">
+                    <span className="ios-chip-label">{column.label}</span>
+                    <Flexbox direction="horizontal" gap={6} wrap="wrap">
+                      {group.map((source) => {
+                        const on = chosen.includes(source.id)
+                        return (
+                          <Tag key={source.id} color={on ? 'red' : 'gray'} variant={on ? 'filled' : 'outlined'} style={{cursor: 'pointer'}} onClick={() => toggle(source.id)}>
+                            {source.name}
+                          </Tag>
+                        )
+                      })}
+                    </Flexbox>
+                  </div>
+                )
+              })}
+              {!sources.length && !error && <Text type="secondary">读取榜单列表中…</Text>}
+            </div>
+          </Group>
+        )
+      })}
+    </>
+  )
+}
+
+registerApp({
+  id: 'hot',
+  name: '热榜',
+  icon: Flame,
+  color: '#ff453a',
+  description: '选择热榜页要显示哪些榜单，以及榜单数据的来源。',
+  summary: (ctx) => {
+    const first = ctx.instances('hot')[0]
+    return first ? `${splitIds(first.config.boards).length} 个榜` : ''
+  },
+  Panel: HotSettings,
 })
