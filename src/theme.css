@@ -56,13 +56,85 @@ body {
   position: relative;
 }
 
-.app::after {
-  content: '';
+/* 外框由 .frame 里的四条边组成，进场时各自从屏幕外滑进来。
+   曲线和时长参考 anyway.fm：1.2s，cubic-bezier(.08,.82,.2,1)，前快后缓 */
+.frame {
   position: fixed;
   inset: 0;
-  border: var(--frame) solid var(--main);
   pointer-events: none;
   z-index: 300;
+}
+.frame-bar {
+  position: absolute;
+  background: var(--main);
+  animation: frame-in 1.2s cubic-bezier(0.08, 0.82, 0.2, 1) both;
+}
+.frame-t,
+.frame-b {
+  left: 0;
+  width: 100%;
+  height: var(--frame);
+}
+.frame-l,
+.frame-r {
+  top: 0;
+  height: 100%;
+  width: var(--frame);
+}
+.frame-t {
+  top: 0;
+  --from: translateY(-100%);
+}
+.frame-b {
+  bottom: 0;
+  --from: translateY(100%);
+}
+.frame-l {
+  left: 0;
+  --from: translateX(-100%);
+}
+.frame-r {
+  right: 0;
+  --from: translateX(100%);
+}
+@keyframes frame-in {
+  from {
+    transform: var(--from);
+  }
+  to {
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .frame-bar {
+    animation: none;
+  }
+}
+
+/* 页面背景特效铺满整个窗口，侧栏、顶栏透明地叠在它上面 */
+.fx-root {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+.app > .rail,
+.app > .canvas {
+  position: relative;
+  z-index: 1;
+}
+.app[data-fx='on'] .rail {
+  background: transparent !important;
+}
+/* 背景的鼠标互动要能穿过外壳：外壳本身不挡，里面的按钮和内容块照常响应 */
+.app[data-fx='on'] .canvas,
+.app[data-fx='on'] .page,
+.app[data-fx='on'] .canvas > .topbar {
+  pointer-events: none;
+}
+.app[data-fx='on'] .canvas > :not(.page):not(.topbar),
+.app[data-fx='on'] .topbar > * {
+  pointer-events: auto;
 }
 
 .canvas {
@@ -2034,7 +2106,7 @@ body {
     overflow: hidden !important;
   }
   /* 手机不画整屏红框，屏幕本身是圆角的 */
-  .app::after {
+  .frame {
     display: none;
   }
 
@@ -2235,4 +2307,94 @@ body {
 .ai-mono {
   font-family: var(--font-mono, ui-monospace, monospace) !important;
   font-size: 13px !important;
+}
+
+/* ---------- 书签：长标题一行截断，整齐成列 ---------- */
+.mark-grid {
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 2px 14px;
+}
+.mark-cell {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  border-radius: 8px;
+}
+.mark-cell:hover {
+  background: var(--bg2);
+}
+.mark-link {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  height: 32px;
+  padding: 0 8px;
+  color: var(--text);
+  text-decoration: none;
+}
+.mark-link-off {
+  color: var(--text3);
+}
+.mark-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.mark-cell:hover .mark-link:not(.mark-link-off) .mark-name {
+  color: var(--main);
+}
+.favicon {
+  flex: none;
+  border-radius: 4px;
+  object-fit: contain;
+}
+.favicon-letter {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--text2);
+  font-family: var(--font-serif);
+  font-weight: 500;
+  line-height: 1;
+}
+.quick-icon .favicon-letter {
+  background: none;
+  font-size: 17px !important;
+}
+.mark-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0;
+  color: var(--text3);
+  opacity: 0.8;
+}
+.mark-more {
+  margin: 6px 0 0 8px;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text3);
+  cursor: pointer;
+}
+.mark-more:hover {
+  color: var(--main);
+}
+
+/* 深色主题：站点图标放在浅色底上，黑色的图标（GitHub 等）才看得见 */
+:root[data-theme='dark'] .quick-icon {
+  background: #ece6da;
+  box-shadow: none;
+}
+:root[data-theme='dark'] .quick-icon .favicon-letter {
+  color: #3a342c;
 }

@@ -63,6 +63,21 @@ function view(load: () => Promise<{default: unknown}>, render: (C: Any, props: F
 /** 带 lightMode 的背景：亮色主题自动开启，除非 AI 明确指定。 */
 const light = (dark: boolean) => ({lightMode: !dark})
 
+/**
+ * 默认的「墨色」线条在深色主题下会看不见：只要颜色还是目录里的默认值，就换成浅墨。
+ * 用户或 AI 明确指定过别的颜色则尊重原样。
+ */
+const INK: Record<string, string> = {'#1b1714': '#e8e1d3', '#cfc6b8': '#4b443b'}
+const inkFor = (p: Record<string, unknown>, dark: boolean): Record<string, unknown> => {
+  if (!dark) return p
+  const next: Record<string, unknown> = {...p}
+  for (const key of ['color', 'lineColor', 'baseColor']) {
+    const value = next[key]
+    if (typeof value === 'string' && INK[value.toLowerCase()]) next[key] = INK[value.toLowerCase()]
+  }
+  return next
+}
+
 export const VIEWS: Record<string, LazyExoticComponent<ComponentType<FxViewProps>>> = {
   // ───── 背景 ─────
   aurora: view(() => import('./vendor/Aurora'), (C, {p, dark}) => <C {...light(dark)} {...bg(p)} />),
@@ -75,10 +90,13 @@ export const VIEWS: Record<string, LazyExoticComponent<ComponentType<FxViewProps
   particles: view(() => import('./vendor/Particles'), (C, {p, dark}) => <C {...light(dark)} {...bg(p)} />),
   threads: view(
     () => import('./vendor/Threads'),
-    (C, {p}) => <C {...bg(p)} color={rgb(p.color)} accentColor={p.accentColor ? rgb(p.accentColor) : undefined} />,
+    (C, {p: raw, dark}) => {
+      const p = inkFor(raw, dark)
+      return <C {...bg(p)} color={rgb(p.color)} accentColor={p.accentColor ? rgb(p.accentColor) : undefined} />
+    },
   ),
-  waves: view(() => import('./vendor/Waves'), (C, {p, dark}) => <C {...light(dark)} {...bg(p)} />),
-  'dot-grid': view(() => import('./vendor/DotGrid'), (C, {p}) => <C {...bg(p)} />),
+  waves: view(() => import('./vendor/Waves'), (C, {p, dark}) => <C {...light(dark)} {...bg(inkFor(p, dark))} />),
+  'dot-grid': view(() => import('./vendor/DotGrid'), (C, {p, dark}) => <C {...bg(inkFor(p, dark))} />),
 
   // ───── 文字 ─────
   'split-text': view(

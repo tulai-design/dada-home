@@ -1,6 +1,6 @@
-import {useState} from 'react'
 import {registerComponent, type ComponentProps} from '../lib/registry'
 import {hostOf, normalizeUrl} from '../lib/bookmarks'
+import {Favicon} from '../components/Favicon'
 
 type LinksConfig = {
   /** 每行一个：名称 网址 */
@@ -36,26 +36,6 @@ export function parseLinks(text: string): QuickLink[] {
   return result.slice(0, 24)
 }
 
-/** 站点自己的 favicon.ico；加载失败（或关了图标）时用名字的首字。 */
-function SiteIcon({link, enabled}: {link: QuickLink; enabled: boolean}) {
-  const [failed, setFailed] = useState(false)
-  let icon = ''
-  try {
-    icon = new URL('/favicon.ico', link.href).href
-  } catch {
-    /* 地址已校验过 */
-  }
-  return (
-    <span className="quick-icon">
-      {enabled && icon && !failed ? (
-        <img src={icon} alt="" width={22} height={22} loading="lazy" referrerPolicy="no-referrer" draggable={false} onError={() => setFailed(true)} />
-      ) : (
-        <b>{Array.from(link.name)[0]?.toUpperCase()}</b>
-      )}
-    </span>
-  )
-}
-
 function QuickLinks({config, host}: ComponentProps<LinksConfig>) {
   const links = parseLinks(config.links)
   if (!links.length) return null
@@ -63,7 +43,9 @@ function QuickLinks({config, host}: ComponentProps<LinksConfig>) {
     <nav className="quick-links" aria-label="常用网站">
       {links.map((link) => (
         <a key={link.href + link.name} className="quick-link" href={link.href} target="_blank" rel="noreferrer noopener" title={link.href}>
-          <SiteIcon link={link} enabled={config.showFavicons && host.profile.showFavicons} />
+          <span className="quick-icon">
+            <Favicon url={link.href} name={link.name} size={22} enabled={config.showFavicons && host.profile.showFavicons} />
+          </span>
           <span className="quick-name">{link.name}</span>
         </a>
       ))}

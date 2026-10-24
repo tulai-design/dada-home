@@ -1,9 +1,8 @@
 import {useEffect, useMemo, useRef, useState, type ReactNode} from 'react'
 import {ActionIcon, Button, Flexbox, Input, Text} from '@lobehub/ui'
-import {ArrowUp, Check, ChevronDown, ChevronRight, CircleAlert, LoaderCircle, Search} from 'lucide-react'
+import {ArrowUp, Check, ChevronDown, LoaderCircle, Search} from 'lucide-react'
 import {useStored} from '../lib/store'
 import {SEARCH_ENGINES} from '../lib/defaults'
-import {useChat} from '../lib/chat'
 import {registerComponent, type ComponentProps} from '../lib/registry'
 
 type SearchMode = 'ai' | (typeof SEARCH_ENGINES)[number]['id']
@@ -11,6 +10,16 @@ type SearchMode = 'ai' | (typeof SEARCH_ENGINES)[number]['id']
 type SearchConfig = {
   showEngines: boolean
 }
+
+/** AI 输入框的提示语轮换着出：搭搭不只会改页面，什么都可以问、可以让它做。 */
+const TIPS = [
+  '问点什么，或者让搭搭动手做点事',
+  '把首页换成深色主题',
+  '帮我记一个待办：明天交周报',
+  '总结一下今天的订阅',
+  '给我做一个阅读页',
+  '把常用网站换成我常看的',
+]
 
 type Entry = {id: SearchMode; label: string; tag: string; logo: ReactNode}
 
@@ -40,10 +49,10 @@ const isTouch = typeof window !== 'undefined' && window.matchMedia('(pointer: co
 function SearchBox({config, host}: ComponentProps<SearchConfig>) {
   const [value, setValue] = useState('')
   const [mode, setMode] = useStored<SearchMode>('searchMode', 'ai')
-  const {turns} = useChat()
   const [menu, setMenu] = useState(false)
   const [hi, setHi] = useState(0)
   const rootRef = useRef<HTMLDivElement>(null)
+  const [tip, setTip] = useState(0)
 
   // 关掉“引擎切换”后，输入框固定为 AI，不再响应 #
   const switchable = config.showEngines
@@ -61,6 +70,14 @@ function SearchBox({config, host}: ComponentProps<SearchConfig>) {
   const panelOpen = switchable && (menu || hashQuery !== null) && entries.length > 0
 
   useEffect(() => setHi(0), [hashQuery, menu])
+
+  // 输入框空着时，每几秒换一句提示
+  const resting = active === 'ai' && !value
+  useEffect(() => {
+    if (!resting) return
+    const timer = window.setInterval(() => setTip((n) => (n + 1) % TIPS.length), 5000)
+    return () => window.clearInterval(timer)
+  }, [resting])
 
   useEffect(() => {
     if (!menu) return
@@ -90,12 +107,6 @@ function SearchBox({config, host}: ComponentProps<SearchConfig>) {
     setValue(next)
   }
 
-  const lastTurn = turns[turns.length - 1]
-  const lastTool = lastTurn?.tools[lastTurn.tools.length - 1]
-  // 首页只给一行进度提示：进行中，或刚结束不久。回答的内容一律去 AI 面板里看。
-  const fresh = lastTurn ? lastTurn.endedAt === undefined || Date.now() - lastTurn.endedAt < 90_000 : false
-  const peek = Boolean(lastTurn && (host.aiBusy || fresh))
-  const failed = Boolean(lastTurn?.error || (lastTool && !lastTool.ok))
   const busy = active === 'ai' && host.aiBusy
 
   const submit = () => {
@@ -157,7 +168,7 @@ function SearchBox({config, host}: ComponentProps<SearchConfig>) {
       ? host.aiBusy
         ? '正在回答…'
         : host.aiConfigured
-          ? '说一句话，让搭搭帮你改页面'
+          ? TIPS[tip % TIPS.length]
           : '先到设置里接上模型'
       : `在${engine?.label ?? '网页'}里搜索`
 
@@ -224,23 +235,10 @@ function SearchBox({config, host}: ComponentProps<SearchConfig>) {
         )}
       </div>
 
-      {!peek && active !== 'ai' && (
+      {active !== 'ai' && (
         <Text className="hero-aux" type="secondary" fontSize={12}>
           回车在{engine?.label}搜索 · 输入网址直接打开 · 输入 # 换引擎
         </Text>
-      )}
-
-      {peek && lastTurn && (
-        <Button
-          className="hero-status hero-aux"
-          type="text"
-          icon={host.aiBusy ? <LoaderCircle size={14} className="spin" /> : failed ? <CircleAlert size={14} /> : <Check size={14} />}
-          onClick={host.openAssistant}
-        >
-          <span className="hero-status-title">{lastTurn.prompt}</span>
-          <em>{host.aiBusy ? '处理中' : failed ? '未完成' : '已完成'}</em>
-          <ChevronRight size={14} />
-        </Button>
       )}
     </Flexbox>
   )

@@ -1,4 +1,5 @@
 import {Component, Suspense, useSyncExternalStore, type ErrorInfo, type ReactNode} from 'react'
+import {createPortal} from 'react-dom'
 import ClickSpark from './vendor/ClickSpark'
 import {getFx, normalizeParams} from './catalog'
 import {VIEWS} from './views'
@@ -55,24 +56,39 @@ export function FxEffect({id, text = '', params}: {id: string; text?: string; pa
  * 背景类图层铺在内容之后；胶片颗粒铺在内容之上但不挡点击；
  * 点击火花需要包住整页才能监听点击，所以是个外壳。
  */
-export function FxLayers({layers, children}: {layers?: Layer[]; children: ReactNode}) {
+/** 这些图层里有没有铺满整页的背景（有的话外壳要让出透明，让背景透到侧栏和顶栏后面）。 */
+export function hasBackdrop(layers?: Layer[]): boolean {
+  return (layers ?? []).some((layer) => {
+    const kind = getFx(layer.effect)?.kind
+    return kind === 'background' || kind === 'scene'
+  })
+}
+
+/**
+ * portal：背景图层挂到哪里。传了就渲染到那个节点（App 外壳最底层，侧栏和顶栏都在它上面），
+ * 背景因此铺满整个窗口而不是只在内容区里。
+ */
+export function FxLayers({layers, children, portal}: {layers?: Layer[]; children: ReactNode; portal?: HTMLElement | null}) {
   const list = layers ?? []
   const defs = list.map((layer) => ({layer, def: getFx(layer.effect)})).filter((item) => item.def)
   const behind = defs.filter(({def}) => def!.kind === 'background' || def!.kind === 'scene')
   const above = defs.filter(({def}) => def!.id === 'noise')
   const spark = defs.find(({def}) => def!.id === 'click-spark')
 
+  const backdrop =
+    behind.length > 0 ? (
+      <div className="fx-layers" aria-hidden="true">
+        {behind.map(({layer}, index) => (
+          <div className="fx-layer" key={`${layer.effect}-${index}`}>
+            <FxEffect id={layer.effect} params={layer.params} />
+          </div>
+        ))}
+      </div>
+    ) : null
+
   const body = (
     <>
-      {behind.length > 0 && (
-        <div className="fx-layers" aria-hidden="true">
-          {behind.map(({layer}, index) => (
-            <div className="fx-layer" key={`${layer.effect}-${index}`}>
-              <FxEffect id={layer.effect} params={layer.params} />
-            </div>
-          ))}
-        </div>
-      )}
+      {backdrop && (portal ? createPortal(backdrop, portal) : backdrop)}
       {children}
       {above.map(({layer}, index) => (
         <div className="fx-overlay" key={`${layer.effect}-${index}`} aria-hidden="true">

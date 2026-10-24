@@ -81,7 +81,7 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, onSection, o
       setImportError(error instanceof Error ? error.message : String(error))
     }
   }
-  const [assistantMode, setAssistantMode] = useStored<'drawer' | 'full'>('assistantMode', 'drawer')
+  const [assistantMode, setAssistantMode] = useStored<'drawer' | 'full'>('sidebarAi', 'full')
 
   const general: Section[] = [
     {
@@ -149,8 +149,8 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, onSection, o
       render: () => (
         <>
           <AiSettings ai={settings.ai} proxy={settings.proxy} onChange={(ai) => patch({ai})} />
-          <Group title="对话面板" footer="也可以随时点面板右上角的图标切换。">
-            <Row label="打开方式">
+          <Group title="对话面板" footer="在首页输入框里发消息，总是先用侧栏打开，让你直接看到回答；面板右上角的图标可以随时切换全屏。">
+            <Row label="从侧栏图标进入时">
               <Segmented
                 size="small"
                 value={assistantMode}
