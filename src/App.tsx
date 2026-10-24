@@ -233,7 +233,7 @@ export default function App() {
           config: settings.ai,
           userName: settings.name,
           messages: [...history, { role: 'user', content: text }],
-          host: { openPage: (next: string) => setPendingPage(next) },
+          host: { openPage: (next: string) => setPendingPage(next), openSettings: (section?: string) => openSettings(section) },
           onApproval,
           onReasoning: (chunk) => {
             reasoning += chunk

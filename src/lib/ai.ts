@@ -11,6 +11,7 @@ import * as ops from './ops'
 import * as registry from './registry'
 import {getWorkspace} from './workspaceStore'
 import {personaPrompt} from './persona'
+import {skillIndex} from './skills'
 
 /** 会话消息。wire 格式由 provider 定义，这里直接沿用它的形状。 */
 export type ChatMessage =
@@ -43,7 +44,19 @@ const SYSTEM_PROMPT = [
     '2. 优先用低档位：现成组件能做就别写代码，素材库能做就别开沙盒。低档位更稳、更快、改起来更容易。',
     '3. 不要说「做不到」。内置组件不够，就想第二档、第三档能不能做。真做不到再说明原因。',
     '4. 能一步到位就别反复试探；改完用一句话说明改了什么。删除前确认用户确实想删。',
-    '5. 组件里的待办、便签内容是用户自己的数据，你不读写它们，只负责搭建和配置。',
+    '5. 待办、便签、订阅、书签是用户自己的内容：用户让你看、记、勾选、整理时才动，别擅自改；覆盖便签、删除待办、取消订阅这类操作要先确认。',
+    '',
+    '站点功能（你能操作网站的绝大部分功能，用户说「看看我的…」「帮我…」时直接调用，不要让用户自己去点）：',
+    '- 订阅：list_feeds 看订阅源，read_feeds 抓最新文章（可按来源、关键词筛），read_article 读正文，add_feed / update_feed / remove_feed 管理。「总结今天的订阅」= 先 read_feeds，再按主题归纳，给出链接。',
+    '- 热榜：get_hot 读榜单，list_hot_sources 看有哪些榜，set_hot_boards 设置关注的榜。',
+    '- 待办与便签：list_todos / add_todos / complete_todos / remove_todos，read_note / write_note。页面上没有这些组件时，先 install_addon 装 desk。有多个同类组件时用 ref 指定。',
+    '- 天气与监控：get_weather 读当前天气；list_monitors 看服务状态（监控的令牌由用户自己填）。',
+    '- 设置：get_settings 看全局设置，update_settings 改称呼、城市、时钟秒数、站点图标、输入框默认引擎、侧栏进入 AI 的方式；open_settings 带用户去设置页的某一项。',
+    '  你不能改 AI 的接口地址、密钥、模型，也不能改监控令牌和取数代理——它们涉及密钥和数据流向。用户要改这些，用 open_settings 带他去，并说明要填什么。',
+    '- 外观与结构：页面、组件、主题、模板、壁纸、特效图层、状态条、市场组件，见上面各条。',
+    '',
+    '技能（遇到匹配的任务，先 use_skill 取方法说明，再照着做）：',
+    skillIndex(),
     '',
     '个性与记忆：',
     '- 「灵魂」是你的性格和做事原则，在下面的背景里。用户可以改，你自己也可以：用户明确要你换一种性格、语气或原则时，用 update_soul（小改用 append，整体重写才用 replace），改完告诉用户改了什么。不要因为用户一时的情绪就改灵魂。',
@@ -180,7 +193,7 @@ export type RunOptions = {
 export async function runAgent(options: RunOptions): Promise<string> {
     const {config, host, onDelta, onReasoning, onTool, signal} = options
     const permissionMode = options.permissionMode ?? 'assist'
-    const messages: ChatMessage[] = [{role: 'system', content: SYSTEM_PROMPT + personaPrompt(options.userName ?? '')}, ...options.messages]
+    const messages: ChatMessage[] = [{role: 'system', content: `${SYSTEM_PROMPT}\n\n现在是 ${new Date().toLocaleString('zh-CN', {dateStyle: 'full', timeStyle: 'short', hour12: false})}。${personaPrompt(options.userName ?? '')}`}, ...options.messages]
     const maxRounds = Math.max(1, Math.min(40, Math.trunc(config.maxRounds ?? MAX_ROUNDS)))
     const tools = toolSchemas()
 
@@ -263,6 +276,7 @@ async function dispatchTool(
         callId: call.id,
         signal: signal ?? new AbortController().signal,
         openPage: host.openPage,
+        openSettings: host.openSettings,
     }
 
     try {
@@ -311,6 +325,14 @@ function describeTool(name: string, title: string, args: unknown): string {
             const ref = text(record.ref)
             return ref ? `${title}「${ref}」，会替换当前所有页面和组件（可以撤销）` : title
         }
+        case 'remove_feed':
+            return `${title}（id ${text(record.id) ?? '?'}）`
+        case 'remove_todos': {
+            const count = Array.isArray(record.ids) ? record.ids.length : 0
+            return record.onlyDone === true ? `${title}：清掉所有已完成的待办` : `${title}：${count} 条`
+        }
+        case 'write_note':
+            return record.mode === 'replace' ? `${title}：用新内容覆盖整张便签` : `${title}：追加一段`
         case 'delete_template': {
             const ref = text(record.ref)
             return ref ? `${title}「${ref}」` : title

@@ -13,6 +13,7 @@ import {activeTheme} from './workspace'
 import {PRESETS} from './presets'
 import {MEMORY_KINDS, addMemory, aiEditSoul, getPersona, removeMemory} from './persona'
 import {isSynced, summarize} from './templates'
+import {SITE_TOOLS} from './siteTools'
 
 /**
  * AI 可调用的工作空间工具。
@@ -27,6 +28,8 @@ import {isSynced, summarize} from './templates'
 export type ToolHost = {
   /** 跳到某个页面（只影响当前视图，不改数据）。 */
   openPage: (pageId: string) => void
+  /** 打开设置页的某一项（不改数据）。 */
+  openSettings?: (section?: string) => void
 }
 
 export type HomeToolContext = ToolContext<void> & ToolHost
@@ -1521,6 +1524,9 @@ export const HOME_TOOLS = [
       },
     },
   ),
+
+  // ───── 站点功能：订阅、热榜、待办、便签、天气、监控、设置、技能 ─────
+  ...SITE_TOOLS,
 ] as const
 
 type AnyHomeTool = ToolDefinition<unknown, HomeToolContext, void, unknown>
