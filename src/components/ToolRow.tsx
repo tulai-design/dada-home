@@ -1,5 +1,5 @@
 import {useState} from 'react'
-import {Check, ChevronDown, CircleAlert, LoaderCircle} from 'lucide-react'
+import {Check, CaretDown as ChevronDown, WarningCircle as CircleAlert, CircleNotch as LoaderCircle} from '@phosphor-icons/react'
 import type {ToolStep} from '../lib/chat'
 
 /**

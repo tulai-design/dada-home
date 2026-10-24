@@ -29,7 +29,7 @@
 | 加载中 | `Skeleton`、`Spin` | 文字「加载中…」 |
 | 成组的内容块 | `Block`（可点的用 `clickable`） | 自己写边框和背景 |
 | 弹窗 | `Modal` | 自己写遮罩 |
-| 图标 | `lucide-react` 配 `Icon` / `ActionIcon` | emoji 当图标 |
+| 图标 | `@phosphor-icons/react`（默认 regular 粗细，需要更轻用 `weight="light"`）配 `Icon` / `ActionIcon`；Phosphor 是填充型图标，全局 CSS 已保证它在 Lobe 的 `Icon` 里正常着色 | emoji 当图标 |
 
 只有在 Lobe 里**确实没有**对应物的结构上，才允许自己画：日历的日期格、环形或柱状的图形（SVG）、封面渐变。即便如此：
 - 可点的格子必须能用键盘到达（`role`、`tabIndex`、Enter/Space），并有悬停、选中、聚焦三种状态；

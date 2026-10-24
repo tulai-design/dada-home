@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useIsMobile } from '../lib/useMedia'
 import { Alert, Button, Drawer, Empty, Flexbox, Markdown, Tag } from '@lobehub/ui'
-import { Check, Copy, ExternalLink, MessageSquareText, Settings, Sparkles } from 'lucide-react'
+import {Check, Copy, ArrowSquareOut as ExternalLink, ChatText as MessageSquareText, Gear as Settings, Sparkle as Sparkles} from '@phosphor-icons/react'
 import type { Article } from '../lib/types'
 import { sanitizeHtml } from '../lib/rss'
 import { relativeTime } from '../lib/date'

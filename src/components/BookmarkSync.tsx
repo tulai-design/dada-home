@@ -1,6 +1,6 @@
 import {useState, type ReactNode} from 'react'
 import {Button, Modal, toast} from '@lobehub/ui'
-import {Check, Copy, Download, FileUp, Loader2, Puzzle, Upload} from 'lucide-react'
+import {Check, Copy, DownloadSimple as Download, FileArrowUp as FileUp, SpinnerGap as Loader2, PuzzlePiece as Puzzle, UploadSimple as Upload} from '@phosphor-icons/react'
 import {importFromFile} from '../lib/bookmarks'
 import {EXTENSION_STORE_URL, EXTENSION_ZIP, importFromBrowser, pushToBrowser, useExtension} from '../lib/browserBookmarks'
 import {Group, Row} from './ios'

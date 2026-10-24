@@ -1,6 +1,6 @@
 import {useEffect, useState} from 'react'
 import {Button, Flexbox, Input, Modal, Text, toast} from '@lobehub/ui'
-import {Trash2} from 'lucide-react'
+import {Trash as Trash2} from '@phosphor-icons/react'
 import {DEFAULT_GROUP, addBookmarks, getBookmarks, removeBookmarks, removeGroup, renameGroup, setBookmarks, updateBookmark} from '../lib/bookmarks'
 import type {Bookmark, BookmarkGroup} from '../lib/types'
 

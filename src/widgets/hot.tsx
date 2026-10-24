@@ -1,6 +1,6 @@
 import {useEffect, useState} from 'react'
 import {ActionIcon, A, Empty, Flexbox, Tag, Text} from '@lobehub/ui'
-import {Flame, RefreshCw} from 'lucide-react'
+import {Fire as Flame, ArrowsClockwise as RefreshCw} from '@phosphor-icons/react'
 import {registerApp, useAppSettings} from '../lib/apps'
 import {Group, Row, TextRow} from '../components/ios'
 import {registerComponent, type ComponentProps} from '../lib/registry'

@@ -1,6 +1,6 @@
 import {Component, type ErrorInfo, type ReactNode} from 'react'
 import {Button, Flexbox, Text} from '@lobehub/ui'
-import {RotateCcw, Trash2} from 'lucide-react'
+import {ArrowCounterClockwise as RotateCcw, Trash as Trash2} from '@phosphor-icons/react'
 
 type Props = {
   /** 出错时展示的组件名，帮用户（和 AI）认出是哪一块。 */

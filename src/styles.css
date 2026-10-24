@@ -3774,7 +3774,7 @@ kbd {
   vertical-align: -0.06em;
   background-color: currentColor;
   opacity: 0.75;
-  /* lucide arrow-up-right */
+  /* arrow-up-right */
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 7h10v10'/%3E%3Cpath d='M7 17 17 7'/%3E%3C/svg%3E") center / contain no-repeat;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 7h10v10'/%3E%3Cpath d='M7 17 17 7'/%3E%3C/svg%3E") center / contain no-repeat;
   transition: transform 0.15s ease, opacity 0.15s ease;
@@ -4276,4 +4276,10 @@ kbd {
 
 .page-grid[data-align='center'] > .widget {
   width: 100%;
+}
+
+/* Phosphor 图标是填充型（viewBox 256）；Lobe 的 Icon 默认给 svg 传 fill="transparent"，
+   这里强制回 currentColor。Lobe 自带的 lucide 描边图标 viewBox 为 24，不受影响。 */
+svg[viewBox="0 0 256 256"] {
+  fill: currentColor;
 }

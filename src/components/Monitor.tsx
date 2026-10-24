@@ -12,7 +12,7 @@ import {
 import type { MonitorConfig } from '../lib/types'
 import { relativeTime } from '../lib/date'
 import { ActionIcon, Button, Empty, Flexbox, Segmented, Select } from '@lobehub/ui'
-import { ExternalLink, Monitor as MonitorIcon, Plus, RefreshCw, Settings, Trash2 } from 'lucide-react'
+import {ArrowSquareOut as ExternalLink, Monitor as MonitorIcon, Plus, ArrowsClockwise as RefreshCw, Gear as Settings, Trash as Trash2} from '@phosphor-icons/react'
 import { registerApp, useAppSettings } from '../lib/apps'
 import { Group, Row, TextRow } from './ios'
 import { SysPage } from './SysPage'

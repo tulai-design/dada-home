@@ -1,5 +1,5 @@
 import {ActionIcon, Flexbox, Text} from '@lobehub/ui'
-import {RefreshCw} from 'lucide-react'
+import {ArrowsClockwise as RefreshCw} from '@phosphor-icons/react'
 import {QUOTES} from '../lib/defaults'
 import {useLocalHour} from '../hooks'
 import {registerComponent, type ComponentProps} from '../lib/registry'

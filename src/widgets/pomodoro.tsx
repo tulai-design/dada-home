@@ -1,6 +1,6 @@
 import {useMemo, useState} from 'react'
 import {ActionIcon, Block, Button, Flexbox, Input, Segmented, Statistic, Switch, Text, Tooltip} from '@lobehub/ui'
-import {Minus, Pause, Play, Plus, RotateCcw, Settings2, SkipForward, Timer} from 'lucide-react'
+import {Minus, Pause, Play, Plus, ArrowCounterClockwise as RotateCcw, SlidersHorizontal as Settings2, SkipForward, Timer} from '@phosphor-icons/react'
 import {Group, Row} from '../components/ios'
 import {useNow} from '../hooks'
 import {registerApp} from '../lib/apps'

@@ -1,6 +1,6 @@
 import {useMemo, useState} from 'react'
 import {ActionIcon, Block, Button, Empty, Flexbox, Switch, Tag, Text} from '@lobehub/ui'
-import {Plus, RefreshCw, Rss, Trash2} from 'lucide-react'
+import {Plus, ArrowsClockwise as RefreshCw, Rss, Trash as Trash2} from '@phosphor-icons/react'
 import {registerApp, useAppSettings} from '../lib/apps'
 import {Group, Row, TextRow} from '../components/ios'
 import {uid} from '../lib/store'

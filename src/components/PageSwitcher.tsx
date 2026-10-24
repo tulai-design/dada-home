@@ -1,11 +1,11 @@
 import { useMemo } from 'react'
-import type { LucideIcon } from 'lucide-react'
+import type {Icon as PhosphorIcon} from '@phosphor-icons/react'
 import { pageIcon } from '../lib/pageIcons'
 import type { Page } from '../lib/workspace'
 import { CommandPalette } from './CommandPalette'
 
 /** 全部页面：页面多了侧栏放不下时的总入口。和快速跳转同一套界面，只列页面，不走网页搜索。 */
-export type SystemEntry = { id: string; label: string; icon: LucideIcon; run: () => void; hint?: string }
+export type SystemEntry = { id: string; label: string; icon: PhosphorIcon; run: () => void; hint?: string }
 
 export function PageSwitcher({
   open,

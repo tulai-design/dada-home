@@ -1,5 +1,5 @@
 import {useEffect, useRef, useState} from 'react'
-import {ChevronDown} from 'lucide-react'
+import {CaretDown as ChevronDown} from '@phosphor-icons/react'
 import {Markdown} from '@lobehub/ui'
 
 /**

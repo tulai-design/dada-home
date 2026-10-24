@@ -1,6 +1,6 @@
 import {useEffect, useMemo, useRef, useState} from 'react'
 import {ActionIcon, Block, Button, Empty, Flexbox, Input, Popover, Slider, Tag, Text, Tooltip} from '@lobehub/ui'
-import {AudioLines, ListPlus, Pause, Play, Radio, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, Trash2, Volume1, Volume2, VolumeX, Waves} from 'lucide-react'
+import {Waveform as AudioLines, ListPlus, Pause, Play, Radio, Repeat, RepeatOnce as Repeat1, Shuffle, SkipBack, SkipForward, Trash as Trash2, SpeakerLow as Volume1, SpeakerHigh as Volume2, SpeakerX as VolumeX, Waves} from '@phosphor-icons/react'
 import {SHARED, useComponentData} from '../lib/componentData'
 import {MODE_LABEL, PRESETS, addPreset, addTrack, playerActions, removeTrack, usePlayer, type PlayMode, type Track} from '../lib/player'
 import {registerComponent, type ComponentProps} from '../lib/registry'
@@ -46,7 +46,7 @@ function Cover({track, playing, loading}: {track?: Track; playing: boolean; load
   const Icon = !track ? AudioLines : isNoise(track) ? Waves : Radio
   return (
     <div className="music-cover" style={coverStyle(track?.title)} data-empty={!track} data-playing={playing}>
-      <Icon size={44} strokeWidth={1.25} aria-hidden />
+      <Icon size={44} weight="light" aria-hidden />
       <div className="music-eq" aria-hidden data-on={playing || loading}>
         <i />
         <i />

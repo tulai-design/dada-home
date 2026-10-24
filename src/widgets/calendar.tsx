@@ -1,6 +1,6 @@
 import {useMemo, useState} from 'react'
 import {ActionIcon, Block, Button, DatePicker, datePickerLocaleZhCN, Empty, Flexbox, Input, Switch, Tag, Text, Tooltip} from '@lobehub/ui'
-import {CalendarDays, ChevronLeft, ChevronRight, Plus, RefreshCw, Trash2} from 'lucide-react'
+import {CalendarDots as CalendarDays, CaretLeft as ChevronLeft, CaretRight as ChevronRight, Plus, ArrowsClockwise as RefreshCw, Trash as Trash2} from '@phosphor-icons/react'
 import {Group, Row, TextRow} from '../components/ios'
 import {useNow} from '../hooks'
 import {registerApp, useAppSettings} from '../lib/apps'

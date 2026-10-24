@@ -1,7 +1,7 @@
 import {useRef, useState, type ReactNode} from 'react'
 import {ActionIcon, Modal, Segmented, Text} from '@lobehub/ui'
-import {Brain, ChevronLeft, Database, Download, Globe, Heart, Info, LayoutDashboard, LayoutTemplate, Palette, PanelLeft, PanelTop, RotateCcw, Search, Upload, Sparkles, User} from 'lucide-react'
-import type {LucideIcon} from 'lucide-react'
+import {Brain, CaretLeft as ChevronLeft, Database, DownloadSimple as Download, Globe, Heart, Info, Layout as LayoutDashboard, Layout as LayoutTemplate, Palette, SidebarSimple as PanelLeft, Browser as PanelTop, ArrowCounterClockwise as RotateCcw, MagnifyingGlass as Search, UploadSimple as Upload, Sparkle as Sparkles, User} from '@phosphor-icons/react'
+import type {Icon as PhosphorIcon} from '@phosphor-icons/react'
 import {appVisible} from '../lib/market'
 import {defaultWorkspace} from '../lib/ops'
 import {AppSettingsCtx, listApps, type AppSettingsContext} from '../lib/apps'
@@ -31,7 +31,7 @@ import {usePersona} from '../lib/persona'
 type Section = {
   id: string
   name: string
-  icon: LucideIcon
+  icon: PhosphorIcon
   color: string
   description?: string
   summary?: string

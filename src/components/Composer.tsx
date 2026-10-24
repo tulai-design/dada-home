@@ -1,6 +1,6 @@
 import {useRef} from 'react'
 import {Button, Tag, Text, TextArea} from '@lobehub/ui'
-import {CornerDownLeft, SendHorizontal, Square} from 'lucide-react'
+import {ArrowElbowDownLeft as CornerDownLeft, PaperPlaneRight as SendHorizontal, Square} from '@phosphor-icons/react'
 import {ModelIcon} from './ModelIcons'
 
 /**

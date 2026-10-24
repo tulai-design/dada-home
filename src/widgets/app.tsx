@@ -1,6 +1,6 @@
 import {useEffect, useMemo, useRef, useState} from 'react'
 import {Button, Flexbox, Tag, Text} from '@lobehub/ui'
-import {Wand2} from 'lucide-react'
+import {MagicWand as Wand2} from '@phosphor-icons/react'
 import {useDark} from '../fx/Fx'
 import {isGranted} from '../lib/customWidget'
 import {proxied} from '../lib/rss'

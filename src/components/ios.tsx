@@ -1,7 +1,7 @@
 import type {CSSProperties, KeyboardEvent, ReactNode} from 'react'
 import {Input, InputPassword} from '@lobehub/ui'
-import {Check, ChevronRight} from 'lucide-react'
-import type {LucideIcon} from 'lucide-react'
+import {Check, CaretRight as ChevronRight} from '@phosphor-icons/react'
+import type {Icon as PhosphorIcon} from '@phosphor-icons/react'
 
 /**
  * iOS 设置风格的基础件：圆角分组卡片 + 左标签右控件的行。
@@ -9,7 +9,7 @@ import type {LucideIcon} from 'lucide-react'
  */
 
 /** 彩色圆角图标块，iOS 设置里每个入口前面那个。 */
-export function Tile({icon: Icon, color, size = 28}: {icon: LucideIcon; color: string; size?: number}) {
+export function Tile({icon: Icon, color, size = 28}: {icon: PhosphorIcon; color: string; size?: number}) {
   const style: CSSProperties = {background: color, width: size, height: size}
   return (
     <span className="ios-tile" style={style}>

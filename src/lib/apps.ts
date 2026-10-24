@@ -1,5 +1,5 @@
 import {createContext, useContext, type ComponentType} from 'react'
-import type {LucideIcon} from 'lucide-react'
+import type {Icon as PhosphorIcon} from '@phosphor-icons/react'
 import type {BookmarkGroup, Feed, Settings} from './types'
 import type {Workspace} from './workspace'
 
@@ -29,7 +29,7 @@ export type AppSettingsContext = {
 export type AppDefinition = {
   id: string
   name: string
-  icon: LucideIcon
+  icon: PhosphorIcon
   /** 图标底色，取 iOS 系统色 */
   color: string
   /** 一句话说明，显示在详情页顶部 */

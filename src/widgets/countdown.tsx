@@ -1,6 +1,6 @@
 import {useMemo, useState} from 'react'
 import {ActionIcon, Block, Button, DatePicker, datePickerLocaleZhCN, Empty, Flexbox, Input, Popover, Switch, Text} from '@lobehub/ui'
-import {Plus, Trash2} from 'lucide-react'
+import {Plus, Trash as Trash2} from '@phosphor-icons/react'
 import {useNow} from '../hooks'
 import {ymd} from '../lib/calendar'
 import {SHARED, useComponentData} from '../lib/componentData'

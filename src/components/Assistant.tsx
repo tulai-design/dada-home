@@ -1,6 +1,6 @@
 import {useEffect, useLayoutEffect, useRef, useState} from 'react'
 import {ActionIcon, Button, Drawer, Empty, Flexbox, Markdown, Modal, Text} from '@lobehub/ui'
-import {ArrowDown, History, Maximize2, MessageSquare, Minimize2, Plus, Settings, Square, Trash2, X} from 'lucide-react'
+import {ArrowDown, ClockCounterClockwise as History, ArrowsOut as Maximize2, Chat as MessageSquare, ArrowsIn as Minimize2, Plus, Gear as Settings, Square, Trash as Trash2, X} from '@phosphor-icons/react'
 import type {AiConfig} from '../lib/types'
 import {useIsMobile} from '../lib/useMedia'
 import {Mascot} from './About'

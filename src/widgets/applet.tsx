@@ -1,6 +1,6 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react'
 import {Button, Flexbox, Tag, Text, toast} from '@lobehub/ui'
-import {RotateCcw, Wand2} from 'lucide-react'
+import {ArrowCounterClockwise as RotateCcw, MagicWand as Wand2} from '@phosphor-icons/react'
 import {useDark} from '../fx/Fx'
 import {buildRunnerDoc} from '../lib/applet/runner'
 import {UiTree, type UiNode} from '../lib/applet/render'

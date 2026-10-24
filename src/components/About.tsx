@@ -1,7 +1,7 @@
 import {useEffect, useState} from 'react'
 import {A, Modal, Switch, Text} from '@lobehub/ui'
 import {Github} from '@lobehub/icons'
-import {Bug, Download, GitFork, Heart, QrCode, Star} from 'lucide-react'
+import {Bug, DownloadSimple as Download, GitFork, Heart, QrCode, Star} from '@phosphor-icons/react'
 import {analyticsEnabled, setAnalyticsEnabled, umamiConfig} from '../lib/analytics'
 import {useStored} from '../lib/store'
 import {Group, Row} from './ios'

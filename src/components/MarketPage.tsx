@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Button, Modal, Text } from '@lobehub/ui'
-import { ArrowUpRight, Check, Download, Trash2 } from 'lucide-react'
+import {ArrowUpRight, Check, DownloadSimple as Download, Trash as Trash2} from '@phosphor-icons/react'
 import { ADDONS, isInstalled, type Addon } from '../lib/market'
 import { installAddon, uninstallAddon } from '../lib/ops'
 import type { Workspace } from '../lib/workspace'

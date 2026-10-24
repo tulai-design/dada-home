@@ -1,5 +1,5 @@
 import {Flexbox, Text} from '@lobehub/ui'
-import {CloudSun} from 'lucide-react'
+import {CloudSun} from '@phosphor-icons/react'
 import {useNow} from '../hooks'
 import {clockText, greeting, monthDayCn, weekdayCn} from '../lib/date'
 import {registerComponent, type ComponentProps} from '../lib/registry'

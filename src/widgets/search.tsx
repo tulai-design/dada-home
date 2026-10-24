@@ -1,6 +1,6 @@
 import {useEffect, useMemo, useRef, useState, type ReactNode} from 'react'
 import {ActionIcon, Button, Flexbox, Input, Text} from '@lobehub/ui'
-import {ArrowUp, Check, ChevronDown, LoaderCircle, Search} from 'lucide-react'
+import {ArrowUp, Check, CaretDown as ChevronDown, CircleNotch as LoaderCircle, MagnifyingGlass as Search} from '@phosphor-icons/react'
 import {useStored} from '../lib/store'
 import {SEARCH_ENGINES} from '../lib/defaults'
 import {registerComponent, type ComponentProps} from '../lib/registry'

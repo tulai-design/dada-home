@@ -1,15 +1,10 @@
-import {
-  BookOpen, Bookmark, Briefcase, Calendar, Camera, ChartLine, CheckSquare, Cloud, Code, Coffee, Cpu, Dumbbell, FileText,
-  Film, Flame, Gamepad2, Globe, GraduationCap, Heart, Home, Image, Inbox, LayoutDashboard, Lightbulb, Lock, Mail, Map,
-  MessageCircle, Music, Newspaper, NotebookPen, Palette, Plane, Rocket, ShoppingCart, Sparkles, Star, Sun, Terminal,
-  Timer, Trophy, Users, Utensils, Wallet, Wrench,
-  type LucideIcon,
-} from 'lucide-react'
+import {BookOpen, Bookmark, Briefcase, Calendar, Camera, ChartLine, CheckSquare, Cloud, Code, Coffee, Cpu, Barbell as Dumbbell, FileText, FilmStrip as Film, Fire as Flame, GameController as Gamepad2, Globe, GraduationCap, Heart, House as Home, Image, Tray as Inbox, Layout as LayoutDashboard, Lightbulb, Lock, Envelope as Mail, MapTrifold as Map, ChatCircle as MessageCircle, MusicNotes as Music, Newspaper, NotePencil as NotebookPen, Palette, Airplane as Plane, Rocket, ShoppingCart, Sparkle as Sparkles, Star, Sun, Terminal, Timer, Trophy, Users, ForkKnife as Utensils, Wallet, Wrench} from '@phosphor-icons/react'
+import type {Icon as PhosphorIcon} from '@phosphor-icons/react'
 
 /**
  * 页面图标白名单。AI 只能从这里挑名字（不能塞任意字符串），侧栏、切换器、设置页都从这里取图标。
  */
-export const PAGE_ICONS: Record<string, LucideIcon> = {
+export const PAGE_ICONS: Record<string, PhosphorIcon> = {
   home: Home,
   newspaper: Newspaper,
   'notebook-pen': NotebookPen,
@@ -63,7 +58,7 @@ export function isPageIcon(key: string): boolean {
   return key in PAGE_ICONS
 }
 
-export function pageIcon(key: string | undefined): LucideIcon {
+export function pageIcon(key: string | undefined): PhosphorIcon {
   return (key && PAGE_ICONS[key]) || LayoutDashboard
 }
 

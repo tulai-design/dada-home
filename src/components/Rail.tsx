@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ActionIcon, Badge, Button } from '@lobehub/ui'
-import { Ellipsis, LayoutGrid, Monitor, Settings, Sparkles } from 'lucide-react'
+import {DotsThree as Ellipsis, SquaresFour as LayoutGrid, Monitor, Gear as Settings, Sparkle as Sparkles} from '@phosphor-icons/react'
 import { scopeDockCss, DEFAULT_DOCK_PRESET, type DockStyle } from '../lib/dock'
 import { pageIcon } from '../lib/pageIcons'
 import { useIsMobile } from '../lib/useMedia'

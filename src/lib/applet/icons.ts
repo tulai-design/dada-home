@@ -1,14 +1,8 @@
-import {
-  AlertTriangle, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Bell, BarChart3, BookOpen, Bookmark, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp,
-  Clock, Cloud, Code, Coins, Copy, Dices, Download, Eye, EyeOff, Filter, Flag, Flame, Globe, Grid3x3, Hash, Heart, HelpCircle, Home, Image, Info,
-  Key, Link, List, Lock, LockOpen, Mail, MapPin, MessageCircle, Minus, Moon, Music, Pause, Pencil, Play, Plus, RefreshCw, Repeat, Search, Settings, Shield,
-  Shuffle, SkipBack, SkipForward, Sparkles, Square, Star, Sun, Target, Terminal, Timer, Trash2, TrendingDown, TrendingUp, Trophy, Type, Upload,
-  User, Volume2, Wallet, Wand2, X, Zap, Calendar,
-} from 'lucide-react'
-import type {LucideIcon} from 'lucide-react'
+import {Warning as AlertTriangle, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Bell, ChartBar as BarChart3, BookOpen, Bookmark, Check, CaretDown as ChevronDown, CaretLeft as ChevronLeft, CaretRight as ChevronRight, CaretUp as ChevronUp, Clock, Cloud, Code, Coins, Copy, DiceFive as Dices, DownloadSimple as Download, Eye, EyeSlash as EyeOff, Funnel as Filter, Flag, Fire as Flame, Globe, GridNine as Grid3x3, Hash, Heart, Question as HelpCircle, House as Home, Image, Info, Key, Link, List, Lock, LockSimpleOpen as LockOpen, Envelope as Mail, MapPin, ChatCircle as MessageCircle, Minus, Moon, MusicNotes as Music, Pause, PencilSimple as Pencil, Play, Plus, ArrowsClockwise as RefreshCw, Repeat, MagnifyingGlass as Search, Gear as Settings, ShieldCheck as Shield, Shuffle, SkipBack, SkipForward, Sparkle as Sparkles, Square, Star, Sun, Target, Terminal, Timer, Trash as Trash2, TrendDown as TrendingDown, TrendUp as TrendingUp, Trophy, TextT as Type, UploadSimple as Upload, User, SpeakerHigh as Volume2, Wallet, MagicWand as Wand2, X, Lightning as Zap, Calendar} from '@phosphor-icons/react'
+import type {Icon as PhosphorIcon} from '@phosphor-icons/react'
 import type {IconName} from './catalog'
 
-const MAP: Record<IconName, LucideIcon> = {
+const MAP: Record<IconName, PhosphorIcon> = {
   plus: Plus, minus: Minus, x: X, check: Check, trash: Trash2, edit: Pencil, copy: Copy, refresh: RefreshCw, search: Search, settings: Settings,
   star: Star, heart: Heart, bookmark: Bookmark, flag: Flag, play: Play, pause: Pause, stop: Square, 'skip-forward': SkipForward, 'skip-back': SkipBack,
   shuffle: Shuffle, repeat: Repeat, volume: Volume2, music: Music, timer: Timer, clock: Clock, calendar: Calendar, bell: Bell,
@@ -21,4 +15,4 @@ const MAP: Record<IconName, LucideIcon> = {
   globe: Globe, 'map-pin': MapPin, image: Image,
 }
 
-export const iconOf = (name: unknown): LucideIcon | undefined => (typeof name === 'string' ? MAP[name as IconName] : undefined)
+export const iconOf = (name: unknown): PhosphorIcon | undefined => (typeof name === 'string' ? MAP[name as IconName] : undefined)

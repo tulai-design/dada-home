@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { A, ActionIcon, toast } from '@lobehub/ui'
-import { LayoutGrid, Monitor, Moon, Palette, RefreshCw, Rss, Settings, Sparkles, Sun } from 'lucide-react'
+import {SquaresFour as LayoutGrid, Monitor, Moon, Palette, ArrowsClockwise as RefreshCw, Rss, Gear as Settings, Sparkle as Sparkles, Sun} from '@phosphor-icons/react'
 import { pageIcon } from './lib/pageIcons'
 import { FROZEN_PAGE_ID, activeTheme } from './lib/workspace'
 import { applyTheme, setMode } from './lib/themes'

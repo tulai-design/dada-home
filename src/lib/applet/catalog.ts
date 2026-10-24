@@ -49,7 +49,7 @@ export const CATALOG: CatalogEntry[] = [
 
 export const COMPONENT_NAMES = CATALOG.map((entry) => entry.name)
 
-/** 可用的图标名（lucide）。刻意收窄，保证打包体积和风格统一。 */
+/** 可用的图标名（Phosphor）。刻意收窄，保证打包体积和风格统一。 */
 export const ICON_NAMES = [
   'plus', 'minus', 'x', 'check', 'trash', 'edit', 'copy', 'refresh', 'search', 'settings', 'star', 'heart', 'bookmark', 'flag',
   'play', 'pause', 'stop', 'skip-forward', 'skip-back', 'shuffle', 'repeat', 'volume', 'music', 'timer', 'clock', 'calendar', 'bell',

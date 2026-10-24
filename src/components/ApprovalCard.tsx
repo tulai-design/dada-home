@@ -1,5 +1,5 @@
 import {Button, Flexbox, Text} from '@lobehub/ui'
-import {Check, ShieldQuestion, X} from 'lucide-react'
+import {Check, ShieldWarning as ShieldQuestion, X} from '@phosphor-icons/react'
 import type {ApprovalRequest} from '../lib/ai'
 
 /**

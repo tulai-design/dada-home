@@ -1,5 +1,5 @@
-import {BookMarked, CalendarDays, Flame, Monitor, Music, Newspaper, NotebookPen, Timer} from 'lucide-react'
-import type {LucideIcon} from 'lucide-react'
+import {BookBookmark as BookMarked, CalendarDots as CalendarDays, Fire as Flame, Monitor, MusicNotes as Music, Newspaper, NotePencil as NotebookPen, Timer} from '@phosphor-icons/react'
+import type {Icon as PhosphorIcon} from '@phosphor-icons/react'
 import type {BuiltinType, ComponentSpan, ComponentType, Workspace} from './workspace'
 
 /**
@@ -14,7 +14,7 @@ import type {BuiltinType, ComponentSpan, ComponentType, Workspace} from './works
 export type Addon = {
   id: string
   name: string
-  icon: LucideIcon
+  icon: PhosphorIcon
   /** 图标底色 */
   color: string
   /** 一句话卖点 */

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ActionIcon, Flexbox, Modal, Segmented, Text } from '@lobehub/ui'
-import { Pencil, Trash2 } from 'lucide-react'
+import {PencilSimple as Pencil, Trash as Trash2} from '@phosphor-icons/react'
 import { useAppSettings } from '../lib/apps'
 import { applyTheme, removeTheme, saveTheme, swatch } from '../lib/themes'
 import type { ThemeEntry } from '../lib/workspace'
