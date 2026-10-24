@@ -122,7 +122,7 @@ function pwa() {
       globPatterns: ['index.html', 'manifest.webmanifest', 'favicon.ico', 'brand/*.{png,webp}', 'assets/*.css', 'assets/index-*.js'],
       maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
       navigateFallback: '/index.html',
-      navigateFallbackDenylist: [/^\/__proxy/, /^\/healthz/, /^\/config\.js/],
+      navigateFallbackDenylist: [/^\/__proxy/, /^\/healthz/, /^\/config\.js/, /^\/privacy/],
       cleanupOutdatedCaches: true,
       clientsClaim: false,
       skipWaiting: false,
