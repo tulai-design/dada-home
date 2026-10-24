@@ -83,10 +83,10 @@ export function Rail({
         setCapacity(Math.max(0, Math.floor(width / MOBILE_SLOT_WIDTH) - 3))
         return
       }
-      // 电脑：竖排。总高度扣掉上下留白、胶囊内边距、logo、分隔线，再扣掉首页和底部固定入口
+      // 电脑：竖排。总高度扣掉上下各给 logo 让出的位置、胶囊内边距、分隔线，再扣掉首页和底部固定入口
       const pitch = parseFloat(getComputedStyle(el).getPropertyValue('--dock-pitch')) || SLOT_PITCH
       const fixed = 1 + 1 + (monitorInstalled ? 1 : 0) + 2
-      const chrome = 28 + 24 + 56 + 14
+      const chrome = 80 * 2 + 24 + 14
       setCapacity(Math.max(0, Math.floor((el.clientHeight - chrome) / pitch) - fixed))
     }
     measure()
@@ -108,12 +108,29 @@ export function Rail({
     }
     const outer = box.getBoundingClientRect()
     const inner = on.getBoundingClientRect()
-    // 滑块比按钮四周各大一圈，像是托住它
-    const pad = mobile ? 5 : 4
-    box.style.setProperty('--gx', `${inner.left - outer.left - box.clientLeft - pad}px`)
-    box.style.setProperty('--gy', `${inner.top - outer.top - box.clientTop - pad}px`)
-    box.style.setProperty('--gw', `${inner.width + pad * 2}px`)
-    box.style.setProperty('--gh', `${inner.height + pad * 2}px`)
+    let x: number
+    let y: number
+    let w: number
+    let h: number
+    if (mobile) {
+      // 手机：一块扁一点的玻璃，整个落在胶囊里面，宽度跟着入口走但不超过 76
+      const slot = on.closest('.rail-slot')?.getBoundingClientRect() ?? inner
+      w = Math.min(Math.max(slot.width - 8, inner.width), 76)
+      h = 38
+      x = slot.left + slot.width / 2 - w / 2 - outer.left - box.clientLeft
+      y = inner.top + inner.height / 2 - h / 2 - outer.top - box.clientTop
+    } else {
+      // 电脑：比按钮四周各大一圈，像是托住它
+      const pad = 4
+      x = inner.left - outer.left - box.clientLeft - pad
+      y = inner.top - outer.top - box.clientTop - pad
+      w = inner.width + pad * 2
+      h = inner.height + pad * 2
+    }
+    box.style.setProperty('--gx', `${x}px`)
+    box.style.setProperty('--gy', `${y}px`)
+    box.style.setProperty('--gw', `${w}px`)
+    box.style.setProperty('--gh', `${h}px`)
     box.style.setProperty('--go', '1')
     // 换了入口：沿移动方向挤一下再弹回来，像液体被拉了一把
     if (lastOn.current && lastOn.current !== on && box.dataset.ready === 'true') {
@@ -234,13 +251,14 @@ export function Rail({
       aria-label={mobile ? '底部导航' : '侧边导航'}
     >
       {scoped?.ok && <style data-dock-custom="">{scoped.css}</style>}
+      {/* 电脑上 logo 放在窗口左上角，不在 Dock 里面 */}
+      {!mobile && (
+        <Button className="dock-logo" type="text" onClick={() => home && onPage(home.id)} aria-label="搭搭">
+          <img className="dock-logo-img" src={`${import.meta.env.BASE_URL}brand/dada-logo.png`} alt="" width={56} height={56} draggable={false} />
+        </Button>
+      )}
       <div className="dock" ref={dockRef}>
         <i className="dock-glider" ref={gliderRef} aria-hidden="true" />
-        {!mobile && (
-          <Button className="dock-logo" type="text" onClick={() => home && onPage(home.id)} aria-label="搭搭">
-            <img className="dock-logo-img" src={`${import.meta.env.BASE_URL}brand/dada-logo.png`} alt="" width={34} height={34} draggable={false} />
-          </Button>
-        )}
         <div className="dock-group dock-top">{top}</div>
         <div className="dock-group dock-mid">{mid}</div>
         <div className="dock-group dock-bottom">{bottom}</div>
@@ -250,8 +268,8 @@ export function Rail({
         <svg focusable="false">
           <filter id="dock-liquid-glass" x="-20%" y="-20%" width="140%" height="140%" primitiveUnits="objectBoundingBox">
             <feTurbulence type="fractalNoise" baseFrequency="0.018 0.07" numOctaves={2} seed={8} result="map" />
-            <feGaussianBlur in="SourceGraphic" stdDeviation="0.01" result="blur" />
-            <feDisplacementMap in="blur" in2="map" scale="0.5" xChannelSelector="R" yChannelSelector="G" />
+            <feGaussianBlur in="SourceGraphic" stdDeviation="0.002" result="blur" />
+            <feDisplacementMap in="blur" in2="map" scale="0.05" xChannelSelector="R" yChannelSelector="G" />
           </filter>
         </svg>
       </div>

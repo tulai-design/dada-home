@@ -23,8 +23,9 @@
   --dock-dark: #000;
   --dock-reflex-dark: 1;
   --dock-reflex-light: 1;
-  --dock-saturation: 150%;
-  --dock-surface: color-mix(in srgb, var(--dock-glass) 12%, transparent);
+  --dock-saturation: 112%;
+  /* 底色取页面底色，只留一点点，后面的内容才能透出来 */
+  --dock-surface: color-mix(in srgb, var(--bg) 38%, transparent);
   --dock-ink: var(--text);
   --dock-muted: var(--text2);
   --dock-active: color-mix(in srgb, var(--dock-glass) 36%, transparent);
@@ -55,10 +56,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: calc(var(--side-width) + 8px);
+  /* 胶囊在这一列里居中；列宽决定它离窗口左边多远 */
+  width: calc(var(--side-width) + 32px);
   height: 100%;
   /* 容器本身不挡鼠标：背景特效的互动要能穿过去，只有 .dock 响应 */
   pointer-events: none;
+  /* 上下各让出一块：顶上放 logo，下面对称留白，胶囊才能真正居中 */
+  padding: 80px 0;
 }
 
 /* 深色下高光收一点、阴影加重，玻璃底色换成偏黑的 */
@@ -66,7 +70,7 @@
   --dock-glass: #8f9299;
   --dock-reflex-dark: 2;
   --dock-reflex-light: 0.3;
-  --dock-surface: rgb(18 19 22 / 56%);
+  --dock-surface: color-mix(in srgb, var(--bg) 34%, transparent);
   --dock-active: rgb(255 255 255 / 16%);
 }
 
@@ -83,8 +87,8 @@
   background-color: var(--dock-surface);
   border-radius: 99em;
   box-shadow: var(--dock-shadow);
-  backdrop-filter: blur(8px) url('#dock-liquid-glass') saturate(var(--dock-saturation));
-  -webkit-backdrop-filter: blur(8px) saturate(var(--dock-saturation));
+  backdrop-filter: blur(2px) url('#dock-liquid-glass') saturate(var(--dock-saturation));
+  -webkit-backdrop-filter: blur(2px) saturate(var(--dock-saturation));
   pointer-events: auto;
   transition:
     background-color 0.4s cubic-bezier(1, 0, 0.4, 1),
@@ -139,16 +143,21 @@
 }
 .dock-logo.lobe-button,
 .dock-logo {
-  width: 44px !important;
-  height: 44px !important;
-  margin: 0 0 8px !important;
+  position: absolute;
+  /* 离窗口左边、上边一样远 */
+  top: 16px;
+  left: 16px;
+  width: 60px !important;
+  height: 60px !important;
+  margin: 0 !important;
   padding: 0 !important;
-  border-radius: 14px !important;
+  border-radius: 18px !important;
+  pointer-events: auto;
 }
 .dock-logo .dock-logo-img {
   display: block;
-  width: 34px;
-  height: 34px;
+  width: 56px;
+  height: 56px;
   object-fit: contain;
   transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
@@ -175,7 +184,7 @@
 }
 .dock .rail-btn:hover {
   color: var(--dock-ink);
-  background: color-mix(in srgb, var(--dock-active) 58%, transparent);
+  background: transparent;
   scale: 1.08;
 }
 /* 当前页：图标换成主色，底下的液态玻璃滑过来 */
@@ -251,11 +260,20 @@
 }
 
 /* ============================================================
-   手机：底部悬浮的胶囊（在页面下方占一行，内容不会被它盖住）
+   手机：底部悬浮的胶囊，盖在页面上面（不占一行）。
+   页面往上滑时内容会从玻璃后面经过；.page 在底部留出同样的高度，滑到底不会被挡住。
    ============================================================ */
 @media (max-width: 760px) {
+  .app {
+    --dock-clear: calc(82px + env(safe-area-inset-bottom));
+  }
+  .app > .dock-shell,
   .dock-shell {
-    order: 2;
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
     width: 100%;
     height: auto;
     padding: 4px 12px calc(10px + env(safe-area-inset-bottom));
@@ -275,6 +293,9 @@
     padding: 0;
     border: 0;
   }
+  .dock-glider {
+    border-radius: 16px;
+  }
   .dock .rail-slot {
     flex: 1;
     width: auto;
@@ -284,6 +305,9 @@
   .dock .rail-btn {
     width: 48px;
     height: 48px;
+  }
+  .app .page {
+    padding-bottom: var(--dock-clear);
   }
   .dock-shell[data-dock='bar'] {
     padding: 0 0 env(safe-area-inset-bottom);

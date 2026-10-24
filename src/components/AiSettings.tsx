@@ -133,7 +133,9 @@ export function AiSettings({ai, proxy, onChange}: Props) {
               }}
               onChange={(v) => {
                 setSearch('')
-                onChange({...ai, model: String(v)})
+                // 选中后列表会重排，下拉组件偶尔会再补一次「空值」通知；空值不是用户的选择，直接忽略
+                if (typeof v !== 'string' || !v.trim()) return
+                onChange({...ai, model: v})
               }}
             />
             <ActionIcon icon={RefreshCw} title="重新拉取模型列表" size="small" loading={status.kind === 'loading'} disabled={!canFetch} onClick={() => void load()} />
