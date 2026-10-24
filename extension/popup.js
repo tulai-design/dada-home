@@ -41,7 +41,8 @@ async function render() {
   }
 
   const toggle = $('toggle')
-  $('origin').textContent = origin || '当前页面不是网站'
+  // activeTab：点开弹窗那一刻浏览器才允许读当前标签的地址；读不到时 tab.url 是 undefined
+  $('origin').textContent = origin || (tab?.url ? '当前页面不是网站（只支持 http / https）' : '读不到当前页面的地址，请关掉弹窗再点一次图标')
   toggle.disabled = !origin
   const on = origin && list.includes(origin)
   toggle.textContent = on ? '在此网站关闭' : '在此网站启用'

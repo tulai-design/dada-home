@@ -430,6 +430,26 @@ body {
   width: min(780px, 100%);
 }
 
+/* 搜索框下面的提示/进度一行浮在框外，不占高度：搜索框本身才是首页的视觉中心 */
+.widget[data-type='search'] .hero-search {
+  position: relative;
+}
+.hero-search > .hero-aux {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: -2px;
+  text-align: center;
+  justify-content: center;
+}
+.hero-search > .lobe-button.hero-aux {
+  left: 50%;
+  right: auto;
+  width: max-content;
+  transform: translateX(-50%);
+}
+
 /* 搜索框：方角、粗黑边，像一栏报刊检索 */
 .hero-search .lobe-search-bar,
 .hero-search [class*='search-bar'] {
@@ -1017,6 +1037,77 @@ body {
 .page-grid[data-align='center'] {
   align-content: center;
 }
+/* 首页：时钟 / 搜索框 / 常用网站 三块时，让搜索框落在可视区正中，
+   时钟在它上面、网站在它下面各占一半，视觉重心就不会偏下 */
+.page-grid[data-align='center']:has(> .widget:nth-child(3):last-child[data-type='links']):has(> .widget[data-type='search']) {
+  grid-template-rows: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-content: stretch;
+  /* 顶栏占了上面一截，下面留出同样的高度，搜索框才在整个窗口的正中 */
+  padding-top: 0;
+  padding-bottom: 38px;
+}
+.page-grid[data-align='center']:has(> .widget:nth-child(3):last-child[data-type='links']) > .widget[data-type='clock'] {
+  align-self: end;
+  padding-bottom: 6px;
+}
+.page-grid[data-align='center']:has(> .widget:nth-child(3):last-child[data-type='links']) > .widget[data-type='links'] {
+  align-self: start;
+  padding-top: 40px;
+}
+.quick-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 10px;
+  width: min(760px, 100%);
+  margin: 0 auto;
+}
+.quick-link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 76px;
+  padding: 6px 0;
+  border-radius: 12px;
+  color: var(--text2);
+  text-decoration: none;
+  transition: color 0.16s, background 0.16s;
+}
+.quick-link:hover {
+  color: var(--text);
+  background: var(--bg2);
+}
+.quick-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg2) 70%, var(--bg));
+  box-shadow: 0 0 0 1px var(--border);
+  overflow: hidden;
+}
+.quick-icon img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+.quick-icon b {
+  font-family: var(--font-serif);
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--text2);
+}
+.quick-name {
+  max-width: 100%;
+  padding: 0 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
 .page-grid > .widget {
   min-height: 0;
   max-height: 100%;
@@ -1523,7 +1614,7 @@ body {
 }
 .rail .rail-btn[data-on='true'] {
   color: var(--main);
-  background: color-mix(in srgb, var(--main) 10%, transparent);
+  background: transparent;
 }
 .rail .rail-btn[data-busy='true']::after {
   content: '';

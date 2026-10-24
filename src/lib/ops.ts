@@ -467,10 +467,11 @@ export function defaultWorkspace(): Workspace {
         // 默认不铺照片：纸张底色是这套界面的核心。想要壁纸，对搭搭说一声即可。
         align: 'center',
         components: [
-          // 首页像一个搜索页：时钟（含一行天气）+ 一个搜索/对话框，别的都不放。
+          // 首页像一个搜索页：时钟（含一行天气）+ 搜索/对话框 + 一排常用网站。
           // 其他功能在组件市场里，装了再说。
           make('clock'),
           make('search'),
+          make('links'),
         ],
       },
     ],

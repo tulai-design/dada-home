@@ -1,5 +1,5 @@
 import {useEffect, useMemo, useRef, useState, type ReactNode} from 'react'
-import {ActionIcon, Button, Flexbox, Input, Tag, Text} from '@lobehub/ui'
+import {ActionIcon, Button, Flexbox, Input, Text} from '@lobehub/ui'
 import {ArrowUp, Check, ChevronDown, ChevronRight, CircleAlert, LoaderCircle, Search} from 'lucide-react'
 import {useStored} from '../lib/store'
 import {SEARCH_ENGINES} from '../lib/defaults'
@@ -10,10 +10,7 @@ type SearchMode = 'ai' | (typeof SEARCH_ENGINES)[number]['id']
 
 type SearchConfig = {
   showEngines: boolean
-  showPresets: boolean
 }
-
-const PRESETS = ['总结今天的订阅', '帮我加一个待办', '把天气挪到右边', '给我做一个阅读页']
 
 type Entry = {id: SearchMode; label: string; tag: string; logo: ReactNode}
 
@@ -227,39 +224,15 @@ function SearchBox({config, host}: ComponentProps<SearchConfig>) {
         )}
       </div>
 
-      {!peek && active === 'ai' && config.showPresets && (
-        <Flexbox direction="horizontal" align="center" justify="center" wrap="wrap" gap={8} width="100%">
-          {PRESETS.map((item) => (
-            <Tag
-              key={item}
-              variant="outlined"
-              style={{cursor: 'pointer'}}
-              onClick={() => {
-                if (!host.aiConfigured) {
-                  host.openSettings()
-                  return
-                }
-                if (!host.aiBusy) host.ask(item)
-              }}
-            >
-              {item}
-            </Tag>
-          ))}
-          <Text type="secondary" fontSize={12}>
-            {host.aiConfigured ? host.aiModel : '未配置模型'}
-          </Text>
-        </Flexbox>
-      )}
-
       {!peek && active !== 'ai' && (
-        <Text type="secondary" fontSize={12}>
+        <Text className="hero-aux" type="secondary" fontSize={12}>
           回车在{engine?.label}搜索 · 输入网址直接打开 · 输入 # 换引擎
         </Text>
       )}
 
       {peek && lastTurn && (
         <Button
-          className="hero-status"
+          className="hero-status hero-aux"
           type="text"
           icon={host.aiBusy ? <LoaderCircle size={14} className="spin" /> : failed ? <CircleAlert size={14} /> : <Check size={14} />}
           onClick={host.openAssistant}
@@ -278,10 +251,9 @@ registerComponent<SearchConfig>({
   name: '搜索与对话',
   description: '一个输入框：左侧是搜索引擎/AI 切换（下拉，或输入 #gg #bd #ai 等口令切换），右侧是发送图标。可直接搜索、打开网址，或对搭搭说一句话来改页面。通常是首页最显眼的那一块。',
   category: 'system',
-  defaultConfig: {showEngines: true, showPresets: true},
+  defaultConfig: {showEngines: true},
   configSchema: {
     showEngines: {kind: 'boolean', label: '显示引擎切换（下拉和 # 口令；关掉则固定为 AI）'},
-    showPresets: {kind: 'boolean', label: '显示示例说法'},
   },
   defaultSpan: 'full',
   component: SearchBox,
