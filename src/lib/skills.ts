@@ -62,8 +62,15 @@ const FRONTEND_DESIGN = `# 技能：前端设计（frontend-design）
 
 /** 设计规范的原文放在 docs/design-system.md：人、写代码的 AI、搭搭自己读的是同一份。 */
 import DESIGN_SYSTEM from '../../docs/design-system.md?raw'
+import {appletGuide} from './applet/catalog'
 
 export const SKILLS: Skill[] = [
+  {
+    id: 'applet',
+    name: '小程序',
+    when: '要用 create_applet / update_applet 做有交互的小工具之前，必须先读这份：它有完整的积木目录、写法、ctx 能力和设计要求。',
+    body: appletGuide(),
+  },
   {
     id: 'design-system',
     name: '设计规范',

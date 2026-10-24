@@ -991,7 +991,7 @@ export const HOME_TOOLS = [
       name: 'create_app',
       title: '创建沙盒应用',
       description: [
-        '写一个完整的小应用放到页面上：小游戏、自定义图表、Canvas/Three.js 场景、番茄钟、计算器……素材库和声明式组件做不到时用它。',
+        '写一个完整的小应用放到页面上：小游戏、Canvas/WebGL/Three.js 场景、需要完全自定义视觉的东西。普通的交互工具（计算器、生成器、记账、待办）请用 create_applet，它用系统控件，风格一致、交互可靠。',
         '你写 html（body 内片段）、css、js；运行在隔离 iframe 里，不会影响主页，也读不到主页数据。',
         '',
         '可用能力：',
@@ -1061,6 +1061,75 @@ export const HOME_TOOLS = [
           if (result.instance.type !== 'app') throw new WorkspaceError(`${args.ref} 不是沙盒应用`)
           commit(result.workspace)
           return `已更新沙盒应用 ${result.instance.id}。`
+        }),
+    },
+  ),
+
+  define(
+    {
+      schema: {
+        parse: (raw) => ({
+          pageId: str(obj(raw).pageId),
+          title: optStr(obj(raw).title),
+          source: str(obj(raw).source),
+          span: optStr(obj(raw).span),
+        }),
+      },
+      json: {
+        type: 'object',
+        properties: {
+          pageId: {type: 'string'},
+          title: {type: 'string', description: '小程序名称，不超过 24 字'},
+          source: {type: 'string', description: '脚本全文（ES module），里面调用一次 applet({...})'},
+          span: {type: 'string', enum: ['full', 'two-thirds', 'half', 'third']},
+        },
+        required: ['pageId', 'source'],
+      },
+    },
+    {
+      name: 'create_applet',
+      title: '创建小程序',
+      description: [
+        '做有交互的小工具首选：计算器、生成器、记账、待办、换算、抽签、问卷、小看板……',
+        '你写的是逻辑（任意 JavaScript）；界面用系统自带的 Lobe 控件拼，所以风格和主页一致、深浅色自动适配、点击输入可靠。不要写 HTML/CSS。',
+        '第一次用之前先 use_skill applet，取回完整的积木目录、写法和设计要求；按它写，别凭记忆。',
+        '做游戏、Canvas/WebGL/Three.js、需要完全自定义视觉的东西，才用 create_app。',
+      ].join('\n'),
+      effect: 'write',
+      highRisk: () => false,
+      execute: (args) =>
+        guard(() => {
+          const result = ops.addComponent(getWorkspace(), {pageId: args.pageId, type: 'applet', span: args.span, title: args.title, config: {source: args.source}})
+          commit(result.workspace)
+          return `已创建小程序，id=${result.instance.id}。如果运行出错，用户会在组件上看到错误并可以让你修复；用 update_applet 修改。`
+        }),
+    },
+  ),
+  define(
+    {
+      schema: {parse: (raw) => ({ref: str(obj(raw).ref), pageId: optStr(obj(raw).pageId), source: str(obj(raw).source)})},
+      json: {
+        type: 'object',
+        properties: {
+          ref: {type: 'string', description: '小程序的实例 id 或标题'},
+          pageId: {type: 'string'},
+          source: {type: 'string', description: '新的脚本全文，整体替换'},
+        },
+        required: ['ref', 'source'],
+      },
+    },
+    {
+      name: 'update_applet',
+      title: '修改小程序',
+      description: '整体替换已有小程序的脚本。改之前可以先 get_workspace 取回现有源码，在它的基础上改，不要从零重写。写法同 create_applet（先 use_skill applet）。',
+      effect: 'write',
+      highRisk: () => false,
+      execute: (args) =>
+        guard(() => {
+          const result = ops.updateComponent(getWorkspace(), args.ref, {config: {source: args.source}}, args.pageId)
+          if (result.instance.type !== 'applet') throw new WorkspaceError(`${args.ref} 不是小程序`)
+          commit(result.workspace)
+          return `已更新小程序 ${result.instance.id}。`
         }),
     },
   ),

@@ -689,3 +689,105 @@
 .page-grid:has(> .widget[data-type='calendar']) > .widget:not([data-type='calendar']) {
   align-self: start;
 }
+
+/* ───────── 小程序（AI 写逻辑，系统控件出界面） ───────── */
+.applet-runner {
+  position: absolute;
+  width: 0;
+  height: 0;
+  border: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.applet-error {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--main);
+  background: var(--bg2);
+}
+
+.ap-kicker {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text3);
+}
+
+.ap-grid {
+  display: grid;
+}
+
+.ap-rule {
+  height: 1px;
+  background: var(--border);
+}
+
+.applet .lobe-statistic__number {
+  font-family: var(--font-serif);
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ap-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  width: 100%;
+}
+
+.ap-bar {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  min-width: 0;
+  height: 100%;
+}
+
+.ap-bar i {
+  display: block;
+  width: 100%;
+  max-width: 28px;
+  background: var(--text3);
+  opacity: 0.55;
+}
+
+.ap-bar[data-hot='true'] i {
+  background: var(--main);
+  opacity: 1;
+}
+
+.ap-bar span {
+  font-size: 11px;
+  line-height: 1;
+  color: var(--text3);
+}
+
+.ap-table-wrap {
+  overflow: auto;
+}
+
+.ap-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ap-table th {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--rule);
+  font-size: 12px;
+  font-weight: 500;
+  text-align: left;
+  color: var(--text3);
+}
+
+.ap-table td {
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+}

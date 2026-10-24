@@ -38,6 +38,7 @@ export type BuiltinType =
   | 'fx'
   /** 沙盒应用：AI 写的 HTML/CSS/JS，跑在隔离 iframe 里 */
   | 'app'
+  | 'applet'
 
 /**
  * 组件类型：内置类型，或 `custom:<自定义组件 id>`。
