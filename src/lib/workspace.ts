@@ -12,6 +12,8 @@
  */
 
 /** 当前工作空间结构版本。改结构就加一，并在 migrate 里补一条迁移。 */
+import type {DockStyle} from './dock'
+
 export const WORKSPACE_VERSION = 3
 
 /** 内置组件类型。新增内置组件要在 registry 里注册，并在这里加一个值。 */
@@ -267,6 +269,8 @@ export type TemplateSnapshot = {
   addons: string[]
   /** 带上配色。不填表示套用模板时保持当前主题不变。 */
   theme?: ThemeEntry
+  /** Dock 样式。不填就是默认的液体玻璃。 */
+  dock?: DockStyle
 }
 
 /** 模板库里的一条记录。 */
@@ -293,6 +297,8 @@ export type Workspace = {
   network: NetworkGrant[]
   /** 状态条：顶栏右侧的实时小组件，默认只有一个时钟 */
   statusbar: StatusItem[]
+  /** Dock（侧栏 / 手机底栏）的样式；不填就是默认的拟态液体玻璃 */
+  dock?: DockStyle
   /** 已安装的市场组件（见 market.ts）。没装的组件不出现在页面、侧栏和 AI 的可用清单里。 */
   addons: string[]
   /** 模板库：存下来的页面设计，可随时套用。内置预设在代码里，不占这里。 */

@@ -3,11 +3,13 @@ import { ActionIcon, Flexbox, Modal, Select, Switch, Text } from '@lobehub/ui'
 import { ArrowDown, ArrowUp, Lock, Plus, Trash2, X } from 'lucide-react'
 import { useAppSettings } from '../lib/apps'
 import { removeData } from '../lib/componentData'
-import { listStatusTypes, movePage, removePage, renamePage, setStatusbar } from '../lib/ops'
+import { DOCK_PRESETS } from '../lib/dock'
+import { listStatusTypes, movePage, removePage, renamePage, setDock, setStatusbar } from '../lib/ops'
 import { PAGE_ICONS, PAGE_ICON_LABELS, pageIcon } from '../lib/pageIcons'
 import { getDefinition, type ConfigField } from '../lib/registry'
 import { FROZEN_PAGE_ID, MAX_STATUS_ITEMS, type Page } from '../lib/workspace'
 import { Group, Row, TextRow } from './ios'
+import { RotateCcw } from 'lucide-react'
 
 /* ---------------- 侧栏 ---------------- */
 
@@ -68,8 +70,30 @@ export function SidebarSettings() {
   const editingIndex = pages.findIndex((page) => page.id === editing)
   const editingPage = editingIndex >= 0 ? pages[editingIndex] : null
 
+  const dock = workspace.dock
   return (
     <>
+      <Group
+        title="样式"
+        footer={
+          dock?.css
+            ? '搭搭给它写了一份自定义样式，叠在上面的预设之上。想换成别的样子，直接对搭搭说，或者先恢复默认。'
+            : '想要完全不同的样子（换位置、换形状、换材质），直接对搭搭说，它能写一份全新的样式。'
+        }
+      >
+        {DOCK_PRESETS.map((item) => (
+          <Row
+            key={item.id}
+            label={item.name}
+            hint={item.description}
+            checked={(dock?.preset ?? 'glass') === item.id}
+            onClick={() => edit((ws) => setDock(ws, { preset: item.id }))}
+          />
+        ))}
+        {dock?.css && <Row label="去掉搭搭写的自定义样式" icon={<RotateCcw size={16} />} onClick={() => edit((ws) => setDock(ws, { css: '' }))} />}
+        {dock && <Row label="恢复默认（拟态液体玻璃）" icon={<RotateCcw size={16} />} danger onClick={() => edit((ws) => setDock(ws, { reset: true }))} />}
+      </Group>
+
       <Group title="固定项" footer="这些是系统入口，不能修改、删除或挪动。">
         {FIXED.map((name) => (
           <Row key={name} label={name} icon={<Lock size={15} />}>

@@ -118,14 +118,12 @@ body {
   z-index: 0;
   overflow: hidden;
 }
-.app > .rail,
+
 .app > .canvas {
   position: relative;
   z-index: 1;
 }
-.app[data-fx='on'] .rail {
-  background: transparent !important;
-}
+
 /* 背景的鼠标互动要能穿过外壳：外壳本身不挡，里面的按钮和内容块照常响应 */
 .app[data-fx='on'] .canvas,
 .app[data-fx='on'] .page,
@@ -149,82 +147,6 @@ body {
 }
 
 /* ---------- 侧栏：图标在上，说明在下 ---------- */
-
-.rail {
-  width: var(--side-width);
-  padding: 14px 0 12px;
-  gap: 0;
-}
-
-.rail .rail-logo {
-  width: 100%;
-  height: 56px !important;
-  margin: 0 0 10px;
-  font-family: var(--font-serif) !important;
-  font-size: 30px !important;
-  font-weight: 700;
-  color: var(--main) !important;
-  border-radius: 0 !important;
-}
-
-.rail-nav {
-  gap: 0;
-}
-
-.rail .rail-item,
-.rail .lobe-button.rail-item {
-  position: relative;
-  width: 100%;
-  min-height: 62px;
-  height: auto !important;
-  padding: 10px 0 8px !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 5px !important;
-  border-radius: 0 !important;
-  font-family: var(--font-sans);
-  font-size: 11px !important;
-  letter-spacing: 0.06em;
-  color: var(--text2) !important;
-  background: transparent !important;
-}
-
-.rail .rail-item svg {
-  width: 19px;
-  height: 19px;
-  stroke-width: 1.6;
-}
-
-.rail .rail-item:hover {
-  color: var(--text) !important;
-  background: var(--bg2) !important;
-}
-
-.rail .rail-item[data-on='true'] {
-  color: var(--text) !important;
-  background: transparent !important;
-  font-weight: 600;
-}
-
-.rail .rail-item[data-on='true']::before {
-  content: '';
-  display: block;
-  position: absolute;
-  left: 0;
-  top: 14px;
-  bottom: 14px;
-  width: 3px;
-  background: var(--main);
-}
-
-.rail .rail-item[data-on='true'] svg {
-  color: var(--main);
-}
-
-.rail-spacer {
-  flex: 1;
-}
 
 /* ---------- 顶栏：报头条 ---------- */
 
@@ -789,20 +711,7 @@ body {
 }
 
 /* ---------- 侧栏的独立 AI 入口 ---------- */
-.rail .rail-ai {
-  color: var(--main);
-  position: relative;
-}
-.rail .rail-ai[data-busy='true']::after {
-  content: '';
-  position: absolute;
-  top: 8px;
-  right: 14px;
-  width: 6px;
-  height: 6px;
-  background: var(--main);
-  animation: ai-pulse 1s ease-in-out infinite;
-}
+
 @keyframes ai-pulse {
   50% {
     opacity: 0.2;
@@ -1027,14 +936,12 @@ body {
   color: var(--main);
 }
 
-
 /* ============================================================
    沉浸：去掉壳层分隔线，整屏只有内容
    ============================================================ */
 html,
 body,
-.app,
-.rail {
+.app{
   background: var(--bg) !important;
 }
 body {
@@ -1047,9 +954,7 @@ body {
   border-bottom: 0;
 }
 /* 当前页只用主色图标和字重表示，不再画竖条 */
-.rail .rail-item[data-on='true']::before {
-  display: none;
-}
+
 /* 内容块：不再有顶部粗线，靠留白和圆点标题分组 */
 .widget .page-pane,
 .widget .weather-card {
@@ -1243,13 +1148,6 @@ body {
 /* ============================================================
    侧栏：整行都是热区（页面项外面原来套了 inline 的 span）
    ============================================================ */
-.rail-nav > * {
-  display: block;
-  width: 100%;
-}
-.rail-nav .lobe-button.rail-item {
-  width: 100%;
-}
 
 /* ============================================================
    系统页（监控）：和普通页面一样占满画布，只在内部滚动
@@ -1538,23 +1436,6 @@ body {
 /* ============================================================
    侧栏：首页固定在上，中间放页面（放不下的收进「更多」），系统入口固定在下
    ============================================================ */
-.rail-fixed {
-  display: flex;
-  flex-direction: column;
-  flex: none;
-}
-.rail-fixed > * {
-  display: block;
-  width: 100%;
-}
-.rail-mid {
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
-.rail-spacer {
-  display: none;
-}
 
 /* ============================================================
    状态条
@@ -1636,67 +1517,12 @@ body {
 }
 
 /* 侧栏每一项固定高度，页面多了才能算准一屏放几项 */
-.rail .rail-item,
-.rail .lobe-button.rail-item {
-  height: 64px !important;
-  min-height: 64px !important;
-  padding: 8px 0 !important;
-}
 
 /* ============================================================
    侧栏（图标版）：窄轨，只有图标，名字在 tooltip 里
    ============================================================ */
 :root {
   --side-width: 64px;
-}
-.rail {
-  padding: 14px 0 14px !important;
-  align-items: center;
-}
-.rail .rail-logo {
-  width: 40px !important;
-  height: 44px !important;
-  margin: 0 0 14px !important;
-  padding: 0 !important;
-  border-radius: 12px !important;
-}
-.rail .rail-fixed,
-.rail .rail-nav {
-  align-items: center;
-}
-.rail .rail-fixed > *,
-.rail .rail-nav > * {
-  width: auto;
-}
-.rail-slot {
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.rail .rail-btn {
-  position: relative;
-  color: var(--text2);
-  background: transparent;
-  transition: background 0.16s, color 0.16s;
-}
-.rail .rail-btn:hover {
-  color: var(--text);
-  background: var(--bg2);
-}
-.rail .rail-btn[data-on='true'] {
-  color: var(--main);
-  background: transparent;
-}
-.rail .rail-btn[data-busy='true']::after {
-  content: '';
-  position: absolute;
-  top: 7px;
-  right: 7px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--main);
 }
 
 /* ============================================================
@@ -2031,22 +1857,6 @@ body {
 }
 
 /* ===== 品牌 logo ===== */
-.rail .rail-logo {
-  width: 48px !important;
-  height: 48px !important;
-  margin: 0 0 10px !important;
-  border-radius: 14px !important;
-}
-.rail .rail-logo .rail-logo-img {
-  display: block;
-  width: 36px;
-  height: 36px;
-  object-fit: contain;
-  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-.rail .rail-logo:hover .rail-logo-img {
-  transform: rotate(-6deg) scale(1.08);
-}
 
 /* ===== 搭搭 IP 形象 ===== */
 .mascot {
@@ -2128,30 +1938,9 @@ body {
   }
 
   /* 底部标签栏 */
-  .rail,
-  .rail[data-mobile='true'] {
-    order: 2;
-    flex: none;
-    width: 100% !important;
-    height: auto !important;
-    flex-direction: row !important;
-    align-items: center !important;
-    justify-content: space-around;
-    gap: 0 !important;
-    padding: 6px 6px calc(6px + env(safe-area-inset-bottom)) !important;
-    overflow: visible !important;
-    background: color-mix(in srgb, var(--text) 4%, var(--bg)) !important;
-    z-index: 20;
-  }
-  .rail .rail-slot {
-    flex: 1;
-    height: 48px;
-    min-width: 0;
-  }
-  .rail .rail-btn {
-    width: 44px;
-    height: 44px;
-  }
+  
+  
+  
 
   .canvas {
     order: 1;

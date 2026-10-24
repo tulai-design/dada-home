@@ -22,6 +22,7 @@ export function snapshotOf(workspace: Workspace, withTheme = true): TemplateSnap
     layout: workspace.layout,
     widgets: workspace.widgets,
     addons: workspace.addons,
+    ...(workspace.dock ? {dock: workspace.dock} : {}),
     ...(withTheme && active ? {theme: active} : {}),
   })
 }
@@ -133,6 +134,9 @@ export function applyTemplate(workspace: Workspace, ref: string): {workspace: Wo
     addons: base.addons,
     template: id,
   }
+  // 模板里没有 Dock 设置就回到默认的玻璃，别把上一套的留下来
+  if (base.dock) next.dock = base.dock
+  else delete next.dock
   if (base.theme) next = adoptTheme(next, base.theme)
   return {workspace: next, name, id}
 }
@@ -141,7 +145,7 @@ export function applyTemplate(workspace: Workspace, ref: string): {workspace: Wo
 export function isSynced(workspace: Workspace, entry: TemplateEntry): boolean {
   const now = snapshotOf(workspace, false)
   const saved = entry.snapshot
-  return JSON.stringify([now.pages, now.statusbar, now.layout, now.widgets, now.addons]) === JSON.stringify([saved.pages, saved.statusbar, saved.layout, saved.widgets, saved.addons])
+  return JSON.stringify([now.pages, now.statusbar, now.layout, now.widgets, now.addons, now.dock ?? null]) === JSON.stringify([saved.pages, saved.statusbar, saved.layout, saved.widgets, saved.addons, saved.dock ?? null])
 }
 
 /** 一句话说清模板里有什么，列表里和给 AI 看都用它。 */

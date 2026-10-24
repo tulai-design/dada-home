@@ -1,0 +1,306 @@
+/* ============================================================
+   Dock：电脑的侧栏，手机的底部栏
+
+   默认是「拟态液体玻璃」：一颗悬浮的玻璃胶囊，当前页下有一块会流动的液态玻璃。
+   玻璃的高光、阴影、扭曲滤镜参考 Tulai 的 Dock。
+
+   结构（Rail.tsx）：
+     nav.dock-shell[data-dock][data-orient]   占位容器，透明
+       div.dock                               看得见的那一块
+         i.dock-glider                        当前页的滑块
+         button.dock-logo                     （只有电脑）
+         div.dock-group.dock-top|mid|bottom   入口分组
+           div.rail-slot > button.rail-btn
+
+   预设写在 [data-dock='…'] 下；AI 写的自定义 CSS 会被圈进
+   .dock-shell[data-dock] 里再注入，权重比这里高一档，所以直接覆盖就行。
+   ============================================================ */
+
+.dock-shell {
+  /* ---- 可被 AI 改写的变量 ---- */
+  --dock-glass: #bbbbbc;
+  --dock-light: #fff;
+  --dock-dark: #000;
+  --dock-reflex-dark: 1;
+  --dock-reflex-light: 1;
+  --dock-saturation: 150%;
+  --dock-surface: color-mix(in srgb, var(--dock-glass) 12%, transparent);
+  --dock-ink: var(--text);
+  --dock-muted: var(--text2);
+  --dock-active: color-mix(in srgb, var(--dock-glass) 36%, transparent);
+  --dock-pitch: 48px;
+  --dock-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--dock-light) calc(var(--dock-reflex-light) * 10%), transparent),
+    inset 1.8px 3px 0 -2px color-mix(in srgb, var(--dock-light) calc(var(--dock-reflex-light) * 90%), transparent),
+    inset -2px -2px 0 -2px color-mix(in srgb, var(--dock-light) calc(var(--dock-reflex-light) * 80%), transparent),
+    inset -3px -8px 1px -6px color-mix(in srgb, var(--dock-light) calc(var(--dock-reflex-light) * 60%), transparent),
+    inset -0.3px -1px 4px 0 color-mix(in srgb, var(--dock-dark) calc(var(--dock-reflex-dark) * 12%), transparent),
+    inset -1.5px 2.5px 0 -2px color-mix(in srgb, var(--dock-dark) calc(var(--dock-reflex-dark) * 20%), transparent),
+    inset 0 3px 4px -2px color-mix(in srgb, var(--dock-dark) calc(var(--dock-reflex-dark) * 20%), transparent),
+    inset 2px -6.5px 1px -4px color-mix(in srgb, var(--dock-dark) calc(var(--dock-reflex-dark) * 10%), transparent),
+    0 1px 5px 0 color-mix(in srgb, var(--dock-dark) calc(var(--dock-reflex-dark) * 10%), transparent),
+    0 6px 16px 0 color-mix(in srgb, var(--dock-dark) calc(var(--dock-reflex-dark) * 8%), transparent);
+  --dock-glider-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--dock-light) calc(var(--dock-reflex-light) * 10%), transparent),
+    inset 2px 1px 0 -1px color-mix(in srgb, var(--dock-light) calc(var(--dock-reflex-light) * 90%), transparent),
+    inset -1.5px -1px 0 -1px color-mix(in srgb, var(--dock-light) calc(var(--dock-reflex-light) * 80%), transparent),
+    inset -2px -6px 1px -5px color-mix(in srgb, var(--dock-light) calc(var(--dock-reflex-light) * 60%), transparent),
+    inset -1px 2px 3px -1px color-mix(in srgb, var(--dock-dark) calc(var(--dock-reflex-dark) * 20%), transparent),
+    inset 0 -4px 1px -2px color-mix(in srgb, var(--dock-dark) calc(var(--dock-reflex-dark) * 10%), transparent),
+    0 3px 6px 0 color-mix(in srgb, var(--dock-dark) calc(var(--dock-reflex-dark) * 8%), transparent);
+
+  position: relative;
+  z-index: 20;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--side-width) + 8px);
+  height: 100%;
+  /* 容器本身不挡鼠标：背景特效的互动要能穿过去，只有 .dock 响应 */
+  pointer-events: none;
+}
+
+/* 深色下高光收一点、阴影加重，玻璃底色换成偏黑的 */
+:root[data-theme='dark'] .dock-shell {
+  --dock-glass: #8f9299;
+  --dock-reflex-dark: 2;
+  --dock-reflex-light: 0.3;
+  --dock-surface: rgb(18 19 22 / 56%);
+  --dock-active: rgb(255 255 255 / 16%);
+}
+
+.dock {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  max-height: 100%;
+  padding: 12px 8px;
+  color: var(--dock-ink);
+  background-color: var(--dock-surface);
+  border-radius: 99em;
+  box-shadow: var(--dock-shadow);
+  backdrop-filter: blur(8px) url('#dock-liquid-glass') saturate(var(--dock-saturation));
+  -webkit-backdrop-filter: blur(8px) saturate(var(--dock-saturation));
+  pointer-events: auto;
+  transition:
+    background-color 0.4s cubic-bezier(1, 0, 0.4, 1),
+    box-shadow 0.4s cubic-bezier(1, 0, 0.4, 1);
+}
+
+.dock-filter {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* ---- 当前页的滑块：位置由 Rail.tsx 量出来写进 --gx --gy --gw --gh ---- */
+.dock-glider {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: -1;
+  width: var(--gw, 0);
+  height: var(--gh, 0);
+  opacity: var(--go, 0);
+  translate: var(--gx, 0) var(--gy, 0);
+  border-radius: 99em;
+  background-color: var(--dock-active);
+  box-shadow: var(--dock-glider-shadow);
+  pointer-events: none;
+}
+.dock[data-ready='true'] .dock-glider {
+  transition:
+    translate 0.4s cubic-bezier(1, 0, 0.4, 1),
+    width 0.4s cubic-bezier(1, 0, 0.4, 1),
+    height 0.4s cubic-bezier(1, 0, 0.4, 1),
+    opacity 0.16s ease,
+    background-color 0.4s cubic-bezier(1, 0, 0.4, 1),
+    box-shadow 0.4s cubic-bezier(1, 0, 0.4, 1);
+}
+
+/* ---- 分组和入口 ---- */
+.dock-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-height: 0;
+}
+.dock-bottom {
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid color-mix(in srgb, var(--dock-ink) 10%, transparent);
+}
+.dock-logo.lobe-button,
+.dock-logo {
+  width: 44px !important;
+  height: 44px !important;
+  margin: 0 0 8px !important;
+  padding: 0 !important;
+  border-radius: 14px !important;
+}
+.dock-logo .dock-logo-img {
+  display: block;
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.dock-logo:hover .dock-logo-img {
+  transform: rotate(-6deg) scale(1.08);
+}
+
+.dock .rail-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+}
+.dock .rail-btn {
+  position: relative;
+  color: var(--dock-muted);
+  background: transparent;
+  border-radius: 99em;
+  transition:
+    color 0.2s ease,
+    background-color 0.2s ease,
+    scale 0.2s cubic-bezier(0.5, 0, 0, 1);
+}
+.dock .rail-btn:hover {
+  color: var(--dock-ink);
+  background: color-mix(in srgb, var(--dock-active) 58%, transparent);
+  scale: 1.08;
+}
+/* 当前页：图标换成主色，底下的液态玻璃滑过来 */
+.dock .rail-btn[data-on='true'] {
+  color: var(--main);
+  background: transparent;
+}
+.dock .rail-btn[data-on='true']:hover {
+  background: transparent;
+  scale: 1;
+}
+.dock .rail-btn[data-busy='true']::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--main);
+}
+
+/* ============================================================
+   预设
+   ============================================================ */
+
+/* 纸质卡片：实色、细边线，没有玻璃 */
+.dock-shell[data-dock='solid'] {
+  --dock-surface: color-mix(in srgb, var(--text) 4%, var(--bg));
+  --dock-active: color-mix(in srgb, var(--main) 13%, transparent);
+  --dock-shadow: 0 0 0 1px var(--border), 0 10px 28px color-mix(in srgb, var(--text) 10%, transparent);
+  --dock-glider-shadow: none;
+}
+.dock-shell[data-dock='solid'] .dock {
+  border-radius: 20px;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.dock-shell[data-dock='solid'] .dock-glider {
+  border-radius: 14px;
+}
+.dock-shell[data-dock='solid'] .dock .rail-btn {
+  border-radius: 14px;
+}
+
+/* 通栏：贴边的整条栏 */
+.dock-shell[data-dock='bar'] {
+  --dock-surface: transparent;
+  --dock-active: color-mix(in srgb, var(--main) 11%, transparent);
+  --dock-shadow: none;
+  --dock-glider-shadow: none;
+}
+.dock-shell[data-dock='bar'] .dock {
+  height: 100%;
+  border-radius: 18px;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.dock-shell[data-dock='bar'] .dock-mid {
+  flex: 1;
+}
+.dock-shell[data-dock='bar'] .dock-glider {
+  border-radius: 14px;
+}
+.dock-shell[data-dock='bar'] .dock .rail-btn {
+  border-radius: 14px;
+}
+
+/* 背景特效整屏铺开时，外壳压在特效上面 */
+.app > .dock-shell {
+  position: relative;
+  z-index: 2;
+}
+
+/* ============================================================
+   手机：底部悬浮的胶囊（在页面下方占一行，内容不会被它盖住）
+   ============================================================ */
+@media (max-width: 760px) {
+  .dock-shell {
+    order: 2;
+    width: 100%;
+    height: auto;
+    padding: 4px 12px calc(10px + env(safe-area-inset-bottom));
+  }
+  .dock {
+    flex-direction: row;
+    justify-content: space-around;
+    gap: 0;
+    width: min(100%, 380px);
+    padding: 6px 10px;
+  }
+  .dock-group {
+    display: contents;
+  }
+  .dock-bottom {
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+  .dock .rail-slot {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+    height: 48px;
+  }
+  .dock .rail-btn {
+    width: 48px;
+    height: 48px;
+  }
+  .dock-shell[data-dock='bar'] {
+    padding: 0 0 env(safe-area-inset-bottom);
+  }
+  .dock-shell[data-dock='bar'] .dock {
+    width: 100%;
+    height: auto;
+    padding: 6px 10px;
+    border-radius: 0;
+    border-top: 1px solid var(--border);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dock,
+  .dock-glider,
+  .dock .rail-btn {
+    transition: none !important;
+  }
+}
