@@ -60,7 +60,23 @@ const FRONTEND_DESIGN = `# 技能：前端设计（frontend-design）
 5. 代码在脑子里走一遍，出错用户只会看到空白，所以关键路径要稳。
 6. 交付后用一两句话说明设计思路和怎么改（颜色在哪、文案在哪），再问用户要不要调整。`
 
+/** 设计规范的原文放在 docs/design-system.md：人、写代码的 AI、搭搭自己读的是同一份。 */
+import DESIGN_SYSTEM from '../../docs/design-system.md?raw'
+import {appletGuide} from './applet/catalog'
+
 export const SKILLS: Skill[] = [
+  {
+    id: 'applet',
+    name: '小程序',
+    when: '要用 create_applet / update_applet 做有交互的小工具之前，必须先读这份：它有完整的积木目录、写法、ctx 能力和设计要求。',
+    body: appletGuide(),
+  },
+  {
+    id: 'design-system',
+    name: '设计规范',
+    when: '只要你要新建或改动任何组件、页面版式、沙盒应用（create_app / create_widget / add_component / 调整布局和样式）之前，必须先读这份。它规定了控件怎么选、颜色间距字号怎么用、舞台型组件如何居中、状态怎么做、交付前怎么自检。',
+    body: DESIGN_SYSTEM,
+  },
   {
     id: 'grill-me',
     name: '拷问',

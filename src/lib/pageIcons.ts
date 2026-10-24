@@ -1,15 +1,10 @@
-import {
-  BookOpen, Bookmark, Briefcase, Calendar, Camera, ChartLine, CheckSquare, Cloud, Code, Coffee, Cpu, Dumbbell, FileText,
-  Film, Flame, Gamepad2, Globe, GraduationCap, Heart, Home, Image, Inbox, LayoutDashboard, Lightbulb, Lock, Mail, Map,
-  MessageCircle, Music, Newspaper, NotebookPen, Palette, Plane, Rocket, ShoppingCart, Sparkles, Star, Sun, Terminal,
-  Trophy, Users, Utensils, Wallet, Wrench,
-  type LucideIcon,
-} from 'lucide-react'
+import {BookOpen, Bookmark, Briefcase, Calendar, Camera, ChartLine, CheckSquare, Cloud, Code, Coffee, Cpu, Barbell as Dumbbell, FileText, FilmStrip as Film, Fire as Flame, GameController as Gamepad2, Globe, GraduationCap, Heart, House as Home, Image, Tray as Inbox, Layout as LayoutDashboard, Lightbulb, Lock, Envelope as Mail, MapTrifold as Map, ChatCircle as MessageCircle, MusicNotes as Music, Newspaper, NotePencil as NotebookPen, Palette, Airplane as Plane, Rocket, ShoppingCart, Sparkle as Sparkles, Star, Sun, Terminal, Timer, Trophy, Users, ForkKnife as Utensils, Wallet, Wrench} from '@phosphor-icons/react'
+import type {Icon as PhosphorIcon} from '@phosphor-icons/react'
 
 /**
  * 页面图标白名单。AI 只能从这里挑名字（不能塞任意字符串），侧栏、切换器、设置页都从这里取图标。
  */
-export const PAGE_ICONS: Record<string, LucideIcon> = {
+export const PAGE_ICONS: Record<string, PhosphorIcon> = {
   home: Home,
   newspaper: Newspaper,
   'notebook-pen': NotebookPen,
@@ -54,6 +49,7 @@ export const PAGE_ICONS: Record<string, LucideIcon> = {
   doc: FileText,
   inbox: Inbox,
   trophy: Trophy,
+  timer: Timer,
 }
 
 export const PAGE_ICON_KEYS = Object.keys(PAGE_ICONS)
@@ -62,7 +58,7 @@ export function isPageIcon(key: string): boolean {
   return key in PAGE_ICONS
 }
 
-export function pageIcon(key: string | undefined): LucideIcon {
+export function pageIcon(key: string | undefined): PhosphorIcon {
   return (key && PAGE_ICONS[key]) || LayoutDashboard
 }
 
@@ -73,5 +69,5 @@ export const PAGE_ICON_LABELS: Record<string, string> = {
   terminal: '终端', work: '工作', calendar: '日历', todo: '待办', image: '图片', camera: '相机', map: '地图',
   travel: '旅行', shop: '购物', money: '财务', chart: '图表', cpu: '芯片', cloud: '云', sun: '太阳', coffee: '咖啡',
   food: '美食', fitness: '健身', people: '人物', chat: '对话', mail: '邮件', sparkles: '闪光', rocket: '火箭',
-  idea: '灵感', design: '设计', tools: '工具', web: '网页', secret: '私密', doc: '文档', inbox: '收件箱', trophy: '奖杯',
+  idea: '灵感', design: '设计', tools: '工具', web: '网页', secret: '私密', doc: '文档', inbox: '收件箱', trophy: '奖杯', timer: '计时',
 }

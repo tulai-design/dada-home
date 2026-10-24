@@ -108,7 +108,7 @@ function searchLine(): string {
   return `${info.name}｜${searchReady(config) ? '已配好，可用 web_search' : '还没配好（缺密钥或地址）'}`
 }
 
-const SECTION_HINT = 'profile 个人｜appearance 外观｜templates 模板｜sidebar 侧栏｜statusbar 状态条｜ai 搭搭 AI｜soul 灵魂｜memory 记忆｜network 网络｜search 联网搜索｜data 数据｜about 关于｜feeds 订阅｜hot 热榜｜bookmarks 书签｜weather 天气｜monitor 监控'
+const SECTION_HINT = 'profile 个人｜appearance 外观｜templates 模板｜sidebar 侧栏｜statusbar 状态条｜ai 搭搭 AI｜soul 灵魂｜memory 记忆｜network 网络｜search 联网搜索｜data 数据｜about 关于｜feeds 订阅｜hot 热榜｜bookmarks 书签｜weather 天气｜monitor 监控｜calendar 日历（订阅 .ics）｜focus 番茄钟'
 
 export const SITE_TOOLS = [
   /* ───── 订阅 ───── */

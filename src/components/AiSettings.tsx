@@ -1,6 +1,6 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react'
 import {ActionIcon, Flexbox, InputNumber, Select, Text, TextArea} from '@lobehub/ui'
-import {ChevronUp, RefreshCw, RotateCcw} from 'lucide-react'
+import {CaretUp as ChevronUp, ArrowsClockwise as RefreshCw, ArrowCounterClockwise as RotateCcw} from '@phosphor-icons/react'
 import type {AiConfig} from '../lib/types'
 import {CUSTOM_PROVIDER, PROVIDERS, cachedModels, detectProvider, fetchModels} from '../lib/models'
 import {Group, Row, TextRow} from './ios'

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ActionIcon, Flexbox, Modal, Select, Switch, Text } from '@lobehub/ui'
-import { ArrowDown, ArrowUp, Lock, Plus, Trash2, X } from 'lucide-react'
+import {ArrowDown, ArrowUp, Lock, Plus, Trash as Trash2, X} from '@phosphor-icons/react'
 import { useAppSettings } from '../lib/apps'
 import { removeData } from '../lib/componentData'
 import { DOCK_PRESETS } from '../lib/dock'
@@ -9,7 +9,7 @@ import { PAGE_ICONS, PAGE_ICON_LABELS, pageIcon } from '../lib/pageIcons'
 import { getDefinition, type ConfigField } from '../lib/registry'
 import { FROZEN_PAGE_ID, MAX_STATUS_ITEMS, type Page } from '../lib/workspace'
 import { Group, Row, TextRow } from './ios'
-import { RotateCcw } from 'lucide-react'
+import {ArrowCounterClockwise as RotateCcw} from '@phosphor-icons/react'
 
 /* ---------------- 侧栏 ---------------- */
 

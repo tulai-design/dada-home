@@ -1,7 +1,7 @@
 import {useEffect, useState} from 'react'
 import {A, Modal, Switch, Text} from '@lobehub/ui'
 import {Github} from '@lobehub/icons'
-import {Bug, Download, GitFork, Heart, QrCode, Star} from 'lucide-react'
+import {Bug, DownloadSimple as Download, GitFork, Heart, QrCode, ShieldCheck, Star} from '@phosphor-icons/react'
 import {analyticsEnabled, setAnalyticsEnabled, umamiConfig} from '../lib/analytics'
 import {useStored} from '../lib/store'
 import {Group, Row} from './ios'
@@ -75,6 +75,7 @@ export function AboutPanel() {
           </A>
         </Row>
         <Row label="数据">只保存在这台浏览器里</Row>
+        <Row icon={<ShieldCheck size={16} />} label="隐私政策" chevron onClick={() => openLink(`${base}privacy.html`)} />
       </Group>
       <Group title="开源" footer="搭搭是开源的。觉得好用，点个 Star 就是对我们最直接的鼓励；想改成自己的样子，Fork 一份就行。">
         <Row icon={<Github size={16} />} label="GitHub" hint={REPO} chevron onClick={() => openLink(REPO_URL)} />

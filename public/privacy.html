@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="index,follow" />
+  <title>隐私政策 · 搭搭</title>
+  <link rel="icon" href="/favicon.ico" />
+  <style>
+    :root {
+      --bg: #f4f0e6;
+      --text: #1c1815;
+      --text2: #5a5248;
+      --rule: #1c1815;
+      --line: rgba(28, 24, 21, 0.14);
+      --main: #e5372e;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #151210;
+        --text: #efe9df;
+        --text2: #b3a99b;
+        --rule: #efe9df;
+        --line: rgba(239, 233, 223, 0.16);
+        --main: #ff5a4f;
+      }
+    }
+    * { box-sizing: border-box; }
+    html { background: var(--bg); }
+    body {
+      margin: 0;
+      color: var(--text);
+      font-family: 'Source Serif 4', 'Noto Serif SC', 'Songti SC', 'STSong', Georgia, serif;
+      font-size: 16px;
+      line-height: 1.8;
+      border-top: 7px solid var(--main);
+    }
+    main { max-width: 680px; margin: 0 auto; padding: 56px 24px 96px; }
+    .kicker {
+      font-family: 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, monospace;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text2);
+    }
+    h1 { font-size: 36px; line-height: 1.25; margin: 12px 0 8px; font-weight: 700; }
+    .updated { color: var(--text2); font-size: 14px; margin: 0 0 32px; padding-bottom: 20px; border-bottom: 1px solid var(--rule); }
+    h2 { font-size: 20px; margin: 40px 0 8px; padding-top: 14px; border-top: 1px solid var(--line); }
+    p, li { color: var(--text); }
+    ul { padding-left: 1.25em; }
+    li { margin: 4px 0; }
+    li::marker { color: var(--main); }
+    table { border-collapse: collapse; width: 100%; font-size: 14px; margin: 12px 0; }
+    th, td { text-align: left; vertical-align: top; padding: 8px 12px 8px 0; border-bottom: 1px solid var(--line); }
+    th { font-weight: 600; white-space: nowrap; }
+    a { color: var(--main); text-underline-offset: 3px; }
+    code {
+      font-family: 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, monospace;
+      font-size: 0.88em;
+      background: var(--line);
+      padding: 1px 5px;
+    }
+    footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--rule); color: var(--text2); font-size: 14px; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="kicker">tulai.design · 搭搭</div>
+    <h1>隐私政策</h1>
+    <p class="updated">最后更新：2026 年 10 月 24 日。适用于搭搭网页应用，以及配套的浏览器扩展「搭搭书签桥」。</p>
+
+    <p>一句话版本：搭搭没有自己的服务器，不收集你的数据。你的页面、待办、书签、对话和密钥都只留在你自己的浏览器里；只有你主动配置了某项服务，数据才会发给那一项服务，而且是从你的浏览器直接发出，不经过我们。</p>
+
+    <h2>数据存在哪里</h2>
+    <p>页面布局、主题、待办、日程、书签、订阅、番茄钟记录、AI 对话和各类设置，都保存在你浏览器的本地存储（<code>localStorage</code> 和 <code>IndexedDB</code>）里。我们没有账号系统，也没有数据库。清除浏览器数据、使用「恢复默认」，或者卸载应用，这些数据就会消失。设置里的「导出备份」可以把它们保存成文件，由你自己保管。</p>
+
+    <h2>会连接哪些外部服务</h2>
+    <p>搭搭本身不联网上传任何东西。下面这些请求，只在你使用对应功能时才发生，目的地由你选择或填写：</p>
+    <table>
+      <tr><th>功能</th><th>发给谁</th><th>发什么</th></tr>
+      <tr><td>AI 对话</td><td>你在设置里填的模型服务（OpenAI、Gemini、自建接口等）</td><td>你的提问、必要的上下文，以及你填的 API Key。密钥只保存在你的浏览器里，请求由浏览器直接发出。</td></tr>
+      <tr><td>联网搜索</td><td>你选择的搜索服务（Tavily、Firecrawl、SearXNG、Exa 等）</td><td>搜索关键词和你填的密钥。</td></tr>
+      <tr><td>天气</td><td>Open-Meteo</td><td>你设置的城市或经纬度。</td></tr>
+      <tr><td>订阅、热榜、日历订阅（.ics）、服务监控</td><td>你添加的网址，通常经由你在「网络」里设置的代理</td><td>对这些网址的普通请求；监控会带上你填的令牌或密码。</td></tr>
+      <tr><td>网站图标</td><td>网站图标服务</td><td>书签的域名。</td></tr>
+      <tr><td>主题字体</td><td>Google Fonts</td><td>仅当某个主题引入了 Google Fonts 字体时，浏览器会向它请求字体文件。</td></tr>
+      <tr><td>跨设备同步（可选）</td><td>你自己的 WebDAV、GitHub Gist 或自建接口</td><td>你的数据。默认不含 API Key、监控令牌和 .ics 订阅地址；设置了加密口令时，数据在离开浏览器前就已加密。</td></tr>
+    </table>
+    <p>如果你使用代理或第三方模型服务，它们对数据的处理遵循各自的隐私政策，请自行了解。</p>
+
+    <h2>访问统计</h2>
+    <p>部署者可以选择接入 Umami 访问统计。接入后，它只统计访问次数和页面来源，不上报你的页面内容和本地数据，并遵守浏览器的「请勿跟踪」。你可以随时在 设置 › 关于 里关闭。没有接入时，页面里不会加载任何统计代码。</p>
+
+    <h2>浏览器扩展：搭搭书签桥</h2>
+    <ul>
+      <li>只在你点了「在此网站启用」的网站上工作。启用时浏览器会询问是否授权，授权只对那一个网站生效，可以随时在扩展弹窗里关闭。</li>
+      <li>读取你的浏览器书签，并只把它们交给你启用的那个网页（搭搭）；「同步到浏览器」只在书签栏新建一个「搭搭」文件夹往里添加，不改动、不删除你原有的书签。</li>
+      <li>不读取浏览历史和网页内容，不联网，不含统计和广告代码，不使用任何远程代码。</li>
+      <li>在本地（<code>chrome.storage.local</code>）保存你已启用的网站列表，卸载扩展时一并清除。</li>
+      <li>不会向开发者或任何第三方收集、出售或传输数据。</li>
+    </ul>
+
+    <h2>Cookie</h2>
+    <p>搭搭自己不使用 Cookie。接入的第三方服务（如 Umami）是否设置，以它们的说明为准。</p>
+
+    <h2>儿童</h2>
+    <p>搭搭不面向 13 岁以下的儿童，也不会有意收集任何人的个人信息。</p>
+
+    <h2>政策变更</h2>
+    <p>这份政策有变化时，会更新本页和页首的日期。重大变化会在应用里提示。</p>
+
+    <h2>联系我们</h2>
+    <p>对本政策有疑问，请到搭搭的项目主页提 issue：<a href="https://github.com/tulai-design/dada-home/issues" rel="noreferrer noopener">github.com/tulai-design/dada-home</a>。</p>
+
+    <footer><a href="/">回到搭搭</a></footer>
+  </main>
+</body>
+</html>

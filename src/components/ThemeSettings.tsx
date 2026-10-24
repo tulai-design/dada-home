@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { ActionIcon, Flexbox, Modal, Segmented, Text } from '@lobehub/ui'
-import { Pencil, Trash2 } from 'lucide-react'
+import { ActionIcon, Flexbox, Modal, Segmented, Switch, Text } from '@lobehub/ui'
+import {PencilSimple as Pencil, Trash as Trash2} from '@phosphor-icons/react'
 import { useAppSettings } from '../lib/apps'
-import { applyTheme, removeTheme, saveTheme, swatch } from '../lib/themes'
-import type { ThemeEntry } from '../lib/workspace'
+import { applyTheme, removeTheme, saveTheme, swatch, tweakTheme } from '../lib/themes'
+import { activeTheme, type ThemeEntry } from '../lib/workspace'
 import { applyDecor, currentDecor, DECORS } from '../lib/decor'
 import { Group, Row, TextRow } from './ios'
 
@@ -30,6 +30,18 @@ export function AppearanceSettings({ mode, onMode }: { mode: 'light' | 'dark'; o
   const [description, setDescription] = useState('')
   const [pending, setPending] = useState<ThemeEntry | null>(null)
 
+  const current = activeTheme(workspace)
+  const frameOn = current.overrides.frame !== '0px'
+  const setFrame = (on: boolean) =>
+    edit((ws) => {
+      if (!on) return tweakTheme(ws, { overrides: { frame: '0px' } }).workspace
+      const active = activeTheme(ws)
+      if (active.builtin) return ws
+      const { frame: _frame, ...rest } = active.overrides
+      void _frame
+      return saveTheme(ws, { id: active.id, overrides: rest, activate: false }).workspace
+    })
+
   const startEdit = (theme: ThemeEntry) => {
     setEditing(theme)
     setName(theme.name)
@@ -52,6 +64,12 @@ export function AppearanceSettings({ mode, onMode }: { mode: 'light' | 'dark'; o
         </Row>
       </Group>
 
+      <Group title="窗口" footer="窗口四周那圈红框。关掉会另存为一个新主题，默认主题不受影响。粗细、颜色和字体，对搭搭说就行。">
+        <Row label="外框">
+          <Switch checked={frameOn} onChange={setFrame} />
+        </Row>
+      </Group>
+
       <Group title="首页装饰" footer="给首页铺一层动态背景，来自 React Bits。想要别的效果，或者 Spline 3D 场景，对搭搭说一声就行。">
         {DECORS.map((decor) => (
           <Row key={decor.id} label={decor.name} hint={decor.hint} checked={decor.id === decorId} onClick={() => edit((ws) => applyDecor(ws, decor.id))} />
@@ -68,7 +86,7 @@ export function AppearanceSettings({ mode, onMode }: { mode: 'light' | 'dark'; o
             key={theme.id}
             icon={<Swatch theme={theme} mode={mode} />}
             label={theme.name}
-            hint={theme.description || (theme.builtin ? '默认' : undefined)}
+            hint={[theme.description || (theme.builtin ? '默认' : ''), theme.fonts?.length ? `字体：${theme.fonts.map((font) => font.family).join('、')}` : ''].filter(Boolean).join(' · ') || undefined}
             checked={theme.id === workspace.theme.active}
             onClick={() => edit((ws) => applyTheme(ws, theme.id).workspace)}
           >

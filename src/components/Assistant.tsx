@@ -1,6 +1,6 @@
 import {useEffect, useLayoutEffect, useRef, useState} from 'react'
 import {ActionIcon, Button, Drawer, Empty, Flexbox, Markdown, Modal, Text} from '@lobehub/ui'
-import {ArrowDown, History, Maximize2, MessageSquare, Minimize2, Plus, Settings, Square, Trash2, X} from 'lucide-react'
+import {ArrowDown, ClockCounterClockwise as History, ArrowsOut as Maximize2, Chat as MessageSquare, ArrowsIn as Minimize2, Plus, Gear as Settings, Square, Trash as Trash2, X} from '@phosphor-icons/react'
 import type {AiConfig} from '../lib/types'
 import {useIsMobile} from '../lib/useMedia'
 import {Mascot} from './About'
@@ -82,6 +82,29 @@ export function Assistant({open, mode, onMode, ai, turns, ready, convs, convId, 
     el.scrollTop = el.scrollHeight
   }, [turns])
 
+  // 打开面板、切换对话时：落在最新一条上。面板有进场动画、内容可能晚一拍才挂上，所以多补几次。
+  useEffect(() => {
+    if (!open) return
+    followRef.current = true
+    setPaused(false)
+    const snap = () => {
+      const el = logRef.current
+      if (el && followRef.current) el.scrollTop = el.scrollHeight
+    }
+    snap()
+    const timers = [60, 200, 450].map((ms) => window.setTimeout(snap, ms))
+    return () => timers.forEach((id) => window.clearTimeout(id))
+  }, [open, mode, convId, ready])
+
+  // 打开面板时把光标放进输入框（抽屉默认会抢到第一个按钮上）。触屏上不弹键盘。
+  useEffect(() => {
+    if (!open || !ready || window.matchMedia('(pointer: coarse)').matches) return
+    const timer = window.setTimeout(() => {
+      document.querySelector<HTMLTextAreaElement>('.chat-root .composer-input textarea, .chat-root textarea.composer-input')?.focus({preventScroll: true})
+    }, 260)
+    return () => window.clearTimeout(timer)
+  }, [open, mode, ready])
+
   const jumpToBottom = () => {
     const el = logRef.current
     if (!el) return
@@ -114,7 +137,7 @@ export function Assistant({open, mode, onMode, ai, turns, ready, convs, convId, 
   )
 
   const chat = (
-      <Flexbox direction="vertical" style={{height: '100%', position: 'relative'}}>
+      <Flexbox className="chat-root" direction="vertical" style={{height: '100%', position: 'relative'}}>
         {!ready ? (
           <div className="chat-empty">
             <Text type="secondary">正在读取对话记录…</Text>

@@ -1,4 +1,6 @@
-import {useEffect, useMemo, useRef} from 'react'
+import {useEffect, useMemo, useRef, useState} from 'react'
+import {Button, Flexbox, Tag, Text} from '@lobehub/ui'
+import {MagicWand as Wand2} from '@phosphor-icons/react'
 import {useDark} from '../fx/Fx'
 import {isGranted} from '../lib/customWidget'
 import {proxied} from '../lib/rss'
@@ -56,6 +58,9 @@ a{color:var(--main);text-decoration:none}
 .btn.primary{background:var(--main);border-color:var(--main);color:#fff}
 input,textarea,select{font:inherit;color:var(--text);background:transparent;border:1px solid var(--border);padding:6px 10px;border-radius:0;outline:none}
 input:focus,textarea:focus{border-color:var(--main)}
+input[type=checkbox],input[type=radio],input[type=range]{accent-color:var(--main)}
+button{font:inherit;color:var(--text);cursor:pointer}
+::selection{background:color-mix(in srgb,var(--main) 25%,transparent)}
 `
 
 /** 注入应用内的 SDK。window.tada 是应用与主页对话的唯一通道。 */
@@ -72,6 +77,16 @@ const SDK = `
     const p=pending.get(m.id);if(!p)return;pending.delete(m.id);
     m.error?p.reject(new Error(m.error)):p.resolve(m.result);
   });
+  /* 沙盒里没有 localStorage 和剪贴板权限，AI 常会顺手用到而直接崩掉：给不会崩的替身 */
+  const memory=()=>{const m=new Map();return{getItem:k=>m.has(k)?m.get(k):null,setItem:(k,v)=>{m.set(k,String(v))},removeItem:k=>{m.delete(k)},clear:()=>m.clear(),key:i=>[...m.keys()][i]??null,get length(){return m.size}}};
+  for(const name of ['localStorage','sessionStorage']){
+    try{window[name].getItem('x')}catch{try{Object.defineProperty(window,name,{value:memory(),configurable:true})}catch{}}
+  }
+  try{Object.defineProperty(navigator,'clipboard',{value:{writeText:(t)=>call('copy',{text:String(t)})},configurable:true})}catch{}
+  /* 运行出错不再是一片空白：告诉主页，由主页显示并提供「让搭搭修复」 */
+  const report=(e)=>{const msg=(e&&e.message)||String(e);parent.postMessage({tada:1,id:0,op:'error',message:msg},'*')};
+  addEventListener('error',(e)=>report(e.error||e.message));
+  addEventListener('unhandledrejection',(e)=>report(e.reason));
   window.tada={
     /** 本应用私有的持久存储（键值，总量约 100KB） */
     store:{get:(key)=>call('get',{key}),set:(key,value)=>call('set',{key,value})},
@@ -79,6 +94,8 @@ const SDK = `
     fetch:(url)=>call('fetch',{url}),
     /** 新标签页打开 https 链接 */
     open:(url)=>call('open',{url}),
+    /** 复制文字到剪贴板（navigator.clipboard.writeText 也已接到这里） */
+    copy:(text)=>call('copy',{text:String(text)}),
     /** 把一句话发给搭搭的 AI 助手 */
     ask:(text)=>call('ask',{text}),
     dark:document.documentElement.dataset.theme==='dark',
@@ -118,6 +135,46 @@ export function buildSrcdoc(config: AppConfig, grants: string[], dark: boolean):
 
 type Request = {tada: 1; id: number; op: string; [key: string]: unknown}
 
+/** 取数：域名必须已授权，未授权会向用户发起授权请求。沙盒应用和小程序共用。 */
+export async function bridgeFetch(url: string, host: ComponentHost): Promise<{ok: boolean; status: number; text: string; json: unknown}> {
+  if (!isGranted(url, host.networkGrants)) {
+    let hostname = url
+    try {
+      hostname = new URL(url).hostname
+    } catch {
+      // 保持原样
+    }
+    host.requestNetworkGrant(hostname)
+    throw new Error(`域名 ${hostname} 还没有授权，已向用户发起授权请求`)
+  }
+  const res = await fetch(proxied(url, host.proxy))
+  const text = (await res.text()).slice(0, 1_000_000)
+  let json: unknown = null
+  try {
+    json = JSON.parse(text)
+  } catch {
+    // 不是 JSON 就只给文本
+  }
+  return {ok: res.ok, status: res.status, text, json}
+}
+
+/** 复制到剪贴板：优先 Clipboard API，不行再退回到临时文本框。 */
+export async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text)
+    return true
+  } catch {
+    const area = document.createElement('textarea')
+    area.value = text
+    area.style.cssText = 'position:fixed;opacity:0;pointer-events:none'
+    document.body.append(area)
+    area.select()
+    const ok = document.execCommand('copy')
+    area.remove()
+    return ok
+  }
+}
+
 async function handle(request: Request, instanceId: string, host: ComponentHost): Promise<unknown> {
   const storeKey = `fp.app.${instanceId}`
   const read = (): Record<string, unknown> => {
@@ -142,27 +199,11 @@ async function handle(request: Request, instanceId: string, host: ComponentHost)
       localStorage.setItem(storeKey, text)
       return true
     }
-    case 'fetch': {
-      const url = String(request.url ?? '')
-      if (!isGranted(url, host.networkGrants)) {
-        let hostname = url
-        try {
-          hostname = new URL(url).hostname
-        } catch {
-          // 保持原样
-        }
-        host.requestNetworkGrant(hostname)
-        throw new Error(`域名 ${hostname} 还没有授权，已向用户发起授权请求`)
-      }
-      const res = await fetch(proxied(url, host.proxy))
-      const text = (await res.text()).slice(0, 1_000_000)
-      let json: unknown = null
-      try {
-        json = JSON.parse(text)
-      } catch {
-        // 不是 JSON 就只给文本
-      }
-      return {ok: res.ok, status: res.status, text, json}
+    case 'fetch':
+      return bridgeFetch(String(request.url ?? ''), host)
+    case 'copy': {
+      if (!(await copyText(String(request.text ?? '')))) throw new Error('浏览器拒绝了复制')
+      return true
     }
     case 'open': {
       const url = String(request.url ?? '')
@@ -185,12 +226,14 @@ function AppBlock({instance, config, host}: ComponentProps<AppConfig>) {
   const hostRef = useRef(host)
   hostRef.current = host
 
+  const [error, setError] = useState('')
   const grants = host.networkGrants.join(',')
   const srcdoc = useMemo(
     () => buildSrcdoc(config, grants ? grants.split(',') : [], dark),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [config.html, config.css, config.js, grants, dark],
   )
+  useEffect(() => setError(''), [config.html, config.css, config.js])
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
@@ -198,6 +241,10 @@ function AppBlock({instance, config, host}: ComponentProps<AppConfig>) {
       if (event.source !== frame.current?.contentWindow) return
       const request = event.data as Request
       if (!request || request.tada !== 1 || typeof request.id !== 'number') return
+      if (request.op === 'error') {
+        setError(String(request.message ?? '未知错误').slice(0, 500))
+        return
+      }
       handle(request, instance.id, hostRef.current).then(
         (result) => frame.current?.contentWindow?.postMessage({tada: 1, id: request.id, result}, '*'),
         (error: Error) => frame.current?.contentWindow?.postMessage({tada: 1, id: request.id, error: error.message}, '*'),
@@ -208,15 +255,34 @@ function AppBlock({instance, config, host}: ComponentProps<AppConfig>) {
   }, [instance.id])
 
   return (
-    <iframe
-      ref={frame}
-      className="app-frame"
-      title={instance.title || '应用'}
-      sandbox="allow-scripts"
-      referrerPolicy="no-referrer"
-      srcDoc={srcdoc}
-      style={{height: config.height}}
-    />
+    <>
+      {error && (
+        <Flexbox className="applet-error" gap={8} role="alert">
+          <Flexbox horizontal align="center" gap={8}>
+            <Tag color="red" variant="borderless">
+              运行出错
+            </Tag>
+            <Text fontSize={12} type="secondary" style={{flex: 1, wordBreak: 'break-all'}}>
+              {error}
+            </Text>
+          </Flexbox>
+          <Flexbox horizontal>
+            <Button size="small" icon={<Wand2 size={14} />} onClick={() => host.ask(`沙盒应用「${instance.title || instance.id}」（id=${instance.id}）运行出错：${error}\n请先 get_workspace 看一下它的源码，用 update_app 修好。`)}>
+              让搭搭修复
+            </Button>
+          </Flexbox>
+        </Flexbox>
+      )}
+      <iframe
+        ref={frame}
+        className="app-frame"
+        title={instance.title || '应用'}
+        sandbox="allow-scripts"
+        referrerPolicy="no-referrer"
+        srcDoc={srcdoc}
+        style={{height: config.height}}
+      />
+    </>
   )
 }
 
@@ -224,7 +290,7 @@ registerComponent<AppConfig>({
   type: 'app',
   name: '沙盒应用',
   description:
-    '最大自由度：用 HTML/CSS/JS 写一个完整的小应用（小游戏、自定义图表、Three.js/Canvas 场景、计时器、任何工具）。运行在隔离沙盒里，不会影响主页。用 create_app 创建，update_app 修改。优先考虑素材库（list_effects）和声明式组件（create_widget），它们做不到时再用这个。',
+    '最大自由度：用 HTML/CSS/JS 写一个完整的小应用（小游戏、自定义图表、Three.js/Canvas 场景、计时器、任何工具）。运行在隔离沙盒里，不会影响主页。用 create_app 创建，update_app 修改。优先考虑素材库（list_effects）、声明式组件（create_widget）和小程序（create_applet，用系统控件搭交互工具），它们做不到时再用这个；适合游戏、Canvas/WebGL 和需要完全自定义视觉的东西。',
   category: 'content',
   defaultConfig: {
     html: '<h2>你好，搭搭</h2><p class="muted">这是一个沙盒应用。</p>',

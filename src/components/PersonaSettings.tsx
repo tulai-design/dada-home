@@ -1,6 +1,6 @@
 import {useRef, useState} from 'react'
 import {ActionIcon, Flexbox, Modal, Segmented, Switch, Tag, Text, TextArea} from '@lobehub/ui'
-import {History, Pencil, Plus, RotateCcw, Trash2} from 'lucide-react'
+import {ClockCounterClockwise as History, PencilSimple as Pencil, Plus, ArrowCounterClockwise as RotateCcw, Trash as Trash2} from '@phosphor-icons/react'
 import {
   DEFAULT_SOUL,
   MEMORY_KINDS,

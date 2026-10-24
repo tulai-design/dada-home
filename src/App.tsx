@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { A, ActionIcon, toast } from '@lobehub/ui'
-import { LayoutGrid, Monitor, Moon, Palette, RefreshCw, Rss, Settings, Sparkles, Sun } from 'lucide-react'
+import {SquaresFour as LayoutGrid, Monitor, Moon, Palette, ArrowsClockwise as RefreshCw, Rss, Gear as Settings, Sparkle as Sparkles, Sun} from '@phosphor-icons/react'
 import { pageIcon } from './lib/pageIcons'
 import { FROZEN_PAGE_ID, activeTheme } from './lib/workspace'
 import { applyTheme, setMode } from './lib/themes'
+import { fontVars, syncFonts } from './lib/fonts'
 import { useStored } from './lib/store'
 import { SEARCH_ENGINES, defaultBookmarks, defaultFeeds, defaultSettings } from './lib/defaults'
 import { hotOrigin } from './lib/hot'
@@ -67,7 +68,7 @@ export default function App() {
   const [range, setRange] = useStored<RangeId>('range', '24h')
 
   const chat = useChat()
-  const { turns, setTurns } = chat
+  const { turns, setTurns, newConv } = chat
   const [busy, setBusy] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   /** 待答复的确认请求：由 ask 写入，由确认卡片按钮调用。 */
@@ -147,8 +148,11 @@ export default function App() {
     root.dataset.theme = workspace.theme.mode
     root.dataset.primaryColor = 'red'
     for (const name of appliedVars.current) root.style.removeProperty(`--${name}`)
-    appliedVars.current = Object.keys(theme.overrides)
-    for (const [name, value] of Object.entries(theme.overrides)) root.style.setProperty(`--${name}`, value)
+    // 字体接管的变量在前，主题自己写的变量在后（后者优先）
+    const vars = { ...fontVars(theme.fonts), ...theme.overrides }
+    appliedVars.current = Object.keys(vars)
+    for (const [name, value] of Object.entries(vars)) root.style.setProperty(`--${name}`, value)
+    syncFonts(theme.fonts, (family) => toast.error(`字体「${family}」没加载出来：检查名字是否是 Google Fonts 上的，或网络能不能访问 fonts.googleapis.com。`))
     document.title = `${settings.name === '朋友' ? '' : `${settings.name} · `}搭搭`
   }, [workspace.theme.mode, theme, settings.name])
 
@@ -187,9 +191,15 @@ export default function App() {
 
   const aiConfigured = Boolean(settings.ai.baseUrl.trim() && settings.ai.model.trim())
 
+  /**
+   * 发一句话给搭搭。
+   * fresh：先开一个新对话再发（从首页输入框、阅读器这类「外面」发起的提问，不该混进之前聊到一半的话题）；
+   * 在对话面板里接着问则不传，继续当前对话。
+   */
   const ask = useCallback(
-    async (text: string) => {
+    async (text: string, options?: { fresh?: boolean }) => {
       await initChat()
+      if (options?.fresh) await newConv()
       const turn = beginTurn(text)
       if (!aiConfigured) {
         setTurns((prev) => [...prev, {...turn, error: '先到设置里填接口地址与模型。', endedAt: Date.now()}])
@@ -197,7 +207,7 @@ export default function App() {
       }
 
       // 历史按轮展开成消息：只带问答正文，思考过程和工具细节不进上下文
-      const history: ChatMessage[] = contextTurns(turns, settings.ai.contextTurns).flatMap((t) => {
+      const history: ChatMessage[] = contextTurns(options?.fresh ? [] : turns, settings.ai.contextTurns).flatMap((t) => {
         const items: ChatMessage[] = [{ role: 'user', content: t.prompt }]
         if (t.answer) items.push({ role: 'assistant', content: t.answer })
         return items
@@ -273,7 +283,7 @@ export default function App() {
         patch({ pending: undefined })
       }
     },
-    [settings.ai, turns, aiConfigured, setTurns],
+    [settings.ai, turns, aiConfigured, setTurns, newConv],
   )
 
   /** 用户点了确认卡片上的允许/拒绝。 */
@@ -347,9 +357,10 @@ export default function App() {
       proxy: settings.proxy,
       hotSource: settings.hotSource,
       ask: (text) => {
-        // 已经开着就保持现状；没开就用侧栏打开，让回答实时出现在眼前
-        if (!assistantOpenRef.current) openAssistant('drawer')
-        void ask(text)
+        // 面板已经开着：这是在接着聊，留在当前对话；没开：从外面发起的新问题，新开一个对话，并用侧栏打开让回答实时出现在眼前
+        const fresh = !assistantOpenRef.current
+        if (fresh) openAssistant('drawer')
+        void ask(text, { fresh })
       },
       aiConfigured,
       aiModel: settings.ai.model,
@@ -609,7 +620,7 @@ export default function App() {
           onAskAi={(prompt) => {
             setReader(null)
             openAssistant('drawer')
-            void ask(prompt)
+            void ask(prompt, { fresh: true })
           }}
           onOpenSettings={() => openSettings('ai')}
         />

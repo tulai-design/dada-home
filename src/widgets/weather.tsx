@@ -1,6 +1,6 @@
 import {useState} from 'react'
 import {Button, Empty, Flexbox, Text} from '@lobehub/ui'
-import {CloudSun, MapPin} from 'lucide-react'
+import {CloudSun, MapPin} from '@phosphor-icons/react'
 import {registerApp, useAppSettings} from '../lib/apps'
 import {Group, Row, TextRow} from '../components/ios'
 import {registerComponent, type ComponentProps} from '../lib/registry'

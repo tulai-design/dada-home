@@ -1,5 +1,6 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+import { VitePWA } from 'vite-plugin-pwa'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
 /** 转发这些请求头；其余一律丢弃，避免把浏览器的 cookie 带到目标站。 */
@@ -83,7 +84,78 @@ function devProxy(): Plugin {
   }
 }
 
+/**
+ * PWA：可以「安装到桌面/主屏幕」，打开不依赖网络。
+ * 只缓存应用本身（页面、脚本、样式、图标）。
+ * 取数代理、运行时配置、各家 AI 和数据接口一律走网络，不进缓存，免得读到过期的数据。
+ * 更新方式用 prompt：新版本下载好后提示用户点「刷新」，不会在对方正用着的时候突然换版本。
+ */
+function pwa() {
+  return VitePWA({
+    registerType: 'prompt',
+    injectRegister: false,
+    includeAssets: ['favicon.ico', 'brand/apple-touch-icon.png'],
+    manifest: {
+      id: '/',
+      name: '搭搭 · tulai.design',
+      short_name: '搭搭',
+      description: '陪你把想法，搭成自己的主页。',
+      lang: 'zh-CN',
+      start_url: '/',
+      scope: '/',
+      display: 'standalone',
+      orientation: 'any',
+      background_color: '#f3efe4',
+      theme_color: '#f3efe4',
+      categories: ['productivity', 'personalization'],
+      icons: [
+        { src: '/brand/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+        { src: '/brand/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+        { src: '/brand/icon-maskable-192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+        { src: '/brand/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+      ],
+    },
+    workbox: {
+      // 预缓存只放「打开应用必需」的：入口页、样式、入口脚本、图标。
+      // 其余懒加载的块（代码高亮语言包、Spline、物理引擎等加起来 20MB 以上）不预下载，
+      // 用到哪个、缓存哪个（见下面的 runtimeCaching），首次安装才不会吃掉一大笔流量。
+      globPatterns: ['index.html', 'manifest.webmanifest', 'favicon.ico', 'brand/*.{png,webp}', 'assets/*.css', 'assets/index-*.js'],
+      maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
+      navigateFallback: '/index.html',
+      navigateFallbackDenylist: [/^\/__proxy/, /^\/healthz/, /^\/config\.js/, /^\/privacy/],
+      cleanupOutdatedCaches: true,
+      clientsClaim: false,
+      skipWaiting: false,
+      runtimeCaching: [
+        { urlPattern: ({ url }) => url.pathname === '/config.js', handler: 'NetworkOnly' },
+        { urlPattern: ({ url }) => url.pathname.startsWith('/__proxy'), handler: 'NetworkOnly' },
+        {
+          // 主题引入的 Google Fonts：样式表允许稍旧，字体文件内容不变，缓存优先；缓存过的字体离线也能用
+          urlPattern: ({ url }) => url.origin === 'https://fonts.googleapis.com',
+          handler: 'StaleWhileRevalidate',
+          options: { cacheName: 'dada-font-css', expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 30 }, cacheableResponse: { statuses: [0, 200] } },
+        },
+        {
+          urlPattern: ({ url }) => url.origin === 'https://fonts.gstatic.com',
+          handler: 'CacheFirst',
+          options: { cacheName: 'dada-font-files', expiration: { maxEntries: 120, maxAgeSeconds: 60 * 60 * 24 * 365 }, cacheableResponse: { statuses: [0, 200] } },
+        },
+        {
+          // 带哈希的构建产物内容永远不变，缓存优先
+          urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith('/assets/'),
+          handler: 'CacheFirst',
+          options: {
+            cacheName: 'dada-assets',
+            expiration: { maxEntries: 400, maxAgeSeconds: 60 * 60 * 24 * 30 },
+            cacheableResponse: { statuses: [0, 200] },
+          },
+        },
+      ],
+    },
+  })
+}
+
 export default defineConfig({
-  plugins: [react(), devProxy()],
+  plugins: [react(), devProxy(), pwa()],
   server: { port: 5173, host: true },
 })

@@ -1,15 +1,17 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { ConfigProvider, ToastHost } from '@lobehub/ui'
+import { ConfigProvider, ToastHost, toast } from '@lobehub/ui'
 import { motion } from 'motion/react'
 import '@lobehub/ui/theme.css'
 import '@lobehub/ui/style.css'
 import App from './App'
 import { initAnalytics } from './lib/analytics'
 import { initStorage } from './lib/storage'
+import { startAutoSync } from './lib/sync'
 import './styles.css'
 import './theme.css'
 import './dock.css'
+import './life.css'
 
 // 仅开发环境：把工具和 store 挂到 window，方便在控制台按 AI 的方式调用，验证整条链路。
 if (import.meta.env.DEV) {
@@ -31,8 +33,31 @@ if (import.meta.env.DEV) {
 
 initAnalytics()
 
+// PWA：生产环境注册 service worker。新版本下载好后提示一下，用户点了再刷新。
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  void import('virtual:pwa-register').then(({ registerSW }) => {
+    const update = registerSW({
+      onNeedRefresh() {
+        toast.info({
+          id: 'pwa-update',
+          title: '搭搭有新版本了',
+          description: '刷新后就能用上。',
+          duration: 0,
+          actions: [{ label: '刷新', onClick: () => void update(true) }],
+        })
+      },
+      onRegisterError(error) {
+        console.warn('service worker 注册失败', error)
+      },
+    })
+    // 开着不关的标签页也要能发现新版本：每小时问一次
+    window.setInterval(() => void navigator.serviceWorker.getRegistration().then((reg) => reg?.update()), 60 * 60 * 1000)
+  })
+}
+
 // 先把 IndexedDB 里的数据读进内存再渲染：组件一挂载就要同步拿到自己的数据。
-void initStorage().then(() =>
+void initStorage().then(() => {
+  startAutoSync()
   createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ConfigProvider motion={motion}>
@@ -40,5 +65,5 @@ void initStorage().then(() =>
       <App />
     </ConfigProvider>
   </StrictMode>,
-  ),
-)
+  )
+})

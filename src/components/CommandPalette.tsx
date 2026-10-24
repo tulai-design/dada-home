@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { Input, Modal } from '@lobehub/ui'
-import { ArrowRight, Bookmark, CornerDownLeft, Globe, Search } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
+import {ArrowRight, Bookmark, ArrowElbowDownLeft as CornerDownLeft, Globe, MagnifyingGlass as Search} from '@phosphor-icons/react'
+import type {Icon as PhosphorIcon} from '@phosphor-icons/react'
 import type { BookmarkGroup } from '../lib/types'
 import { normalizeUrl } from '../lib/bookmarks'
 
@@ -11,11 +11,11 @@ export type PaletteAction = {
   /** 右侧的次要信息：快捷键、所属分组 */
   hint?: string
   group: string
-  icon?: LucideIcon
+  icon?: PhosphorIcon
   run: () => void
 }
 
-type Item = { key: string; label: string; hint?: string; group: string; icon: LucideIcon; run: () => void }
+type Item = { key: string; label: string; hint?: string; group: string; icon: PhosphorIcon; run: () => void }
 
 /**
  * 快速跳转：切页面、开动作、找书签，找不到就当网址或关键词去网页搜。

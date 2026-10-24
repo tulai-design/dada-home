@@ -1,6 +1,6 @@
 import {useState} from 'react'
 import {A, Switch, Text} from '@lobehub/ui'
-import {PlugZap} from 'lucide-react'
+import {PlugsConnected as PlugZap} from '@phosphor-icons/react'
 import {REMEMBERABLE, setAlwaysAllowed} from '../lib/permissions'
 import {useStored} from '../lib/store'
 import {SEARCH_KEY, SEARCH_PROVIDERS, defaultSearchConfig, providerInfo, searchReady, webSearch, type SearchConfig, type SearchProvider} from '../lib/webSearch'

@@ -1,6 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { Button } from '@lobehub/ui'
-import { RotateCcw } from 'lucide-react'
+import {ArrowCounterClockwise as RotateCcw} from '@phosphor-icons/react'
 
 type Props = { children: ReactNode }
 type State = { error: Error | null }

@@ -1,6 +1,6 @@
 import {useState} from 'react'
 import {ActionIcon, Flexbox, Modal, Switch, Tag, Text} from '@lobehub/ui'
-import {Pencil, Plus, Save, Trash2} from 'lucide-react'
+import {PencilSimple as Pencil, Plus, FloppyDisk as Save, Trash as Trash2} from '@phosphor-icons/react'
 import {useAppSettings} from '../lib/apps'
 import {PRESETS} from '../lib/presets'
 import {applyTemplate, isSynced, removeTemplate, renameTemplate, saveTemplate, summarize} from '../lib/templates'

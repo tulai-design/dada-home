@@ -35,11 +35,16 @@ export function PageView({
     return <Empty title="这一页还是空的" description="告诉搭搭你想放什么，或者从「添加组件」里挑。" />
   }
 
+  // 页面里只有一个舞台型组件：居中展示，其余走普通栅格
+  const only = page.components.length === 1 ? page.components[0] : undefined
+  const stage = only && !isCustomType(only.type) ? getDefinition(only.type as never)?.stage : undefined
+
   return (
     <div
       className="page-grid"
       data-align={page.align ?? 'start'}
-      style={{['--cols' as string]: layout.columns, maxWidth: layout.maxWidth}}
+      data-stage={stage ? '' : undefined}
+      style={{['--cols' as string]: layout.columns, maxWidth: layout.maxWidth, ...(stage ? {['--stage-width' as string]: `${stage.width}px`} : {})}}
     >
       {page.css && <style>{`.page-grid[data-page-style]{${page.css}}`}</style>}
       {page.components.map((instance) => {

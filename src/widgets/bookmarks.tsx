@@ -1,6 +1,6 @@
 import {useState} from 'react'
 import {ActionIcon, Button, Empty, Flexbox, Text} from '@lobehub/ui'
-import {Bookmark, FileDown, FileUp, Pencil, Plus} from 'lucide-react'
+import {Bookmark, FileArrowDown as FileDown, FileArrowUp as FileUp, PencilSimple as Pencil, Plus} from '@phosphor-icons/react'
 import {BookmarkEditor, GroupEditor} from '../components/BookmarkEditor'
 import {BookmarkSync} from '../components/BookmarkSync'
 import {Favicon} from '../components/Favicon'

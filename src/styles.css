@@ -3667,6 +3667,27 @@ kbd {
   min-width: 0;
 }
 
+/* 舞台型：独占一页的主角，水平垂直居中 */
+.page-grid[data-stage] {
+  min-height: 100%;
+  align-content: center;
+  justify-items: center;
+  padding-block: 32px;
+}
+
+.page-grid[data-stage] > .widget {
+  grid-column: 1 / -1 !important;
+  width: min(100%, var(--stage-width, 480px));
+}
+
+/* 舞台上的组件不要卡片外观：留白本身就是它的边界 */
+.page-grid[data-stage] > .widget .page-pane {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  backdrop-filter: none;
+}
+
 /* 窄屏：所有组件都占满一行，不论 span */
 @media (max-width: 760px) {
   .page-grid > .widget {
@@ -3732,6 +3753,40 @@ kbd {
 .turn-answer {
   font-size: 14px;
   line-height: 1.72;
+}
+
+/* 回答里的链接：主色 + 实线下划线 + 末尾一个小箭头图标，一眼能看出可以点 */
+.turn-answer a[href]:not([href^='#']) {
+  color: var(--main);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-color: color-mix(in srgb, var(--main) 55%, transparent);
+  transition: text-decoration-color 0.15s ease;
+}
+
+.turn-answer a[href]:not([href^='#'])::after {
+  content: '';
+  display: inline-block;
+  width: 0.82em;
+  height: 0.82em;
+  margin-left: 0.22em;
+  vertical-align: -0.06em;
+  background-color: currentColor;
+  opacity: 0.75;
+  /* arrow-up-right */
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 7h10v10'/%3E%3Cpath d='M7 17 17 7'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 7h10v10'/%3E%3Cpath d='M7 17 17 7'/%3E%3C/svg%3E") center / contain no-repeat;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.turn-answer a[href]:not([href^='#']):hover {
+  text-decoration-color: var(--main);
+}
+
+.turn-answer a[href]:not([href^='#']):hover::after {
+  opacity: 1;
+  transform: translate(1px, -1px);
 }
 
 .turn-pending {
@@ -4221,4 +4276,10 @@ kbd {
 
 .page-grid[data-align='center'] > .widget {
   width: 100%;
+}
+
+/* Phosphor 图标是填充型（viewBox 256）；Lobe 的 Icon 默认给 svg 传 fill="transparent"，
+   这里强制回 currentColor。Lobe 自带的 lucide 描边图标 viewBox 为 24，不受影响。 */
+svg[viewBox="0 0 256 256"] {
+  fill: currentColor;
 }

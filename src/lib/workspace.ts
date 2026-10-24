@@ -13,6 +13,7 @@
 
 /** 当前工作空间结构版本。改结构就加一，并在 migrate 里补一条迁移。 */
 import type {DockStyle} from './dock'
+import type {ThemeFont} from './fonts'
 
 export const WORKSPACE_VERSION = 3
 
@@ -29,10 +30,16 @@ export type BuiltinType =
   | 'links'
   | 'quote'
   | 'monitor'
+  | 'calendar'
+  | 'agenda'
+  | 'countdown'
+  | 'pomodoro'
+  | 'music'
   /** 特效素材：背景 / 文字 / 卡片 / 3D 场景，来自 src/fx 的素材库 */
   | 'fx'
   /** 沙盒应用：AI 写的 HTML/CSS/JS，跑在隔离 iframe 里 */
   | 'app'
+  | 'applet'
 
 /**
  * 组件类型：内置类型，或 `custom:<自定义组件 id>`。
@@ -239,6 +246,8 @@ export type ThemeEntry = {
   description: string
   /** CSS 变量覆盖，键名不含 `--` 前缀，例如 {main: '#f5223f'} */
   overrides: Record<string, string>
+  /** 从 Google Fonts 引入的字体；带 role 的会接管对应的字体变量（serif / sans / mono） */
+  fonts?: ThemeFont[]
   /** 主题自带明暗时，启用它会同时切到这个明暗；不填则沿用当前 */
   mode?: 'light' | 'dark'
   builtin?: boolean

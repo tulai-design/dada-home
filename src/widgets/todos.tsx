@@ -1,6 +1,6 @@
 import {useState} from 'react'
 import {ActionIcon, Button, Empty, Flexbox, Input, List, Text} from '@lobehub/ui'
-import {Check, Plus, Trash2} from 'lucide-react'
+import {Check, Plus, Trash as Trash2} from '@phosphor-icons/react'
 import {useComponentData} from '../lib/componentData'
 import {registerComponent, type ComponentProps} from '../lib/registry'
 import {uid} from '../lib/store'

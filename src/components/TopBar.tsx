@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { ActionIcon } from '@lobehub/ui'
-import { Moon, Search, Sun } from 'lucide-react'
+import {Moon, MagnifyingGlass as Search, Sun} from '@phosphor-icons/react'
 
 /**
  * 顶栏（状态条）。
