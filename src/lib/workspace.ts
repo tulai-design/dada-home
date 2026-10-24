@@ -29,6 +29,11 @@ export type BuiltinType =
   | 'links'
   | 'quote'
   | 'monitor'
+  | 'calendar'
+  | 'agenda'
+  | 'countdown'
+  | 'pomodoro'
+  | 'music'
   /** 特效素材：背景 / 文字 / 卡片 / 3D 场景，来自 src/fx 的素材库 */
   | 'fx'
   /** 沙盒应用：AI 写的 HTML/CSS/JS，跑在隔离 iframe 里 */

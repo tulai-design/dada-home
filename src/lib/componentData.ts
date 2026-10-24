@@ -186,6 +186,16 @@ export const SHARED = {
   feeds: '@shared.feeds',
   feedsRead: '@shared.feedsRead',
   bookmarks: '@shared.bookmarks',
+  /** 自己的日程（日历、日程组件和 AI 共用） */
+  events: '@shared.events',
+  /** 订阅的 .ics 日历 */
+  icsSubs: '@shared.icsSubs',
+  /** 倒数日 */
+  countdowns: '@shared.countdowns',
+  /** 专注记录（番茄钟完成的每一段） */
+  focusLog: '@shared.focusLog',
+  /** 播放列表 */
+  music: '@shared.music',
 } as const
 
 /** 组件读写自己那份数据。 */

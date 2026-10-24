@@ -90,6 +90,12 @@ export type ComponentDefinition<Config = Record<string, unknown>> = {
   /** 配置字段说明。既驱动设置表单，也告诉 AI 能改什么。 */
   configSchema: ConfigSchema
   defaultSpan: ComponentSpan
+  /**
+   * 舞台型组件：独占一个页面的主角（番茄钟、音乐）。
+   * 页面里只有它一个时，渲染器把它在页面里水平、垂直都居中，内容宽度不超过 width（px）。
+   * 组件自己不需要、也不应该写居中的样式。见 docs/design-system.md 第 3 节。
+   */
+  stage?: {width: number}
   /** 渲染入口 */
   component: ReactComponentType<ComponentProps<Config>>
   /**

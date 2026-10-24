@@ -1,0 +1,691 @@
+/* 生活类组件：日历、日程、倒数日、番茄钟、音乐 */
+
+/* ───────── 日历 ───────── */
+.cal-title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 40px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  border-top: 1px solid var(--rule);
+}
+
+.cal-weekday {
+  padding: 8px 8px 6px;
+  font-size: 12px;
+  color: var(--text3);
+}
+
+.cal-weekday[data-weekend='true'] {
+  color: var(--main);
+}
+
+.cal-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  min-height: 62px;
+  padding: 6px 8px;
+  border: 0;
+  border-top: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.cal-cell:hover {
+  background: var(--bg2);
+}
+
+.cal-cell:focus-visible,
+.cal-cell[data-selected='true'] {
+  outline: 1px solid var(--rule);
+  outline-offset: -1px;
+  background: var(--bg2);
+}
+
+.cal-cell[data-out='true'] {
+  opacity: 0.42;
+}
+
+.cal-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cal-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  font-family: var(--font-serif);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.cal-cell[data-rest='true'] .cal-num {
+  color: var(--main);
+}
+
+.cal-cell[data-today='true'] .cal-num {
+  border-radius: 50%;
+  background: var(--main);
+  color: #fff;
+}
+
+.cal-sub {
+  overflow: hidden;
+  font-size: 11px;
+  color: var(--text3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cal-sub[data-hot='true'] {
+  color: var(--main);
+}
+
+.cal-mark {
+  font-size: 10px;
+  font-style: normal;
+  line-height: 1;
+  color: var(--main);
+}
+
+.cal-mark[data-kind='work'] {
+  color: var(--text2);
+}
+
+.cal-chips {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  margin-top: auto;
+}
+
+.cal-chip {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  padding: 1px 5px;
+  border-left: 2px solid var(--text);
+  background: var(--bg3);
+  font-size: 11px;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cal-chip[data-sub='true'] {
+  border-left-color: var(--text3);
+}
+
+.cal-more {
+  flex: none;
+  font-size: 10px;
+  color: var(--text3);
+}
+
+.cal-day-date {
+  font-family: var(--font-serif);
+  font-size: 18px;
+}
+
+/* 一条日程：日历的当天详情和「日程」组件共用 */
+.ev-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.ev-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 36px;
+  border-top: 1px solid var(--border);
+}
+
+.ev-row:first-child {
+  border-top: 0;
+}
+
+.ev-time {
+  flex: none;
+  min-width: 44px;
+  font-size: 12px;
+  color: var(--text3);
+  font-variant-numeric: tabular-nums;
+}
+
+.ev-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ev-remove {
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.ev-row:hover .ev-remove,
+.ev-row:focus-within .ev-remove {
+  opacity: 1;
+}
+
+/* ───────── 日程 ───────── */
+.agenda-day {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.agenda-date {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.agenda-num {
+  font-family: var(--font-serif);
+  font-size: 24px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.agenda-label {
+  font-size: 12px;
+  color: var(--text3);
+}
+
+/* ───────── 倒数日 ───────── */
+.cd-hero {
+  margin-bottom: 4px;
+}
+
+.cd-remove {
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.cd-row:hover .cd-remove,
+.cd-row:focus-within .cd-remove {
+  opacity: 1;
+}
+
+.cd-hero-num {
+  font-family: var(--font-serif);
+  font-size: 56px;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+  color: var(--main);
+}
+
+.cd-hero-num small {
+  margin-left: 4px;
+  font-size: 16px;
+  color: var(--text2);
+}
+
+.cd-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.cd-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  border-top: 1px solid var(--border);
+}
+
+.cd-row:first-child {
+  border-top: 0;
+}
+
+.cd-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cd-title {
+  overflow: hidden;
+  font-size: 13.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cd-icon {
+  margin-right: 4px;
+}
+
+.cd-date {
+  font-size: 11px;
+  color: var(--text3);
+}
+
+.cd-num {
+  flex: none;
+  font-family: var(--font-serif);
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.cd-num small {
+  margin-left: 2px;
+  font-family: inherit;
+  font-size: 11px;
+  color: var(--text3);
+}
+
+.cd-num[data-past='true'] {
+  color: var(--text3);
+}
+
+.cd-today {
+  color: var(--main);
+}
+
+/* ───────── 番茄钟（舞台型，居中由 PageView 负责） ───────── */
+.pomo {
+  --pomo-color: var(--main);
+  width: 100%;
+}
+
+.pomo[data-phase='short'],
+.pomo[data-phase='long'] {
+  --pomo-color: var(--c-green, #2f9e6b);
+}
+
+.pomo-dial {
+  position: relative;
+  width: min(100%, 288px);
+  aspect-ratio: 1;
+}
+
+.pomo-dial svg {
+  width: 100%;
+  height: 100%;
+}
+
+.pomo-tick {
+  stroke: var(--border);
+  stroke-width: 2;
+  stroke-linecap: round;
+  transition: stroke 0.2s ease;
+}
+
+.pomo-tick[data-lit='true'] {
+  stroke: var(--pomo-color);
+}
+
+.pomo-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.pomo-time {
+  font-family: var(--font-serif);
+  font-size: 64px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: var(--text);
+}
+
+.pomo-sub {
+  max-width: 160px;
+  overflow: hidden;
+  font-size: 13px;
+  color: var(--text3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pomo-rounds {
+  display: inline-flex;
+  gap: 6px;
+  height: 6px;
+  margin-top: 4px;
+}
+
+.pomo-rounds i {
+  width: 6px;
+  height: 6px;
+  border: 1px solid var(--text4);
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.pomo-rounds i[data-done='true'] {
+  border-color: var(--pomo-color);
+  background: var(--pomo-color);
+}
+
+.pomo-label {
+  width: min(100%, 288px);
+}
+
+.pomo-label input {
+  text-align: center;
+}
+
+.pomo-stats {
+  margin-top: 8px;
+}
+
+.pomo-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  height: 64px;
+  width: 100%;
+}
+
+.pomo-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  height: 100%;
+}
+
+.pomo-bar i {
+  display: block;
+  width: 100%;
+  max-width: 20px;
+  border-radius: 3px 3px 1px 1px;
+  background: var(--text3);
+  opacity: 0.55;
+  transition: height 0.2s ease;
+}
+
+.pomo-bar i[data-empty='true'] {
+  background: var(--border);
+  opacity: 1;
+}
+
+.pomo-bar[data-today='true'] i:not([data-empty='true']) {
+  background: var(--text);
+  opacity: 1;
+}
+
+.pomo-bar span {
+  font-size: 11px;
+  color: var(--text3);
+  line-height: 1;
+}
+
+.pomo-bar[data-today='true'] span {
+  color: var(--text);
+}
+
+/* ───────── 音乐（舞台型） ───────── */
+.music {
+  width: 100%;
+  padding: 0;
+}
+
+.music-deck {
+  flex: 0 0 280px;
+  min-width: 0;
+}
+
+.music-queue {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.music-cover {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: 1px solid var(--rule);
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.music-cover[data-empty='true'] {
+  background: var(--bg2) !important;
+  color: var(--text4);
+  border-color: var(--border);
+}
+
+.music-eq {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 16px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.music-eq[data-on='true'] {
+  opacity: 1;
+}
+
+.music-eq i {
+  width: 3px;
+  height: 4px;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.music-cover[data-playing='true'] .music-eq i {
+  animation: music-eq 0.9s ease-in-out infinite;
+}
+
+.music-cover[data-playing='true'] .music-eq i:nth-child(2) {
+  animation-delay: -0.3s;
+}
+
+.music-cover[data-playing='true'] .music-eq i:nth-child(3) {
+  animation-delay: -0.6s;
+}
+
+.music-cover[data-playing='true'] .music-eq i:nth-child(4) {
+  animation-delay: -0.15s;
+}
+
+@keyframes music-eq {
+  0%,
+  100% {
+    height: 4px;
+  }
+  50% {
+    height: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .music-cover[data-playing='true'] .music-eq i {
+    animation: none;
+    height: 10px;
+  }
+}
+
+.music-title {
+  overflow: hidden;
+  font-family: var(--font-serif);
+  font-size: 24px;
+  line-height: 1.25;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.music-times {
+  font-size: 11px;
+  color: var(--text3);
+  font-variant-numeric: tabular-nums;
+}
+
+.music-list {
+  flex: 1;
+  min-height: 0;
+  max-height: 440px;
+  overflow: auto;
+  margin-inline: -4px;
+  padding-inline: 4px;
+}
+
+.music-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 20px;
+  width: 20px;
+  font-size: 12px;
+  color: var(--text3);
+  font-variant-numeric: tabular-nums;
+}
+
+.music-index[data-playing='true'] {
+  color: var(--main);
+}
+
+.music-row-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.music-row-title,
+.music-row-note {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.music-row-title {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.music-row[data-active='true'] .music-row-title {
+  color: var(--main);
+}
+
+.music-row-note {
+  font-size: 12px;
+  color: var(--text3);
+}
+
+.music-row-remove {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.music-row:hover .music-row-remove,
+.music-row:focus-within .music-row-remove {
+  opacity: 1;
+}
+
+/* 状态条里的小按钮：番茄钟、音乐共用 */
+.status-focus {
+  font-variant-numeric: tabular-nums;
+}
+
+.status-focus[data-running='true'] {
+  color: var(--main);
+}
+
+.status-music-title {
+  display: inline-block;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+  white-space: nowrap;
+}
+
+/* 主操作：墨色实心方块，和编辑部主题的方角、粗黑线一致；红色留给进度这个焦点 */
+.ink-button.lobe-button {
+  border: 1px solid var(--rule) !important;
+  border-radius: 0 !important;
+  background: var(--rule) !important;
+  color: var(--bg) !important;
+  box-shadow: none !important;
+}
+
+.ink-button.lobe-button:hover:not(:disabled) {
+  opacity: 0.86;
+}
+
+.ink-button.lobe-button:disabled {
+  border-color: var(--border) !important;
+  background: var(--bg3) !important;
+  color: var(--text3) !important;
+}
+
+.pomo-stats .lobe-statistic__number {
+  font-family: var(--font-serif);
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pomo-stats .lobe-statistic__title {
+  font-size: 12px;
+  color: var(--text3);
+}
+
+.pomo-stats .lobe-statistic__suffix {
+  font-size: 12px;
+  color: var(--text3);
+}
+
+/* 副标题最多两行（出错提示会比较长），预留高度，免得换行时整列跳动 */
+.music-meta {
+  min-height: 76px;
+}
+
+/* 日历页：日历占两行，右侧上下放日程和倒数日 */
+.page-grid:has(> .widget[data-type='agenda']):has(> .widget[data-type='countdown']) {
+  grid-template-rows: auto auto 1fr;
+}
+
+.page-grid:has(> .widget[data-type='agenda']):has(> .widget[data-type='countdown']) > .widget[data-type='calendar'] {
+  grid-row: 1 / span 3;
+}
+
+.page-grid:has(> .widget[data-type='calendar']) > .widget:not([data-type='calendar']) {
+  align-self: start;
+}

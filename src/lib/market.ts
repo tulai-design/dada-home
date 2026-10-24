@@ -1,4 +1,4 @@
-import {BookMarked, Flame, Monitor, Newspaper, NotebookPen} from 'lucide-react'
+import {BookMarked, CalendarDays, Flame, Monitor, Music, Newspaper, NotebookPen, Timer} from 'lucide-react'
 import type {LucideIcon} from 'lucide-react'
 import type {BuiltinType, ComponentSpan, ComponentType, Workspace} from './workspace'
 
@@ -95,6 +95,51 @@ export const ADDONS: Addon[] = [
     page: {id: 'marks', name: '书签', label: '书签', icon: 'bookmark', components: [{type: 'bookmarks'}]},
     settingsId: 'bookmarks',
     after: '侧栏多了「书签」页面，在 设置 › 书签 里整理分组。',
+  },
+  {
+    id: 'calendar',
+    name: '日历',
+    icon: CalendarDays,
+    color: '#ff3b30',
+    tagline: '月历、日程与倒数日',
+    description: '月历显示农历、节气、法定假日和调休；可以记日程、订阅 .ics 日历、记倒数日 / 纪念日（支持农历生日）。搭搭能查某天的日期信息、替你加日程和倒数日。',
+    types: ['calendar', 'agenda', 'countdown'],
+    page: {
+      id: 'calendar',
+      name: '日历',
+      label: '日历',
+      icon: 'calendar',
+      components: [
+        {type: 'calendar', span: 'two-thirds'},
+        {type: 'agenda', span: 'third'},
+        {type: 'countdown', span: 'third'},
+      ],
+    },
+    settingsId: 'calendar',
+    after: '侧栏多了「日历」页面；订阅 .ics 日历在 设置 › 日历 里。日程和倒数日组件也可以单独放到首页。',
+  },
+  {
+    id: 'focus',
+    name: '番茄钟',
+    icon: Timer,
+    color: '#ff6b35',
+    tagline: '专注计时与统计',
+    description: '番茄工作法：专注与休息交替，到点提醒，记录每天专注了多久。可以放进状态条，搭搭能替你开始和暂停计时。',
+    types: ['pomodoro'],
+    page: {id: 'focus', name: '专注', label: '专注', icon: 'timer', components: [{type: 'pomodoro', span: 'third'}]},
+    settingsId: 'focus',
+    after: '侧栏多了「专注」页面；时长在 设置 › 番茄钟 里改。也可以放进状态条。',
+  },
+  {
+    id: 'music',
+    name: '音乐',
+    icon: Music,
+    color: '#af52de',
+    tagline: '网络电台与白噪音',
+    description: '播放网络电台、音频直链和内置的白噪音，切页面不会断。搭搭能替你加歌、播放、暂停。',
+    types: ['music'],
+    page: {id: 'music', name: '音乐', label: '音乐', icon: 'music', components: [{type: 'music', span: 'half'}]},
+    after: '侧栏多了「音乐」页面，点右上角的 + 添加常用电台或白噪音。也可以放进状态条。',
   },
   {
     id: 'monitor',

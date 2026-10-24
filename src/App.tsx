@@ -67,7 +67,7 @@ export default function App() {
   const [range, setRange] = useStored<RangeId>('range', '24h')
 
   const chat = useChat()
-  const { turns, setTurns } = chat
+  const { turns, setTurns, newConv } = chat
   const [busy, setBusy] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   /** 待答复的确认请求：由 ask 写入，由确认卡片按钮调用。 */
@@ -187,9 +187,15 @@ export default function App() {
 
   const aiConfigured = Boolean(settings.ai.baseUrl.trim() && settings.ai.model.trim())
 
+  /**
+   * 发一句话给搭搭。
+   * fresh：先开一个新对话再发（从首页输入框、阅读器这类「外面」发起的提问，不该混进之前聊到一半的话题）；
+   * 在对话面板里接着问则不传，继续当前对话。
+   */
   const ask = useCallback(
-    async (text: string) => {
+    async (text: string, options?: { fresh?: boolean }) => {
       await initChat()
+      if (options?.fresh) await newConv()
       const turn = beginTurn(text)
       if (!aiConfigured) {
         setTurns((prev) => [...prev, {...turn, error: '先到设置里填接口地址与模型。', endedAt: Date.now()}])
@@ -197,7 +203,7 @@ export default function App() {
       }
 
       // 历史按轮展开成消息：只带问答正文，思考过程和工具细节不进上下文
-      const history: ChatMessage[] = contextTurns(turns, settings.ai.contextTurns).flatMap((t) => {
+      const history: ChatMessage[] = contextTurns(options?.fresh ? [] : turns, settings.ai.contextTurns).flatMap((t) => {
         const items: ChatMessage[] = [{ role: 'user', content: t.prompt }]
         if (t.answer) items.push({ role: 'assistant', content: t.answer })
         return items
@@ -273,7 +279,7 @@ export default function App() {
         patch({ pending: undefined })
       }
     },
-    [settings.ai, turns, aiConfigured, setTurns],
+    [settings.ai, turns, aiConfigured, setTurns, newConv],
   )
 
   /** 用户点了确认卡片上的允许/拒绝。 */
@@ -347,9 +353,10 @@ export default function App() {
       proxy: settings.proxy,
       hotSource: settings.hotSource,
       ask: (text) => {
-        // 已经开着就保持现状；没开就用侧栏打开，让回答实时出现在眼前
-        if (!assistantOpenRef.current) openAssistant('drawer')
-        void ask(text)
+        // 面板已经开着：这是在接着聊，留在当前对话；没开：从外面发起的新问题，新开一个对话，并用侧栏打开让回答实时出现在眼前
+        const fresh = !assistantOpenRef.current
+        if (fresh) openAssistant('drawer')
+        void ask(text, { fresh })
       },
       aiConfigured,
       aiModel: settings.ai.model,
@@ -609,7 +616,7 @@ export default function App() {
           onAskAi={(prompt) => {
             setReader(null)
             openAssistant('drawer')
-            void ask(prompt)
+            void ask(prompt, { fresh: true })
           }}
           onOpenSettings={() => openSettings('ai')}
         />

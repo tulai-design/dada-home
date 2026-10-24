@@ -1,0 +1,17 @@
+---
+description: 搭搭的界面设计规范——写任何组件、页面、样式时必须遵守
+globs: src/**/*.tsx,src/**/*.css
+alwaysApply: false
+---
+
+# 界面设计规范
+
+完整规范在 `docs/design-system.md`，动手写界面前先读。最要紧的几条：
+
+1. **控件一律用 `@lobehub/ui`**：`Button` `ActionIcon` `Segmented` `Slider` `Switch` `Select` `Input` `DatePicker`（含 `DatePicker.TimePicker`）`Tag` `Tooltip` `Popover` `Progress` `Statistic` `Empty` `Block` `Modal`。不要写原生 `<button>` `<input>` `<select>` `<input type="range|date|time">`。只有 Lobe 没有对应物的结构（日历格子、SVG 图形、封面渐变）才自己画，并且必须键盘可达、有悬停/选中/聚焦态。
+2. **只用 token**：颜色 `--bg* --text* --border --main --c-*`，间距 4 的倍数，字号 11/12/13/14/18/24/40/64，数字和标题用 `--font-serif` 且 `tabular-nums`。代码里不出现十六进制色值。
+3. **先定焦点**：每个组件有且只有一个焦点（最大的衬线数字或最重要的对象）；红色 `--main` 一个组件里只给一处。
+4. **三种形态**：卡片型（进栅格）、舞台型（独占一页，必须水平垂直居中，声明 `stage: {width}`，由 `PageView` 居中，组件内不写居中 hack）、状态条型（单行）。
+5. **状态要想完**：悬停、聚焦、选中、禁用，以及空/加载/出错；空状态用 `Empty`。
+6. **无障碍与动效**：图标按钮必带 `title`；持续动画尊重 `prefers-reduced-motion`；时长 100–200ms。
+7. **交付前**：浅色、深色、半宽、整宽都在浏览器里亲眼看过，而不是只过 `tsc`。

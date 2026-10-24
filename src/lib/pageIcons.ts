@@ -2,7 +2,7 @@ import {
   BookOpen, Bookmark, Briefcase, Calendar, Camera, ChartLine, CheckSquare, Cloud, Code, Coffee, Cpu, Dumbbell, FileText,
   Film, Flame, Gamepad2, Globe, GraduationCap, Heart, Home, Image, Inbox, LayoutDashboard, Lightbulb, Lock, Mail, Map,
   MessageCircle, Music, Newspaper, NotebookPen, Palette, Plane, Rocket, ShoppingCart, Sparkles, Star, Sun, Terminal,
-  Trophy, Users, Utensils, Wallet, Wrench,
+  Timer, Trophy, Users, Utensils, Wallet, Wrench,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -54,6 +54,7 @@ export const PAGE_ICONS: Record<string, LucideIcon> = {
   doc: FileText,
   inbox: Inbox,
   trophy: Trophy,
+  timer: Timer,
 }
 
 export const PAGE_ICON_KEYS = Object.keys(PAGE_ICONS)
@@ -73,5 +74,5 @@ export const PAGE_ICON_LABELS: Record<string, string> = {
   terminal: '终端', work: '工作', calendar: '日历', todo: '待办', image: '图片', camera: '相机', map: '地图',
   travel: '旅行', shop: '购物', money: '财务', chart: '图表', cpu: '芯片', cloud: '云', sun: '太阳', coffee: '咖啡',
   food: '美食', fitness: '健身', people: '人物', chat: '对话', mail: '邮件', sparkles: '闪光', rocket: '火箭',
-  idea: '灵感', design: '设计', tools: '工具', web: '网页', secret: '私密', doc: '文档', inbox: '收件箱', trophy: '奖杯',
+  idea: '灵感', design: '设计', tools: '工具', web: '网页', secret: '私密', doc: '文档', inbox: '收件箱', trophy: '奖杯', timer: '计时',
 }

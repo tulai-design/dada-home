@@ -16,6 +16,7 @@ import {isSynced, summarize} from './templates'
 import {DOCK_GUIDE, DOCK_PRESETS} from './dock'
 import {SITE_TOOLS} from './siteTools'
 import {SEARCH_TOOLS} from './searchTools'
+import {LIFE_TOOLS} from './lifeTools'
 
 /**
  * AI 可调用的工作空间工具。
@@ -1575,6 +1576,9 @@ export const HOME_TOOLS = [
 
   // ───── 站点功能：订阅、热榜、待办、便签、天气、监控、设置、技能 ─────
   ...SITE_TOOLS,
+
+  // ───── 生活：日期、日程、倒数日、番茄钟、音乐 ─────
+  ...LIFE_TOOLS,
 
   // ───── 搜索：帮用户去搜（open_search）、自己联网查（web_search / web_fetch） ─────
   ...SEARCH_TOOLS,
