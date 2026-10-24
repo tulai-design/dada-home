@@ -217,6 +217,7 @@ export default function App() {
       try {
         await runAgent({
           config: settings.ai,
+          userName: settings.name,
           messages: [...history, { role: 'user', content: text }],
           host: { openPage: (next: string) => setPendingPage(next) },
           onApproval,

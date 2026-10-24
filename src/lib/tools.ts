@@ -11,6 +11,7 @@ import {NO_EXTENSION_HINT, SYNC_FOLDER, call, detect, importFromBrowser, listBro
 import {addBookmarks, countBookmarks, getBookmarks, removeBookmarks, removeGroup, renameGroup, setBookmarks, updateBookmark} from './bookmarks'
 import {activeTheme} from './workspace'
 import {PRESETS} from './presets'
+import {MEMORY_KINDS, addMemory, aiEditSoul, getPersona, removeMemory} from './persona'
 import {isSynced, summarize} from './templates'
 
 /**
@@ -544,6 +545,93 @@ export const HOME_TOOLS = [
           const result = ops.removeTemplate(getWorkspace(), args.ref)
           commit(result.workspace)
           return `已删除模板「${result.removed.name}」。`
+        }),
+    },
+  ),
+
+  // ───── 灵魂与记忆 ─────
+  define(
+    {
+      schema: {parse: (raw) => ({text: str(obj(raw).text), kind: optStr(obj(raw).kind)})},
+      json: {
+        type: 'object',
+        properties: {
+          text: {type: 'string', description: '要记住的一件事，一条一事，写成陈述句，100 字以内。例如「喜欢深色、低饱和的页面」「在做前端，常用 React」'},
+          kind: {type: 'string', enum: ['preference', 'fact', 'lesson'], description: 'preference 偏好；fact 背景事实；lesson 从用户纠正里学到的做法'},
+        },
+        required: ['text'],
+      },
+    },
+    {
+      name: 'remember',
+      title: '记住一件事',
+      description: '把关于这个用户的稳定认识存进长期记忆，之后每次对话都会带着它。用户说出偏好、背景、习惯，或纠正你的做法时用。不要记一次性的任务细节，不要记密钥密码；已经记过的别重复记。',
+      effect: 'write',
+      highRisk: () => false,
+      execute: (args) =>
+        guard(() => {
+          const result = addMemory({text: args.text, kind: args.kind, by: 'ai'})
+          return `已记住（${result.memory.id}）：${result.memory.text}`
+        }),
+    },
+  ),
+  define(
+    {
+      schema: {parse: (raw) => ({id: str(obj(raw).id)})},
+      json: {type: 'object', properties: {id: {type: 'string', description: '记忆 id，形如 m1a2b3c4，在「你对用户的记忆」里能看到'}}, required: ['id']},
+    },
+    {
+      name: 'forget',
+      title: '忘掉一条记忆',
+      description: '删掉一条过时、错误或被用户推翻的记忆。用户让你「忘了这个」时用。',
+      effect: 'write',
+      highRisk: () => false,
+      execute: (args) =>
+        guard(() => {
+          const removed = removeMemory(args.id)
+          return `已忘掉：${removed.text}`
+        }),
+    },
+  ),
+  define(
+    {schema: {parse: obj}, json: {type: 'object', properties: {}}},
+    {
+      name: 'list_memories',
+      title: '查看记忆',
+      description: '列出全部长期记忆（含 id）。提示里只带了最近的一部分，需要找较早的、或要整理合并时用。',
+      effect: 'read',
+      highRisk: () => false,
+      execute: async () => {
+        const {memory} = getPersona()
+        if (!memory.items.length) return '（还没有记忆）'
+        return memory.items.map((item) => `${item.id}｜${MEMORY_KINDS[item.kind]}｜${item.by === 'ai' ? '你记的' : '用户写的'}｜${item.text}`).join('\n')
+      },
+    },
+  ),
+  define(
+    {
+      schema: {parse: (raw) => ({mode: str(obj(raw).mode) === 'replace' ? ('replace' as const) : ('append' as const), text: str(obj(raw).text), reason: optStr(obj(raw).reason)})},
+      json: {
+        type: 'object',
+        properties: {
+          mode: {type: 'string', enum: ['append', 'replace'], description: 'append：在灵魂末尾追加一两行（小改用这个）；replace：用 text 整体替换灵魂，text 必须是完整的新灵魂'},
+          text: {type: 'string', description: 'append 时是要追加的内容；replace 时是完整的新灵魂（Markdown）'},
+          reason: {type: 'string', description: '一句话说明为什么改，会记在修改记录里'},
+        },
+        required: ['text'],
+      },
+    },
+    {
+      name: 'update_soul',
+      title: '修改灵魂',
+      description:
+        '修改你自己的「灵魂」（性格、语气、做事原则）。只在用户明确要你换性格 / 语气 / 原则，或明确表达了对你行为方式的长期要求时用；关于用户的事实偏好请用 remember。每次修改都会留下记录，用户可以回滚；用户可以关掉这个权限。改完要告诉用户你改了什么。',
+      effect: 'write',
+      highRisk: () => false,
+      execute: (args) =>
+        guard(() => {
+          const persona = aiEditSoul(args)
+          return `灵魂已更新（${args.mode === 'replace' ? '整体重写' : '追加'}），现在 ${persona.soul.text.length} 字。修改记录里留了一条，用户可以回滚。`
         }),
     },
   ),

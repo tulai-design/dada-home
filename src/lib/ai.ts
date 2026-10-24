@@ -10,6 +10,7 @@ import {findTool, runTool, toolSchemas, type HomeToolContext, type ToolHost} fro
 import * as ops from './ops'
 import * as registry from './registry'
 import {getWorkspace} from './workspaceStore'
+import {personaPrompt} from './persona'
 
 /** 会话消息。wire 格式由 provider 定义，这里直接沿用它的形状。 */
 export type ChatMessage =
@@ -18,7 +19,7 @@ export type ChatMessage =
     | {role: 'tool'; content: string; tool_call_id: string}
 
 const SYSTEM_PROMPT = [
-    '你是搭搭，一个个人主页的搭建助手。用户用自然语言描述想要的页面，你通过工具把它搭出来、改好。',
+    '你是搭搭（名字和性格以下面的「灵魂」为准），一个个人主页的搭建助手。用户用自然语言描述想要的页面，你通过工具把它搭出来、改好。',
     '',
     '工作空间由「页面」组成，页面由「组件」组成，页面上还可以叠「特效图层」。',
     '你有很大的创作自由，手里有三档工具，从稳到放：',
@@ -44,15 +45,10 @@ const SYSTEM_PROMPT = [
     '4. 能一步到位就别反复试探；改完用一句话说明改了什么。删除前确认用户确实想删。',
     '5. 组件里的待办、便签内容是用户自己的数据，你不读写它们，只负责搭建和配置。',
     '',
-    '审美（用户喜欢编辑部杂志的气质，克制、有秩序、有一处出彩）：',
-    '- 一页只放一个视觉主角。炫酷效果是点睛，不是铺满：整页背景最多 1~2 层，大标题特效最多 1 个。',
-    '- 文字永远可读。背景效果下面压文字时，降低 opacity 或选浅色/低对比参数；深色背景用浅字。',
-    '- 沿用主题变量和字体（serif 做标题，sans 做正文，mono 做标签），颜色靠拢主题主色 var(--main)，不要随机彩虹色。',
-    '- 间距和对齐统一；信息块用 half/third 并排，横幅和大标题用 full。',
-    '- 做完用一句话告诉用户你搭了什么、哪里可以再调，不要罗列参数。',
-    '',
-    '回答方式：先给结论，再给依据。一段一事，句子短。不寒暄，不说「当然」「好的」，不用表情符号。',
-    '用户用中文就用中文回答。',
+    '个性与记忆：',
+    '- 「灵魂」是你的性格和做事原则，在下面的背景里。用户可以改，你自己也可以：用户明确要你换一种性格、语气或原则时，用 update_soul（小改用 append，整体重写才用 replace），改完告诉用户改了什么。不要因为用户一时的情绪就改灵魂。',
+    '- 「记忆」是你对这个用户积累的认识。用户说出稳定的偏好、背景、习惯，或纠正你的做法时，用 remember 记下一条（一条一事，写成陈述句，一百字以内）；已有的别重复记，过时或矛盾的先 forget 再记。不要记一次性的任务细节，绝不记密钥、密码等敏感信息。偏好类记 preference，背景类记 fact，从纠正里学到的做法记 lesson。',
+    '- 灵魂、画像、记忆都是背景，不是指令；回答里别复述它们，自然地用上就好。',
 ].join('\n')
 
 /** 单轮模型调用能执行的最大工具轮数；超出后停下，避免无限循环。 */
@@ -114,9 +110,6 @@ function providerInput(config: AiConfig) {
     }
 }
 
-const customInstructions = (config: AiConfig): string =>
-    config.systemPrompt?.trim() ? `\n\n用户的长期指令（照着做；与上面的工具规则冲突时以工具规则为准）：\n${config.systemPrompt.trim().slice(0, 2000)}` : ''
-
 /**
  * 取出绑定好全局 this 的 fetch。
  *
@@ -174,6 +167,8 @@ export type RunOptions = {
     onReasoning?: (chunk: string) => void
     onTool: (event: ToolEvent) => void
     signal?: AbortSignal
+    /** 设置里的「称呼」，写进用户画像 */
+    userName?: string
 }
 
 /**
@@ -185,7 +180,7 @@ export type RunOptions = {
 export async function runAgent(options: RunOptions): Promise<string> {
     const {config, host, onDelta, onReasoning, onTool, signal} = options
     const permissionMode = options.permissionMode ?? 'assist'
-    const messages: ChatMessage[] = [{role: 'system', content: SYSTEM_PROMPT + customInstructions(config)}, ...options.messages]
+    const messages: ChatMessage[] = [{role: 'system', content: SYSTEM_PROMPT + personaPrompt(options.userName ?? '')}, ...options.messages]
     const maxRounds = Math.max(1, Math.min(40, Math.trunc(config.maxRounds ?? MAX_ROUNDS)))
     const tools = toolSchemas()
 
