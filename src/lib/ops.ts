@@ -1,3 +1,4 @@
+import {DEFAULT_DOCK_PRESET, DOCK_PRESETS, isDockPreset, scopeDockCss} from './dock'
 import {getDefinition, listDefinitions, normalizeConfig} from './registry'
 import {WorkspaceError} from './errors'
 import {normalizeLayer} from '../fx/catalog'
@@ -168,6 +169,35 @@ export function setStatusbar(workspace: Workspace, raw: unknown): Workspace {
     return {id, type: type as ComponentType, config: normalizeConfig(definition, value.config)}
   })
   return {...workspace, statusbar: items}
+}
+
+/**
+ * 设置 Dock 的样式：选预设，和 / 或 换上一份完整的自定义 CSS。
+ *   - preset 不填：沿用现在的预设
+ *   - css 不填：沿用现在的自定义样式；传空字符串：清掉，回到预设本身的样子
+ *   - reset：整个回到默认的拟态液体玻璃
+ */
+export function setDock(workspace: Workspace, patch: {preset?: string; css?: string; reset?: boolean}): Workspace {
+  const {dock: _old, ...rest} = workspace
+  void _old
+  if (patch.reset) return rest
+  const now = workspace.dock ?? {preset: DEFAULT_DOCK_PRESET}
+  let preset = now.preset
+  if (patch.preset !== undefined) {
+    if (!isDockPreset(patch.preset)) throw new WorkspaceError(`没有这个预设「${patch.preset}」。可选：${DOCK_PRESETS.map((item) => `${item.id}（${item.name}）`).join('、')}`)
+    preset = patch.preset
+  }
+  let css = now.css
+  if (patch.css !== undefined) {
+    if (!patch.css.trim()) css = undefined
+    else {
+      const checked = scopeDockCss(patch.css)
+      if (!checked.ok) throw new WorkspaceError(checked.reason)
+      css = patch.css.trim()
+    }
+  }
+  if (preset === DEFAULT_DOCK_PRESET && !css) return rest
+  return {...rest, dock: {preset, ...(css ? {css} : {})}}
 }
 
 /** 声明了状态条形态的组件。 */

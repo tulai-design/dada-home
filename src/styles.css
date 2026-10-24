@@ -141,49 +141,6 @@ select:focus-visible {
   overflow: hidden;
 }
 
-.rail {
-  width: var(--side-width);
-  flex: none;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 2px;
-  padding: 10px 8px;
-}
-
-.rail-logo {
-  font-family: var(--font-serif) !important;
-  font-size: 22px !important;
-  height: 44px !important;
-  margin-bottom: 8px;
-  color: var(--main) !important;
-}
-
-.rail-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.rail-item {
-  justify-content: flex-start !important;
-  height: auto !important;
-  min-height: 34px;
-  padding: 6px 8px !important;
-  font-size: 12px !important;
-  color: var(--text2) !important;
-}
-
-.rail-item[data-on='true'] {
-  color: var(--main) !important;
-  background: color-mix(in srgb, var(--main) 8%, transparent) !important;
-}
-
-.rail-spacer {
-  flex: 1;
-}
-
 .home-grid {
   flex: 1;
   min-height: 0;
@@ -378,105 +335,6 @@ select:focus-visible {
 .field > span {
   font-size: 12px;
   color: var(--text2);
-}
-
-.rail::-webkit-scrollbar {
-  display: none;
-}
-
-.rail .logo {
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  margin-bottom: 14px;
-  flex: none;
-  color: var(--text);
-  transition: transform 0.4s var(--curve), color 0.2s;
-}
-
-.rail .logo:hover {
-  color: var(--main);
-  transform: rotate(-8deg) scale(1.06);
-}
-
-.rail-nav {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-  width: 100%;
-  flex: none;
-}
-
-.rail-item {
-  position: relative;
-  width: 52px;
-  padding: 7px 0 6px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  border-radius: 9px;
-  color: var(--text3);
-  transition: color 0.2s, background 0.2s;
-}
-
-.rail-item svg {
-  width: 18px;
-  height: 18px;
-}
-
-.rail-item .cap {
-  font-size: 9px;
-  letter-spacing: 0.04em;
-  line-height: 1.4;
-  white-space: nowrap;
-}
-
-.rail-item:hover {
-  color: var(--text);
-  background: rgba(0, 0, 0, 0.04);
-}
-
-:root[data-theme='dark'] .rail-item:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.rail-item[data-on='true'] {
-  color: var(--main);
-}
-
-.rail-item[data-on='true']::before {
-  content: '';
-  position: absolute;
-  left: -11px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 3px;
-  height: 16px;
-  border-radius: 0 2px 2px 0;
-  background: var(--main);
-}
-
-.rail-sep {
-  width: 22px;
-  height: 1px;
-  background: var(--border);
-  margin: 9px 0;
-  flex: none;
-}
-
-.rail-spacer {
-  flex: 1;
-  min-height: 8px;
-}
-
-.rail .mini-temp {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text3);
-  padding: 3px 0;
 }
 
 /* 主画布 */
@@ -2815,50 +2673,15 @@ kbd {
     padding: 8px;
     flex-direction: column;
   }
-  .rail {
-    width: 100%;
-    flex-direction: row;
-    padding: 4px 6px;
-    gap: 4px;
-    overflow-x: auto;
-    align-items: center;
-  }
-  .rail .logo {
-    width: 34px;
-    height: 34px;
-    margin: 0 6px 0 0;
-  }
-  .rail-nav {
-    flex-direction: row;
-    width: auto;
-    gap: 2px;
-    flex: none;
-  }
-  .rail-item {
-    width: auto;
-    padding: 6px 9px;
-    flex-direction: row;
-    gap: 5px;
-    flex: none;
-  }
-  .rail-item .cap {
-    font-size: 11px;
-  }
-  .rail-item[data-on='true']::before {
-    display: none;
-  }
-  .rail-sep {
-    width: 1px;
-    height: 20px;
-    margin: 0 4px;
-  }
-  .rail-extra {
-    display: none;
-  }
-  .rail-spacer,
-  .rail .mini-temp {
-    display: none;
-  }
+  
+  
+  
+  
+  
+  
+  
+  
+  
   .canvas {
     overflow: visible;
   }
@@ -3538,26 +3361,6 @@ kbd {
 .page > .page-pane {
   width: 100%;
   align-items: stretch;
-}
-.rail .rail-item {
-  width: 100%;
-  height: auto;
-  min-height: 34px;
-  padding: 6px 8px;
-  flex-direction: row;
-  justify-content: flex-start;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--text2);
-}
-
-.rail .rail-item[data-on='true'] {
-  color: var(--main);
-  background: transparent;
-}
-
-.rail .rail-item[data-on='true']::before {
-  display: none;
 }
 
 @media (max-width: 1100px) {

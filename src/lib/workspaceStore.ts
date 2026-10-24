@@ -5,6 +5,7 @@ import {DEFAULT_THEME, DEFAULT_THEME_ID, FROZEN_PAGE_ID, MAX_STATUS_ITEMS, MAX_T
 import {normalizeWidget, sanitizeCss} from './customWidget'
 import {normalizeLayer} from '../fx/catalog'
 import {isPageIcon} from './pageIcons'
+import {readDock} from './dock'
 import {ADDONS} from './market'
 import {cleanOverrides, readThemes} from './themes'
 
@@ -92,6 +93,7 @@ export function migrate(raw: unknown): Workspace | null {
     widgets,
     network: Array.isArray(data.network) ? data.network.filter((g) => g && typeof g.host === 'string') : [],
     statusbar,
+    ...(readDock((data as {dock?: unknown}).dock) ? {dock: readDock((data as {dock?: unknown}).dock)} : {}),
     templates: readTemplates((data as { templates?: unknown }).templates),
     ...(typeof (data as { template?: unknown }).template === 'string' ? { template: (data as { template: string }).template } : {}),
   }
@@ -131,6 +133,7 @@ export function readTemplates(raw: unknown): TemplateEntry[] {
         layout: checked.layout,
         widgets: checked.widgets,
         addons: checked.addons,
+        ...(readDock(snap.dock) ? {dock: readDock(snap.dock)} : {}),
         ...(theme ? { theme } : {}),
       },
     })

@@ -508,6 +508,7 @@ export default function App() {
           page={currentPage?.id ?? ''}
           onPage={goPage}
           view={view}
+          dock={workspace.dock}
           onMore={() => setSwitcherOpen(true)}
           onAssistant={() => (assistantOpen ? setAssistantOpen(false) : openAssistant())}
           assistantBusy={busy}

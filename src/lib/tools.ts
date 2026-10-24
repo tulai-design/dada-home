@@ -13,6 +13,7 @@ import {activeTheme} from './workspace'
 import {PRESETS} from './presets'
 import {MEMORY_KINDS, addMemory, aiEditSoul, getPersona, removeMemory} from './persona'
 import {isSynced, summarize} from './templates'
+import {DOCK_GUIDE, DOCK_PRESETS} from './dock'
 import {SITE_TOOLS} from './siteTools'
 import {SEARCH_TOOLS} from './searchTools'
 
@@ -109,7 +110,7 @@ export const HOME_TOOLS = [
           .join('\n')
         const status = workspace.statusbar.map((item) => `${item.type} ${JSON.stringify(item.config)}`).join('；') || '（空）'
         const addons = workspace.addons.map((id) => ADDONS.find((a) => a.id === id)?.name ?? id).join('、') || '（无）'
-        return `${pages}\n\n已安装的市场组件：${addons}\n状态条：${status}\n主题：${activeTheme(workspace).name}（${activeTheme(workspace).id}）｜明暗 ${workspace.theme.mode}｜主题库 ${workspace.themes.length} 个，用 list_themes 查看\n模板库：我的 ${workspace.templates.length} 个 + 内置预设，用 list_templates 查看`
+        return `${pages}\n\n已安装的市场组件：${addons}\n状态条：${status}\nDock：${workspace.dock ? `${workspace.dock.preset}${workspace.dock.css ? ' + 自定义 CSS' : ''}` : '默认（拟态液体玻璃）'}，用 get_dock / set_dock\n主题：${activeTheme(workspace).name}（${activeTheme(workspace).id}）｜明暗 ${workspace.theme.mode}｜主题库 ${workspace.themes.length} 个，用 list_themes 查看\n模板库：我的 ${workspace.templates.length} 个 + 内置预设，用 list_templates 查看`
       },
     },
   ),
@@ -1098,6 +1099,52 @@ export const HOME_TOOLS = [
           commit(ops.setStatusbar(getWorkspace(), args.items))
           const now = getWorkspace().statusbar
           return `状态条已更新：${now.map((item) => item.type).join('、') || '空'}。`
+        }),
+    },
+  ),
+  // ───── Dock（侧栏 / 手机底栏）的样式 ─────
+  define(
+    {schema: {parse: obj}, json: {type: 'object', properties: {}}},
+    {
+      name: 'get_dock',
+      title: '查看 Dock 样式',
+      description: '查看 Dock（电脑的侧栏、手机的底部栏）现在用的是哪个预设、有没有自定义 CSS，以及可选的预设。动手改之前先看。',
+      effect: 'read',
+      highRisk: () => false,
+      execute: async () => {
+        const dock = getWorkspace().dock ?? {preset: 'glass'}
+        return [
+          `当前预设：${dock.preset}（${DOCK_PRESETS.find((item) => item.id === dock.preset)?.name}）`,
+          dock.css ? `自定义 CSS（${dock.css.length} 字）：\n${dock.css}` : '没有自定义 CSS',
+          `可选预设：${DOCK_PRESETS.map((item) => `${item.id}（${item.name}：${item.description}）`).join('；')}`,
+        ].join('\n')
+      },
+    },
+  ),
+  define(
+    {
+      schema: {parse: (raw) => ({preset: optStr(obj(raw).preset), css: typeof obj(raw).css === 'string' ? (obj(raw).css as string) : undefined, reset: obj(raw).reset === true})},
+      json: {
+        type: 'object',
+        properties: {
+          preset: {type: 'string', enum: DOCK_PRESETS.map((item) => item.id), description: DOCK_PRESETS.map((item) => `${item.id}＝${item.name}`).join('，')},
+          css: {type: 'string', description: '整套自定义 CSS，会叠在预设之上；传空字符串清掉自定义样式。要改就把完整的一份传回来（整体替换，不是追加）。'},
+          reset: {type: 'boolean', description: '回到默认的拟态液体玻璃，并清掉自定义 CSS'},
+        },
+      },
+    },
+    {
+      name: 'set_dock',
+      title: '设置 Dock 样式',
+      description: `设置 Dock（电脑的侧栏、手机的底部栏）的外观。默认是「拟态液体玻璃」；可以选内置预设，也可以自己写一整份 CSS 做成全新的样子。改完用户马上能看到，不满意可以撤销。\n\n${DOCK_GUIDE}`,
+      effect: 'write',
+      highRisk: () => false,
+      execute: (args) =>
+        guard(() => {
+          if (!args.reset && args.preset === undefined && args.css === undefined) throw new WorkspaceError('至少给 preset、css、reset 之一')
+          commit(ops.setDock(getWorkspace(), args))
+          const dock = getWorkspace().dock
+          return dock ? `Dock 已更新：预设 ${dock.preset}${dock.css ? `，带 ${dock.css.length} 字的自定义 CSS` : ''}。` : 'Dock 已回到默认的拟态液体玻璃。'
         }),
     },
   ),
