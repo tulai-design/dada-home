@@ -1,0 +1,24 @@
+# Coolify 部署用：新建资源 → Docker Compose → 选这个仓库，
+# 「Docker Compose 文件位置」填 /docker-compose.coolify.yml，然后在 web 服务上填你的域名。
+#
+# 说明：
+# - 不写 ports：Coolify 自带的反向代理（Traefik / Caddy）按域名转发到容器的 80 端口，并自动签 HTTPS。
+# - SERVICE_FQDN_WEB_80 是 Coolify 的「魔法变量」：它会在界面里给 web 服务生成一个域名输入框（容器端口 80）。
+# - 镜像来自 ghcr。包是公开的就能直接拉；私有的话，要先在服务器 / Coolify 里配置 ghcr 的登录凭据。
+# - 下面的变量会出现在 Coolify 的「环境变量」页面里，按需填写即可，都可以留空。
+services:
+  web:
+    image: ghcr.io/tulai-design/dada-home:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      - SERVICE_FQDN_WEB_80
+      # Umami 访问统计：不填 UMAMI_WEBSITE_ID 就完全不加载统计代码
+      - UMAMI_WEBSITE_ID=${UMAMI_WEBSITE_ID:-}
+      - UMAMI_SRC=${UMAMI_SRC:-https://cloud.umami.is/script.js}
+      - UMAMI_DOMAINS=${UMAMI_DOMAINS:-}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s

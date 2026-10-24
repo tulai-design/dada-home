@@ -5,6 +5,7 @@ import { motion } from 'motion/react'
 import '@lobehub/ui/theme.css'
 import '@lobehub/ui/style.css'
 import App from './App'
+import { initAnalytics } from './lib/analytics'
 import { initStorage } from './lib/storage'
 import './styles.css'
 import './theme.css'
@@ -26,6 +27,8 @@ if (import.meta.env.DEV) {
     }
   })
 }
+
+initAnalytics()
 
 // 先把 IndexedDB 里的数据读进内存再渲染：组件一挂载就要同步拿到自己的数据。
 void initStorage().then(() =>

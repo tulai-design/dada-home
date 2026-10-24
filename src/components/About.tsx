@@ -1,4 +1,6 @@
-import {A, Text} from '@lobehub/ui'
+import {A, Switch, Text} from '@lobehub/ui'
+import {analyticsEnabled, setAnalyticsEnabled, umamiConfig} from '../lib/analytics'
+import {useStored} from '../lib/store'
 import {Group, Row} from './ios'
 
 const base = import.meta.env.BASE_URL
@@ -9,6 +11,8 @@ export function Mascot({size = 160, className}: {size?: number; className?: stri
 }
 
 export function AboutPanel() {
+  const [tracking] = useStored<boolean>('analytics', analyticsEnabled())
+  const tracked = umamiConfig() !== null
   return (
     <>
       <div className="about-hero">
@@ -27,6 +31,13 @@ export function AboutPanel() {
         </Row>
         <Row label="数据">只保存在这台浏览器里</Row>
       </Group>
+      {tracked && (
+        <Group footer="只统计有多少人来过，不上报页面内容和你的任何数据；开了浏览器的「请勿跟踪」也会自动跳过。改动在下次打开页面时生效。">
+          <Row label="匿名访问统计">
+            <Switch checked={tracking !== false} onChange={setAnalyticsEnabled} />
+          </Row>
+        </Group>
+      )}
     </>
   )
 }
