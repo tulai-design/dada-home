@@ -24,14 +24,26 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: 取数代理、热榜与助手流程回归测试
+        run: pnpm test
       # build 脚本里已经包含类型检查
       - run: pnpm build
       - name: Docker 镜像能构建
         run: docker build -t dada-home:ci .
       - name: 容器冒烟测试
         run: |
+          trap 'docker logs smoke; docker rm -f smoke' EXIT
           docker run -d --name smoke -p 8080:80 -e UMAMI_WEBSITE_ID=00000000-0000-4000-8000-000000000000 dada-home:ci
           for i in $(seq 1 20); do curl -fs http://127.0.0.1:8080/healthz && break || sleep 1; done
+          curl -fs http://127.0.0.1:8080/healthz
           curl -fs http://127.0.0.1:8080/ | grep -q '<div id="root">'
           curl -fs http://127.0.0.1:8080/config.js | grep -q 'umami'
-          docker rm -f smoke
+          test "$(curl -s -o /tmp/proxy-error.json -w '%{http_code}' http://127.0.0.1:8080/__proxy)" = 400
+          node -e 'if (!JSON.parse(require("fs").readFileSync("/tmp/proxy-error.json")).error) process.exit(1)'
+          test "$(curl -s -o /tmp/proxy-error.json -w '%{http_code}' 'http://127.0.0.1:8080/__proxy?url=http%3A%2F%2F127.0.0.1%2F')" = 403
+          test "$(curl -s -o /tmp/proxy-error.json -w '%{http_code}' -X POST 'http://127.0.0.1:8080/__proxy?url=https%3A%2F%2Fhnrss.org%2Ffrontpage')" = 405
+          curl -sD - -o /dev/null http://127.0.0.1:8080/__proxy | grep -qi 'cache-control: no-store'
+          # nginx 退出时 PID 1 必须退出，健康检查不能继续显示静态的 200。
+          docker exec smoke nginx -s quit
+          for i in $(seq 1 10); do test "$(docker inspect -f '{{.State.Running}}' smoke)" = false && break || sleep 1; done
+          test "$(docker inspect -f '{{.State.Running}}' smoke)" = false

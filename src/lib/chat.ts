@@ -31,6 +31,8 @@ export type Turn = {
   id: string
   /** 用户输入；工具紧随其后时为 undefined 不算，这里始终有值 */
   prompt: string
+  /** 随本轮保存的文章资料，后续追问仍可使用；不混入用户输入。 */
+  article?: {title: string; link: string; context: string}
   /** 模型正文，流式增长 */
   answer: string
   /** 模型的思考过程（部分模型会返回） */
@@ -47,6 +49,13 @@ export type Turn = {
   pending?: PendingApproval
   /** 属于哪个对话；存取时由 store 盖章，界面不用管 */
   convId?: string
+}
+
+/** 显示保留用户原话，发给模型时再附上用户选择的参考资料。 */
+export function turnContent(turn: Pick<Turn, 'prompt' | 'article'>): string {
+  return turn.article
+    ? `${turn.article.context}\n\n用户的问题：\n${turn.prompt}`
+    : turn.prompt
 }
 
 /** 一个对话：只存标题和时间，内容在 turns 仓库里。 */
@@ -250,7 +259,7 @@ export function contextTurns(turns: Turn[], limit = CONTEXT_TURNS): Turn[] {
   let size = 0
   for (let i = turns.length - 1; i >= 0 && picked.length < limit; i -= 1) {
     const turn = turns[i]
-    size += turn.prompt.length + turn.answer.length
+    size += turnContent(turn).length + turn.answer.length
     if (picked.length && size > CONTEXT_CHARS) break
     picked.unshift(turn)
   }

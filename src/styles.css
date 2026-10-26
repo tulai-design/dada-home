@@ -3750,6 +3750,32 @@ kbd {
   word-break: break-word;
 }
 
+.chat-article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-block: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  font-size: 13px;
+}
+
+.chat-article > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.turn-article {
+  margin: 0 0 6px auto;
+  max-width: 78%;
+  text-align: right;
+  color: var(--text3);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
 .turn-answer {
   font-size: 14px;
   line-height: 1.72;

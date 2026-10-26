@@ -32,11 +32,14 @@ AI 能力需要用户配置接口和模型；RSS、监控、联网搜索、同�
 ```bash
 pnpm install
 pnpm dev       # http://localhost:5173
+pnpm test      # 生产代理、热榜工具、提问与授权并发回归
 pnpm build     # 打包浏览器扩展、类型检查并构建到 dist/
 pnpm preview   # 本地预览生产构建
 ```
 
-开发服务器提供 `/__proxy?url=…` 转发，用于请求受浏览器跨域限制的 RSS、热榜和监控接口。它只在开发环境启用；`pnpm preview` 和生产静态部署不提供这条代理，使用前需要在设置中配置可用的取数代理。
+开发服务器和 Docker 镜像均提供 `/__proxy?url=…` 转发，用于请求受浏览器跨域限制的 RSS、热榜和公开监控接口。默认代理模板 `/__proxy?url={url}` 可直接使用。`pnpm preview` 和仅上传 `dist/` 的静态托管不运行代理，需要单独配置自有代理。
+
+浏览器内容解析回归可在开发服务器中访问 `http://localhost:5173/tests/content-regressions.html`，使用真实 DOMParser 检查 RSS / Atom / RDF、错误代理响应及文章上下文，不修改用户数据。
 
 ## AI 助手
 
@@ -51,6 +54,10 @@ AI 可以发现已注册的组件和可用操作，创建页面、编辑布局�
 | 声明式组件 | 列表、卡片、统计、链接、文字与 SVG 插图 | AI 描述数据源和显示规格，由现有渲染器呈现 |
 | 小程序（Applet） | 计算器、换算、生成器等交互工具 | AI 编写 JavaScript 逻辑，在隔离沙盒中运行，界面由主页使用 Lobe 控件渲染 |
 | 沙盒应用（App） | 游戏、Canvas / WebGL 或完全自定义的视觉内容 | AI 编写 HTML / CSS / JavaScript，在隔离 iframe 中运行 |
+
+自定义组件、App 和 Applet 访问新域名时会请求用户确认，拒绝后不发取数请求。允许后，等待中的 `tada.fetch` / `ctx.fetch` 可以继续；授权可在「设置 → 网络」撤销。App 的图片和媒体域名受文档 CSP 控制，新授权需要切换页面再返回，或修改应用源码后生效；撤销已有域名会立即重新生成文档并收紧权限。
+
+阅读器中的「带着这篇文章去问」会先附上文章并打开提问草稿，等用户发送后才请求模型。会话保存文章标题、链接与订阅提供的正文或摘要，后续追问仍可使用；只有标题和链接的订阅不会被当作全文生成摘要。
 
 联网搜索在「设置 → 联网搜索」单独配置，支持 Tavily、Firecrawl、SearXNG、Exa 和 Brave。助手还可以打开浏览器搜索结果页；打开搜索页与由助手读取搜索结果是两种不同的操作。
 
@@ -97,13 +104,17 @@ docker build -t dada-home .
 docker run -d --name dada-home -p 8080:80 dada-home
 ```
 
-Coolify 部署使用 [docker-compose.coolify.yml](docker-compose.coolify.yml)，在服务上配置域名与 HTTPS。GitHub Actions 已配置类型检查、前端构建、容器冒烟测试，以及向 GHCR 发布 amd64 / arm64 镜像的工作流。
+Coolify 部署使用 [docker-compose.coolify.yml](docker-compose.coolify.yml)，在服务上配置域名与 HTTPS。镜像内由 Nginx 托管静态页面，Node 提供同源取数代理，`/healthz` 同时验证代理进程；任一进程退出都会结束容器，交给部署平台重启。GitHub Actions 已配置类型检查、前端构建、代理回归测试、容器冒烟测试，以及向 GHCR 发布 amd64 / arm64 镜像的工作流。
 
 容器可通过 `UMAMI_WEBSITE_ID`、`UMAMI_SRC`、`UMAMI_DOMAINS` 配置可选的 Umami 访问统计；未设置网站 ID 时不加载统计脚本，用户也可以在设置中关闭统计。
 
 ### 生产取数代理
 
-Docker 中的 Nginx 只托管静态文件，不提供开发服务器的 `/__proxy`。浏览器请求 RSS 或部分监控服务时可能受到跨域策略限制，仓库提供了独立的 [Cloudflare Worker](worker/proxy.ts)：
+**Docker / Coolify** 默认内置 `/__proxy`，更新镜像并重新部署后即可沿用默认代理地址，无需额外部署 Worker。该路径单独转发至代理服务，返回上游原始正文、状态与 Content-Type，响应不缓存；错误不会落入首页 HTML。
+
+内置代理仅支持公共 HTTP(S) 标准端口的 GET 请求，限制连接时长、响应大小和并发，并校验 DNS 解析结果及每次重定向，拒绝私网、回环和云元数据地址，不转发浏览器 Cookie。可设置 `PROXY_ALLOWED_HOSTS=hnrss.org,newshub.shenzjd.com`，限制允许的目标域名（含其子域名）；留空时允许公共域名，仍禁止私网。WebDAV / HTTP 同步需要写入方法，应使用各自独立的同步代理。
+
+**纯静态托管 / 本地生产预览** 可使用自有代理。仓库提供了独立的 [Cloudflare Worker](worker/proxy.ts)：
 
 ```bash
 npx wrangler deploy worker/proxy.ts --name tada-proxy
@@ -116,6 +127,8 @@ https://tada-proxy.<你的账号>.workers.dev/?url={url}
 ```
 
 建议在 `worker/proxy.ts` 的 `ALLOW_HOSTS` 中列出需要访问的域名，限制代理目标范围。
+
+若订阅或热榜提示代理返回了网页 HTML，先检查代理地址是否落入静态站点的首页回退。`304` 可能只是该首页的缓存校验结果，不能说明 RSS 已成功取回。此次问题的范围、验收条件和进展见 [功能修复计划](docs/fix-plan.md)。
 
 ### PWA
 
@@ -140,7 +153,8 @@ https://tada-proxy.<你的账号>.workers.dev/?url={url}
 | `src/lib/ai.ts`、`tools.ts`、`siteTools.ts`、`lifeTools.ts`、`searchTools.ts` | AI 会话、工具调用与站内操作 |
 | `src/lib/applet/`、`src/fx/` | 小程序沙盒与渲染、特效素材库 |
 | `src/lib/db.ts`、`storage.ts`、`sync.ts` | IndexedDB、备份与跨设备同步 |
-| `extension/`、`worker/`、`docker/` | 浏览器扩展、取数代理与容器配置 |
+| `extension/`、`worker/`、`server/`、`docker/` | 浏览器扩展、独立 Worker、内置取数代理与容器配置 |
+| `tests/content-regressions.html`、`server/*.test.mjs` | 浏览器内容解析回归、生产代理自动测试 |
 
 扩展时遵循以下约定：
 

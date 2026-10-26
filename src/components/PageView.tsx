@@ -1,4 +1,5 @@
 import {Empty} from '@lobehub/ui'
+import {useId} from 'react'
 import {getDefinition} from '../lib/registry'
 import type {ComponentHost, ComponentDefinition} from '../lib/registry'
 import {isCustomType, SPAN_COLUMNS, type Page, type Workspace} from '../lib/workspace'
@@ -30,6 +31,7 @@ export function PageView({
   onUpdateConfig: (instanceId: string, patch: Record<string, unknown>) => void
   onRemove: (instanceId: string) => void
 }) {
+  const pageStyleId = useId()
   const layout = workspace.layout
   if (!page.components.length) {
     return <Empty title="这一页还是空的" description="告诉搭搭你想放什么，或者从「添加组件」里挑。" />
@@ -42,11 +44,12 @@ export function PageView({
   return (
     <div
       className="page-grid"
+      data-page-style={pageStyleId}
       data-align={page.align ?? 'start'}
       data-stage={stage ? '' : undefined}
       style={{['--cols' as string]: layout.columns, maxWidth: layout.maxWidth, ...(stage ? {['--stage-width' as string]: `${stage.width}px`} : {})}}
     >
-      {page.css && <style>{`.page-grid[data-page-style]{${page.css}}`}</style>}
+      {page.css && <style>{`.page-grid[data-page-style="${pageStyleId}"]{${page.css}}`}</style>}
       {page.components.map((instance) => {
         const {definition, customId} = resolveDefinition(instance.type)
         const custom = customId ? workspace.widgets.find((w) => w.id === customId) : undefined

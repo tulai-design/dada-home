@@ -1,5 +1,5 @@
 /** NewsHub 热榜聚合。文档：https://newshub.shenzjd.com/api */
-import { proxied } from './rss'
+import { fetchSourceText } from './rss'
 
 export const NEWSHUB_ORIGIN = 'https://newshub.shenzjd.com'
 
@@ -63,40 +63,35 @@ function itemOf(row: unknown): HotItem | null {
 }
 
 async function readJson(url: string, proxy: string): Promise<unknown> {
-  const res = await fetch(proxied(url, proxy), { headers: { accept: 'application/json' } })
-  if (!res.ok) throw new Error(`热榜接口 ${res.status}`)
-  const text = await res.text()
-  let parsed: unknown
+  const text = await fetchSourceText(url, proxy, 'application/json', '热榜接口')
   try {
-    parsed = JSON.parse(text)
+    return JSON.parse(text)
   } catch {
-    throw new Error('热榜不是 JSON')
+    throw new Error('热榜接口返回的内容不是 JSON，请检查源站地址和「设置 → 网络」中的取数代理。')
   }
-  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-    const wrapped = (parsed as { contents?: unknown }).contents
-    if (typeof wrapped === 'string') return JSON.parse(wrapped)
-  }
-  return parsed
 }
 
 export async function fetchSources(origin: string, proxy: string): Promise<HotSource[]> {
-  const json = (await readJson(`${hotOrigin(origin)}/api/v1/sources`, proxy)) as { sources?: unknown[] }
-  if (!Array.isArray(json.sources)) return []
-  return json.sources.flatMap((row) => {
+  const json = (await readJson(`${hotOrigin(origin)}/api/v1/sources`, proxy)) as { sources?: unknown[] } | null
+  if (!json || !Array.isArray(json.sources)) throw new Error('热榜源列表缺少 sources 数组，请确认源站提供 NewsHub 兼容接口。')
+  const sources = json.sources.flatMap((row) => {
     if (!row || typeof row !== 'object') return []
     const obj = row as Record<string, unknown>
     if (obj.enabled === false) return []
     if (typeof obj.id !== 'string' || typeof obj.name !== 'string') return []
     return [{ id: obj.id, name: obj.name, column: typeof obj.column === 'string' ? obj.column : undefined }]
   })
+  if (!sources.length) throw new Error('热榜接口没有返回可用榜单，请检查源站是否正常。')
+  return sources
 }
 
 export async function fetchBoards(origin: string, ids: string[], proxy: string, limit = 16): Promise<HotBoard[]> {
   const unique = [...new Set(ids.map((id) => id.trim()).filter(Boolean))]
   if (!unique.length) return []
   const url = `${hotOrigin(origin)}/api/v1/batch?sources=${encodeURIComponent(unique.join(','))}&limit=${Math.min(50, Math.max(1, limit))}`
-  const json = (await readJson(url, proxy)) as { results?: unknown[] }
-  const results = Array.isArray(json.results) ? json.results : []
+  const json = (await readJson(url, proxy)) as { results?: unknown[] } | null
+  if (!json || !Array.isArray(json.results)) throw new Error('热榜数据缺少 results 数组，请确认源站提供 NewsHub 兼容接口。')
+  const results = json.results
   const byId = new Map<string, HotBoard>()
   for (const row of results) {
     if (!row || typeof row !== 'object') continue
@@ -104,12 +99,15 @@ export async function fetchBoards(origin: string, ids: string[], proxy: string, 
     if (typeof obj.id !== 'string') continue
     const name = typeof obj.name === 'string' && obj.name.trim() ? obj.name : obj.id
     const data = Array.isArray(obj.data) ? obj.data : []
+    const items = data.map(itemOf).filter((item): item is HotItem => Boolean(item))
     byId.set(obj.id, {
       id: obj.id,
       name,
-      items: data.map(itemOf).filter((item): item is HotItem => Boolean(item)),
-      error: obj.success === false ? '这一榜暂时没有数据' : undefined,
+      items,
+      error: obj.success === false ? '这一榜暂时没有数据' : !Array.isArray(obj.data) || (data.length > 0 && !items.length) ? '这一榜返回的数据格式不正确' : undefined,
     })
   }
-  return unique.map((id) => byId.get(id) ?? { id, name: id, items: [], error: '未返回这一榜' })
+  const boards = unique.map((id) => byId.get(id) ?? { id, name: id, items: [], error: '未返回这一榜' })
+  if (boards.every((board) => board.error)) throw new Error(`热榜读取失败：${boards.map((board) => `${board.name}：${board.error}`).join('；')}`)
+  return boards
 }

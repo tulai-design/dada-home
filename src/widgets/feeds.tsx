@@ -34,11 +34,11 @@ function Feeds({config, host}: ComponentProps<FeedsConfig>) {
   const [filter, setFilter] = useState('__all')
 
 
-  const key = `feeds|${host.proxy}|${feeds.filter((f) => f.enabled !== false).map((f) => f.url).join(',')}`
+  const key = `feeds|${host.proxy}|${feeds.filter((f) => f.enabled !== false && f.url.trim()).map((f) => `${f.id}:${f.url}`).join(',')}`
   const resource = useResource<{articles: Article[]; errors: string[]}>(
     key,
     () => fetchAllFeeds(feeds, host.proxy),
-    {every: 1_800_000, enabled: feeds.some((f) => f.enabled !== false && f.url)},
+    {every: 1_800_000, enabled: feeds.some((f) => f.enabled !== false && f.url.trim())},
   )
 
   const articles = resource.data?.articles ?? []
@@ -85,11 +85,14 @@ function Feeds({config, host}: ComponentProps<FeedsConfig>) {
         </Flexbox>
       )}
 
-      {errors[0] && (
-        <Text type="danger">
-          {errors[0]}
-          {errors.length > 1 ? ` 等 ${errors.length} 个源失败` : ''}
-        </Text>
+      {(resource.error || errors[0]) && (
+        <Flexbox direction="vertical" gap={4}>
+          <Text type="danger">
+            {resource.error || `${errors[0]}${errors.length > 1 ? ` 等 ${errors.length} 个源失败` : ''}`}
+            {resource.error && articles.length > 0 ? ' 正在显示上次成功读取的内容。' : ''}
+          </Text>
+          <Button size="small" onClick={() => host.openSettings('network')}>检查取数代理</Button>
+        </Flexbox>
       )}
 
       {shown.length ? (
@@ -126,7 +129,7 @@ function Feeds({config, host}: ComponentProps<FeedsConfig>) {
           )}
         </div>
       ) : (
-        <Empty title={resource.loading ? '正在收取订阅' : '暂时没有内容'} description="换个源，或稍后再刷新。" />
+        <Empty title={resource.loading ? '正在收取订阅' : resource.error ? '订阅读取失败' : '暂时没有内容'} description={resource.error ? '检查网络和取数代理后重试。' : '换个源，或稍后再刷新。'} />
       )}
     </Flexbox>
   )

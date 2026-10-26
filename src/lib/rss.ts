@@ -2,7 +2,7 @@ import type { Article, Feed } from './types'
 
 /** 代理模板里用 {url} 占位；`direct` 表示不加代理。 */
 export const PROXY_PRESETS = [
-  { id: 'dev', label: '本地开发代理 /__proxy', template: '/__proxy?url={url}' },
+  { id: 'dev', label: '同源代理 /__proxy（需部署）', template: '/__proxy?url={url}' },
   { id: 'allorigins', label: 'AllOrigins', template: 'https://api.allorigins.win/get?url={url}' },
   { id: 'direct', label: '直连（需目标站放开 CORS）', template: '' },
 ] as const
@@ -14,8 +14,7 @@ export function proxied(url: string, template: string): string {
 }
 
 /** AllOrigins 的 /get 会把正文包进 JSON，这里统一剥掉。 */
-async function readBody(res: Response): Promise<string> {
-  const text = await res.text()
+function unwrapBody(text: string): string {
   const trimmed = text.trimStart()
   if (trimmed.startsWith('{')) {
     try {
@@ -27,6 +26,28 @@ async function readBody(res: Response): Promise<string> {
     }
   }
   return text
+}
+
+/** RSS 和热榜共用取数边界：避免 SPA 的 HTML 首页被当作数据。 */
+export async function fetchSourceText(url: string, proxy: string, accept: string, label: string): Promise<string> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 15_000)
+  try {
+    const res = await fetch(proxied(url, proxy), {headers: {accept}, signal: controller.signal})
+    if (!res.ok) throw new Error(`${label} 返回 ${res.status}，请检查源地址及「设置 → 网络」中的取数代理。`)
+    const body = unwrapBody(await res.text())
+    const start = body.replace(/^\uFEFF/, '').trimStart().replace(/^<\?xml[^>]*\?>\s*/i, '').replace(/^(?:<!--[\s\S]*?-->\s*)+/, '')
+    if (/^<(?:!doctype\s+html\b|html\b|head\b|body\b)/i.test(start)) {
+      throw new Error(`${label} 返回了 HTML 网页，取数代理可能未部署，或代理／源地址不正确。请检查「设置 → 网络」。`)
+    }
+    return body
+  } catch (cause) {
+    if (controller.signal.aborted) throw new Error(`${label} 请求超时（15 秒），请检查网络和「设置 → 网络」中的取数代理。`)
+    if (cause instanceof TypeError) throw new Error(`${label} 连接失败，请检查网络、源站跨域权限及「设置 → 网络」中的取数代理。`)
+    throw cause
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 const TEXT_TAGS = new Set(['p', 'br', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'pre', 'code', 'em', 'strong', 'b', 'i', 'a', 'figure', 'figcaption', 'hr', 'table', 'thead', 'tbody', 'tr', 'td', 'th', 'img', 'del', 'sup', 'sub', 'span', 'div'])
@@ -88,14 +109,14 @@ export function plainText(html: string, limit = 220): string {
 function tagText(el: Element | null, names: string[]): string {
   if (!el) return ''
   for (const name of names) {
-    const hit = el.getElementsByTagName(name)[0]
+    const hit = el.getElementsByTagName(name)[0] ?? el.getElementsByTagNameNS('*', name)[0]
     if (hit?.textContent) return hit.textContent.trim()
   }
   return ''
 }
 
 function atomLink(el: Element): string {
-  const links = Array.from(el.getElementsByTagName('link'))
+  const links = Array.from(el.getElementsByTagNameNS('*', 'link'))
   const alt = links.find((l) => l.getAttribute('rel') === 'alternate' || !l.getAttribute('rel'))
   return alt?.getAttribute('href') ?? links[0]?.getAttribute('href') ?? ''
 }
@@ -110,18 +131,21 @@ function absolute(url: string, base: string): string {
 }
 
 export async function fetchFeed(feed: Feed, proxyTemplate: string): Promise<Article[]> {
-  const res = await fetch(proxied(feed.url, proxyTemplate), {
-    headers: { accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*' },
-  })
-  if (!res.ok) throw new Error(`${feed.title || feed.url} 返回 ${res.status}`)
-  const xml = await readBody(res)
+  const label = feed.title || feed.url
+  if (!feed.url.trim()) throw new Error(`${label || '订阅源'} 尚未填写地址。`)
+  const xml = await fetchSourceText(feed.url, proxyTemplate, 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*', label)
   const doc = new DOMParser().parseFromString(xml, 'text/xml')
-  if (doc.querySelector('parsererror')) throw new Error(`${feed.title} 的 XML 解析失败`)
+  if (doc.querySelector('parsererror')) throw new Error(`${label} 的 XML 解析失败，请确认地址返回 RSS / Atom。`)
+
+  const root = doc.documentElement
+  const isAtom = root.localName === 'feed' && root.namespaceURI === 'http://www.w3.org/2005/Atom'
+  const isRss = root.localName === 'rss' && Boolean(root.querySelector('channel'))
+  const isRdf = root.localName === 'RDF' && root.namespaceURI === 'http://www.w3.org/1999/02/22-rdf-syntax-ns#' && Boolean(root.getElementsByTagNameNS('http://purl.org/rss/1.0/', 'channel').length)
+  if (!isAtom && !isRss && !isRdf) throw new Error(`${label} 返回的内容不是 RSS / Atom 订阅，请检查源地址及取数代理。`)
 
   const rssItems = Array.from(doc.getElementsByTagName('item'))
-  const atomEntries = Array.from(doc.querySelectorAll('entry'))
-  const nodes = rssItems.length ? rssItems : atomEntries
-  const isAtom = !rssItems.length
+  const atomEntries = Array.from(doc.getElementsByTagNameNS('http://www.w3.org/2005/Atom', 'entry'))
+  const nodes = isAtom ? atomEntries : rssItems
   const feedTitle = tagText(doc.documentElement, ['title']) || feed.title
 
   return nodes.slice(0, 40).map((node, i) => {
@@ -146,7 +170,7 @@ export async function fetchFeed(feed: Feed, proxyTemplate: string): Promise<Arti
 
 export async function fetchAllFeeds(feeds: Feed[], proxyTemplate: string): Promise<{ articles: Article[]; errors: string[] }> {
   const settled = await Promise.allSettled(
-    feeds.filter((f) => f.enabled !== false).map((f) => fetchFeed(f, proxyTemplate)),
+    feeds.filter((f) => f.enabled !== false && f.url.trim()).map((f) => fetchFeed(f, proxyTemplate)),
   )
   const articles: Article[] = []
   const errors: string[] = []
@@ -154,6 +178,8 @@ export async function fetchAllFeeds(feeds: Feed[], proxyTemplate: string): Promi
     if (r.status === 'fulfilled') articles.push(...r.value)
     else errors.push(r.reason instanceof Error ? r.reason.message : String(r.reason))
   })
+  // 让 useResource 保留上次成功内容；部分失败时仍可展示正常源。
+  if (settled.length && errors.length === settled.length) throw new Error(`所有订阅源读取失败：${errors.slice(0, 3).join('；')}${errors.length > 3 ? `；另有 ${errors.length - 3} 个源失败` : ''}`)
   articles.sort((a, b) => b.date - a.date)
   return { articles, errors }
 }

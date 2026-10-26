@@ -21,7 +21,8 @@ const RUNNER = String.raw`
   let seq=0;const calls=new Map();
   const call=(op,p)=>new Promise((res,rej)=>{
     const id=++seq;calls.set(id,{res,rej});post({k:'call',id,op,...p});
-    setTimeout(()=>{if(calls.delete(id))rej(new Error(op+' 超时'))},20000);
+    /* 取数可能先等用户确认域名，其他操作仍保持原来的超时。 */
+    setTimeout(()=>{if(calls.delete(id))rej(new Error(op+' 超时'))},op==='fetch'?300000:20000);
   });
   const fail=(e,where)=>{
     const msg=(e&&e.message)||String(e);

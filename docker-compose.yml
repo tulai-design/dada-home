@@ -11,3 +11,5 @@ services:
       UMAMI_WEBSITE_ID: ""
       # UMAMI_SRC: https://umami.example.com/script.js
       # UMAMI_DOMAINS: home.example.com
+      # 可选：限制取数目标域名（逗号分隔，含子域名）；留空允许公共 HTTP/HTTPS，始终禁止内网。
+      # PROXY_ALLOWED_HOSTS: hnrss.org,ruanyifeng.com,sspai.com,newshub.shenzjd.com

@@ -2,7 +2,7 @@ import {useEffect, useMemo, useRef, useState} from 'react'
 import {Button, Flexbox, Tag, Text} from '@lobehub/ui'
 import {MagicWand as Wand2} from '@phosphor-icons/react'
 import {useDark} from '../fx/Fx'
-import {isGranted} from '../lib/customWidget'
+import {checkUrl} from '../lib/customWidget'
 import {proxied} from '../lib/rss'
 import {registerComponent, type ComponentHost, type ComponentProps} from '../lib/registry'
 
@@ -70,7 +70,8 @@ const SDK = `
   const call=(op,payload)=>new Promise((resolve,reject)=>{
     const id=++seq;pending.set(id,{resolve,reject});
     parent.postMessage({tada:1,id,op,...payload},'*');
-    setTimeout(()=>{if(pending.delete(id))reject(new Error('tada.'+op+' 超时'))},15000);
+    /* 取数可能先等用户确认域名，给授权操作留出时间。 */
+    setTimeout(()=>{if(pending.delete(id))reject(new Error('tada.'+op+' 超时'))},op==='fetch'?300000:15000);
   });
   addEventListener('message',(e)=>{
     const m=e.data;if(!m||m.tada!==1)return;
@@ -137,18 +138,26 @@ type Request = {tada: 1; id: number; op: string; [key: string]: unknown}
 
 /** 取数：域名必须已授权，未授权会向用户发起授权请求。沙盒应用和小程序共用。 */
 export async function bridgeFetch(url: string, host: ComponentHost): Promise<{ok: boolean; status: number; text: string; json: unknown}> {
-  if (!isGranted(url, host.networkGrants)) {
-    let hostname = url
-    try {
-      hostname = new URL(url).hostname
-    } catch {
-      // 保持原样
-    }
-    host.requestNetworkGrant(hostname)
-    throw new Error(`域名 ${hostname} 还没有授权，已向用户发起授权请求`)
+  const check = checkUrl(url)
+  if (!check.ok) throw new Error(check.reason)
+  if (!host.networkGrants.includes(check.host)) {
+    const approved = await host.requestNetworkGrant(check.host)
+    if (!approved) throw new Error(`未允许访问 ${check.host}，请求已取消`)
   }
-  const res = await fetch(proxied(url, host.proxy))
-  const text = (await res.text()).slice(0, 1_000_000)
+  // 授权等待与实际请求分开计时，读取响应体也受 15 秒限制。
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 15_000)
+  let res: Response
+  let text: string
+  try {
+    res = await fetch(proxied(check.url, host.proxy), {signal: controller.signal})
+    text = (await res.text()).slice(0, 1_000_000)
+  } catch (cause) {
+    if (controller.signal.aborted) throw new Error('请求超时（15 秒），请稍后重试')
+    throw cause
+  } finally {
+    clearTimeout(timeout)
+  }
   let json: unknown = null
   try {
     json = JSON.parse(text)
@@ -227,11 +236,18 @@ function AppBlock({instance, config, host}: ComponentProps<AppConfig>) {
   hostRef.current = host
 
   const [error, setError] = useState('')
-  const grants = host.networkGrants.join(',')
+  const documentRef = useRef<{config: AppConfig; dark: boolean; grants: string[]} | null>(null)
+  const previous = documentRef.current
+  // 新授权直接供 tada.fetch 使用，保留当前文档与待完成的请求。
+  // 图片、媒体的 CSP 使用文档快照：重新挂载、修改源码或切换主题后才加入新域名；
+  // 已写入 CSP 的域名一旦撤销，则立即重建文档以收紧权限。
+  if (!previous || previous.config.html !== config.html || previous.config.css !== config.css || previous.config.js !== config.js || previous.dark !== dark || previous.grants.some((grant) => !host.networkGrants.includes(grant))) {
+    documentRef.current = {config: {...config}, dark, grants: [...host.networkGrants]}
+  }
+  const appDocument = documentRef.current!
   const srcdoc = useMemo(
-    () => buildSrcdoc(config, grants ? grants.split(',') : [], dark),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [config.html, config.css, config.js, grants, dark],
+    () => buildSrcdoc(appDocument.config, appDocument.grants, appDocument.dark),
+    [appDocument],
   )
   useEffect(() => setError(''), [config.html, config.css, config.js])
 
@@ -245,9 +261,15 @@ function AppBlock({instance, config, host}: ComponentProps<AppConfig>) {
         setError(String(request.message ?? '未知错误').slice(0, 500))
         return
       }
+      const requestDocument = documentRef.current
+      const reply = (payload: {result?: unknown; error?: string}) => {
+        // 源码或权限变化已重建文档时，旧请求不能回复到新一轮同编号调用。
+        if (documentRef.current !== requestDocument) return
+        frame.current?.contentWindow?.postMessage({tada: 1, id: request.id, ...payload}, '*')
+      }
       handle(request, instance.id, hostRef.current).then(
-        (result) => frame.current?.contentWindow?.postMessage({tada: 1, id: request.id, result}, '*'),
-        (error: Error) => frame.current?.contentWindow?.postMessage({tada: 1, id: request.id, error: error.message}, '*'),
+        (result) => reply({result}),
+        (error: Error) => reply({error: error.message}),
       )
     }
     window.addEventListener('message', onMessage)

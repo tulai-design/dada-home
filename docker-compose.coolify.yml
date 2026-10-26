@@ -16,6 +16,8 @@ services:
       - UMAMI_WEBSITE_ID=${UMAMI_WEBSITE_ID:-}
       - UMAMI_SRC=${UMAMI_SRC:-https://cloud.umami.is/script.js}
       - UMAMI_DOMAINS=${UMAMI_DOMAINS:-}
+      # 可选取数域名列表；空值允许公共 HTTP/HTTPS，始终禁止本机及内网。
+      - PROXY_ALLOWED_HOSTS=${PROXY_ALLOWED_HOSTS:-}
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
       interval: 30s

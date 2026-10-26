@@ -7,13 +7,14 @@ import { sanitizeHtml } from '../lib/rss'
 import { relativeTime } from '../lib/date'
 import { streamText, type ChatMessage } from '../lib/ai'
 import type { AiConfig } from '../lib/types'
+import {articleContext, summaryUnavailableReason} from '../lib/articleContext'
 
 type Props = {
   article: Article | null
   ai: AiConfig
   onClose: () => void
   onMarkRead: (id: string) => void
-  onAskAi: (prompt: string) => void
+  onAskAi: (article: Article) => void
   onOpenSettings: () => void
 }
 
@@ -37,7 +38,13 @@ export function Reader({ article, ai, onClose, onMarkRead, onAskAi, onOpenSettin
     setSummary('')
     setError('')
     setSummarizing(false)
+    setCopied(false)
     abort.current?.abort()
+    abort.current = null
+    return () => {
+      abort.current?.abort()
+      abort.current = null
+    }
   }, [article?.id])
 
   if (!article) return null
@@ -45,6 +52,11 @@ export function Reader({ article, ai, onClose, onMarkRead, onAskAi, onOpenSettin
   const aiConfigured = Boolean(ai.baseUrl.trim() && ai.model.trim())
 
   const runSummary = async () => {
+    const unavailable = summaryUnavailableReason(article)
+    if (unavailable) {
+      setError(unavailable)
+      return
+    }
     if (!aiConfigured) {
       setError('先在设置里填好 AI 接口地址和模型名。')
       return
@@ -52,21 +64,26 @@ export function Reader({ article, ai, onClose, onMarkRead, onAskAi, onOpenSettin
     setSummarizing(true)
     setError('')
     setSummary('')
+    abort.current?.abort()
     const controller = new AbortController()
     abort.current = controller
-    const text = article.content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 7000)
     const messages: ChatMessage[] = [
       {
         role: 'user',
-        content: `请用中文为下面这篇文章写一段摘要。要求：三到五句，先给结论再给要点，不要复述标题，不要加「这篇文章」之类的套话。\n\n标题：${article.title}\n来源：${article.source}\n正文：${text}`,
+        content: `请用中文为下面提供的文章内容写一段简短摘要。最多三到五句，先给结论再给要点，不要复述标题。只概括提供的正文／摘要，不得根据标题推测；内容不足时直接说明。\n\n${articleContext(article)}`,
       },
     ]
     try {
-      await streamText(ai, messages, (chunk) => setSummary((prev) => prev + chunk), controller.signal)
+      await streamText(ai, messages, (chunk) => {
+        if (abort.current === controller && !controller.signal.aborted) setSummary((prev) => prev + chunk)
+      }, controller.signal)
     } catch (err) {
-      if ((err as Error).name !== 'AbortError') setError(err instanceof Error ? err.message : String(err))
+      if (abort.current === controller && !controller.signal.aborted) setError(err instanceof Error ? err.message : String(err))
     } finally {
-      setSummarizing(false)
+      if (abort.current === controller) {
+        abort.current = null
+        setSummarizing(false)
+      }
     }
   }
 
@@ -94,7 +111,7 @@ export function Reader({ article, ai, onClose, onMarkRead, onAskAi, onOpenSettin
             icon={<MessageSquareText size={13} />}
             onClick={() => {
               onMarkRead(article.id)
-              onAskAi(`关于《${article.title}》，我的问题是：`)
+              onAskAi(article)
             }}
           >
             带着这篇文章去问

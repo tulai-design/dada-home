@@ -1,9 +1,9 @@
 import {useRef, useState, type ReactNode} from 'react'
-import {ActionIcon, Modal, Segmented, Text} from '@lobehub/ui'
+import {ActionIcon, Button, Modal, Segmented, Text} from '@lobehub/ui'
 import {ArrowsClockwise, Brain, CaretLeft as ChevronLeft, Database, DownloadSimple as Download, Globe, Heart, Info, Layout as LayoutDashboard, Layout as LayoutTemplate, Palette, SidebarSimple as PanelLeft, Browser as PanelTop, ArrowCounterClockwise as RotateCcw, MagnifyingGlass as Search, UploadSimple as Upload, Sparkle as Sparkles, User} from '@phosphor-icons/react'
 import type {Icon as PhosphorIcon} from '@phosphor-icons/react'
 import {appVisible} from '../lib/market'
-import {defaultWorkspace} from '../lib/ops'
+import {defaultWorkspace, revokeHost} from '../lib/ops'
 import {AppSettingsCtx, listApps, type AppSettingsContext} from '../lib/apps'
 import {PROXY_PRESETS} from '../lib/rss'
 import {useStored} from '../lib/store'
@@ -215,6 +215,13 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, onSection, o
           </Group>
           <Group title="自定义" footer="用 {url} 代表目标地址，例如 /__proxy?url={url}。留空表示直连。">
             <TextRow label="代理模板" stack value={settings.proxy} placeholder="/__proxy?url={url}" onChange={(v) => patch({proxy: v})} />
+          </Group>
+          <Group title="已授权域名" footer="撤销后，自定义组件或应用再次访问这个域名时，需要重新确认。">
+            {ctx.workspace.network.length ? ctx.workspace.network.map((grant) => (
+              <Row key={grant.host} label={grant.host}>
+                <Button size="small" danger aria-label={`撤销 ${grant.host} 的授权`} onClick={() => ctx.edit((ws) => revokeHost(ws, grant.host))}>撤销</Button>
+              </Row>
+            )) : <Row label="还没有授权任何域名" hint="组件需要访问外部数据时，会先请你确认。" />}
           </Group>
         </>
       ),

@@ -12,7 +12,8 @@ import {isAlwaysAllowed} from './permissions'
 import {providerInfo, readSearchConfig, searchReady} from './webSearch'
 import type {Article, Feed, Settings, Todo} from './types'
 import {fetchWeather, geocode} from './weather'
-import {getWorkspace} from './workspaceStore'
+import {commit, getWorkspace} from './workspaceStore'
+import {updateComponent} from './ops'
 import type {HomeToolContext} from './tools'
 
 /**
@@ -100,6 +101,34 @@ function slotFor(type: 'todos' | 'note', ref: string | undefined): Slot {
 }
 
 const todosOf = (id: string) => readData<Todo[]>(id, [])
+
+/** 关注榜单属于组件实例；旧 settings.hotBoards 不再覆盖页面配置。 */
+function hotSlots() {
+  return getWorkspace().pages.flatMap((page) => page.components.filter((c) => c.type === 'hot').map((c) => ({
+    id: c.id,
+    page: page.name,
+    title: c.title || (typeof c.config.heading === 'string' ? c.config.heading : '') || '热榜',
+    boards: typeof c.config.boards === 'string'
+      ? [...new Set(c.config.boards.split(/[,，\s]+/).filter(Boolean))]
+      : [...DEFAULT_HOT_BOARDS],
+  })))
+}
+
+function hotSlotFor(ref?: string, allowMissing = false) {
+  const all = hotSlots()
+  const available = all.map((slot) => `${slot.id}（${slot.page}｜${slot.title}）`).join('、')
+  if (ref) {
+    const hit = all.find((slot) => slot.id === ref)
+    if (!hit) throw new WorkspaceError(`没有这个热榜组件：${ref}。${available ? `现有：${available}` : '页面上还没有热榜组件。'}`)
+    return hit
+  }
+  if (!all.length) {
+    if (allowMissing) return undefined
+    throw new WorkspaceError('页面上还没有热榜组件。先用 add_component 添加 hot，再设置关注榜单。')
+  }
+  if (all.length > 1) throw new WorkspaceError(`有 ${all.length} 个热榜组件，请用 ref 指定：${available}`)
+  return all[0]
+}
 
 function searchLine(): string {
   const config = readSearchConfig()
@@ -241,58 +270,65 @@ export const SITE_TOOLS = [
 
   /* ───── 热榜 ───── */
   define(
-    {schema: {parse: (raw) => ({boards: strList(obj(raw).boards), limit: num(obj(raw).limit)})}, json: {type: 'object', properties: {boards: {type: 'array', items: {type: 'string'}, description: '榜单 id，不填就用用户关注的那几个'}, limit: {type: 'number', description: '每榜几条，默认 10，最多 30'}}}},
+    {schema: {parse: (raw) => ({boards: strList(obj(raw).boards), ref: optStr(obj(raw).ref), limit: num(obj(raw).limit)})}, json: {type: 'object', properties: {boards: {type: 'array', items: {type: 'string'}, description: '榜单 id，不填就读指定热榜组件关注的榜单'}, ref: {type: 'string', description: '热榜组件 id；页面有多个实例且未指定 boards 时必填'}, limit: {type: 'number', description: '每榜几条，默认 10，最多 30'}}}},
     {
       name: 'get_hot',
       title: '查看热榜',
-      description: '实时读取热榜（标题｜热度｜链接）。不指定 boards 时读用户在设置里关注的榜单。榜单 id 用 list_hot_sources 查。',
+      description: '实时读取热榜（标题｜热度｜链接）。不指定 boards 时读实际热榜组件关注的榜单；多个组件时用 ref 选一个。未添加组件时读取默认榜单。榜单 id 和组件 ref 用 list_hot_sources 查。',
       effect: 'read',
       highRisk: () => false,
       execute: (args) =>
         guard(async () => {
           const s = settings()
-          const ids = args.boards.length ? args.boards : s.hotBoards?.length ? s.hotBoards : DEFAULT_HOT_BOARDS
+          const slot = args.ref || !args.boards.length ? hotSlotFor(args.ref, true) : undefined
+          const ids = args.boards.length ? args.boards : slot?.boards ?? DEFAULT_HOT_BOARDS
+          if (!ids.length) return `「${slot?.title ?? '热榜'}」还没有关注榜单，用 set_hot_boards 设置。`
           const boards = await fetchBoards(s.hotSource, ids, s.proxy, Math.min(30, Math.max(1, args.limit ?? 10)))
-          return boards
+          const current = slot ? `「${slot.title}」（${slot.id}｜${slot.page}）\n` : args.boards.length ? '' : '页面尚无热榜组件，以下为默认榜单。\n'
+          return current + boards
             .map((b) => `# ${b.name}（${b.id}）${b.error ? `｜${b.error}` : ''}\n${b.items.map((i, n) => `${n + 1}. ${i.title}${i.heat ? `｜${i.heat}` : ''}${i.url ? `｜${i.url}` : ''}`).join('\n')}`)
             .join('\n\n')
         }),
     },
   ),
   define(
-    {schema: {parse: obj}, json: {type: 'object', properties: {}}},
+    {schema: {parse: (raw) => ({ref: optStr(obj(raw).ref)})}, json: {type: 'object', properties: {ref: {type: 'string', description: '只看某个热榜组件的关注；不填列出所有实例'}}}},
     {
       name: 'list_hot_sources',
       title: '查看可选榜单',
-      description: '列出热榜聚合站提供的全部榜单（id｜名称｜分类），以及用户当前关注的。',
+      description: '列出热榜聚合站提供的全部榜单（id｜名称｜分类），以及页面上各热榜组件的 ref、所在页和实际关注榜单。',
       effect: 'read',
       highRisk: () => false,
-      execute: () =>
+      execute: (args) =>
         guard(async () => {
           const s = settings()
+          const slots = args.ref ? [hotSlotFor(args.ref)!] : hotSlots()
           const sources = await fetchSources(s.hotSource, s.proxy)
-          return `当前关注：${(s.hotBoards ?? []).join('、') || '（默认）'}\n${sources.map((x) => `${x.id}｜${x.name}${x.column ? `｜${x.column}` : ''}`).join('\n')}`
+          const current = slots.length ? slots.map((slot) => `${slot.id}｜${slot.page}｜${slot.title}｜关注：${slot.boards.join('、') || '（未选择）'}`).join('\n') : '页面尚无热榜组件；可先用 add_component 添加 hot。'
+          return `当前热榜组件：\n${current}\n\n可选榜单：\n${sources.map((x) => `${x.id}｜${x.name}${x.column ? `｜${x.column}` : ''}`).join('\n')}`
         }),
     },
   ),
   define(
-    {schema: {parse: (raw) => ({boards: strList(obj(raw).boards)})}, json: {type: 'object', properties: {boards: {type: 'array', items: {type: 'string'}, description: '要关注的榜单 id，最多 12 个，会整体替换'}}, required: ['boards']}},
+    {schema: {parse: (raw) => ({boards: strList(obj(raw).boards), ref: optStr(obj(raw).ref)})}, json: {type: 'object', properties: {boards: {type: 'array', items: {type: 'string'}, description: '要关注的榜单 id，最多 12 个，会整体替换'}, ref: {type: 'string', description: '热榜组件 id；只有一个实例时可不填'}}, required: ['boards']}},
     {
       name: 'set_hot_boards',
       title: '设置关注的热榜',
-      description: '设置热榜页关注哪些榜单（整体替换）。先用 list_hot_sources 确认 id 存在。',
+      description: '设置实际热榜组件关注哪些榜单（整体替换，可撤销）。多个实例时必须用 ref 选定，不会修改其他热榜。先用 list_hot_sources 确认榜单 id 和组件 ref。',
       effect: 'write',
       highRisk: () => false,
       execute: (args) =>
         guard(async () => {
           const ids = [...new Set(args.boards)].slice(0, 12)
           if (!ids.length) throw new WorkspaceError('至少选一个榜单。')
+          const slot = hotSlotFor(args.ref)!
           const s = settings()
           const valid = new Set((await fetchSources(s.hotSource, s.proxy)).map((x) => x.id))
-          const unknown = valid.size ? ids.filter((id) => !valid.has(id)) : []
+          const unknown = ids.filter((id) => !valid.has(id))
           if (unknown.length) throw new WorkspaceError(`这些榜单不存在：${unknown.join('、')}。用 list_hot_sources 看有哪些。`)
-          patchSettings({hotBoards: ids})
-          return `热榜现在关注：${ids.join('、')}。`
+          const result = updateComponent(getWorkspace(), slot.id, {config: {boards: ids.join(',')}})
+          commit(result.workspace)
+          return `「${slot.title}」（${slot.id}｜${slot.page}）现在关注：${ids.join('、')}。`
         }),
     },
   ),

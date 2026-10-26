@@ -2,6 +2,7 @@ import {A, Empty, Flexbox, Text} from '@lobehub/ui'
 import type {ComponentProps} from '../lib/registry'
 import {useResource} from '../lib/resource'
 import {bind, checkUrl, pick, asText, resolveItems, type UrlCheck} from '../lib/customWidget'
+import {proxied} from '../lib/rss'
 import type {CustomWidget} from '../lib/workspace'
 
 /**
@@ -13,7 +14,7 @@ import type {CustomWidget} from '../lib/workspace'
 
 type Loaded =
   | {ok: true; items: Record<string, unknown>[]}
-  | {ok: false; reason: string; needsGrant?: string}
+  | {ok: false; reason: string}
 
 /** 取数：静态直接用，接口走共享资源层（同地址只请求一次）。 */
 function useWidgetData(widget: CustomWidget, grants: readonly string[], proxy: string): {
@@ -27,19 +28,19 @@ function useWidgetData(widget: CustomWidget, grants: readonly string[], proxy: s
   const isHttp = source.kind === 'http'
   const url = isHttp ? source.url : ''
   const check: UrlCheck = isHttp ? checkUrl(url) : {ok: false, reason: '静态数据'}
+  const granted = check.ok && grants.includes(check.host)
 
-  // 接口地址可能带查询参数，key 用完整地址保证不同参数不串数据
-  const key = isHttp ? `custom|${url}|${source.path ?? ''}` : 'custom|static'
+  // 代理和授权变化后重新取数；静态数据不存进远程共享缓存。
+  const key = isHttp ? JSON.stringify(['custom', url, source.path ?? '', proxy, granted]) : 'custom|inactive'
 
   const resource = useResource<Loaded>(
     key,
     async (): Promise<Loaded> => {
-      if (source.kind === 'static') return {ok: true, items: source.items}
+      if (source.kind === 'static') return {ok: true, items: []}
       if (!check.ok) return {ok: false, reason: check.reason}
-      // 未授权就不发请求，把域名带回界面让用户决定
-      if (!grants.includes(check.host)) return {ok: false, reason: '这个地址还没有授权', needsGrant: check.host}
+      if (!granted) return {ok: false, reason: '这个地址还没有授权'}
 
-      const target = proxy ? proxy.replace('{url}', encodeURIComponent(url)) : url
+      const target = proxied(check.url, proxy)
       let response: Response
       try {
         response = await fetch(target, {headers: {accept: 'application/json'}})
@@ -57,16 +58,26 @@ function useWidgetData(widget: CustomWidget, grants: readonly string[], proxy: s
     },
     {
       every: isHttp ? source.every : undefined,
-      enabled: !isHttp || check.ok,
+      enabled: isHttp && check.ok && granted,
     },
   )
+
+  // 保持 hook 调用顺序一致，同时让静态内容随工作空间编辑立即更新。
+  if (source.kind === 'static') {
+    return {items: source.items, loading: false, error: '', refresh: () => {}}
+  }
+  if (!check.ok) {
+    return {items: [], loading: false, error: check.reason, refresh: () => {}}
+  }
+  if (!granted) {
+    return {items: [], loading: false, error: '', needsGrant: check.host, refresh: () => {}}
+  }
 
   const state = resource.data
   return {
     items: state?.ok ? state.items : [],
     loading: resource.loading,
     error: state && !state.ok ? state.reason : resource.error,
-    needsGrant: state && !state.ok ? state.needsGrant : undefined,
     refresh: () => void resource.refresh(),
   }
 }
@@ -103,7 +114,7 @@ export function CustomWidgetView({
         <Text type="secondary" fontSize={12}>
           需要访问 {needsGrant}，还没有授权。
         </Text>
-        <A onClick={() => host.requestNetworkGrant(needsGrant)}>允许访问</A>
+        <A onClick={() => void host.requestNetworkGrant(needsGrant)}>允许访问</A>
       </Flexbox>
     )
   }
@@ -128,9 +139,7 @@ export function CustomWidgetView({
     <Flexbox className="page-pane custom-widget" direction="vertical" gap={8} data-layout={widget.layout}>
       <Flexbox direction="horizontal" align="center" justify="space-between" width="100%">
         <Text as="h2">{widget.name}</Text>
-        <A onClick={refresh} className="custom-refresh">
-          刷新
-        </A>
+        {widget.source.kind === 'http' && <A onClick={refresh} className="custom-refresh">刷新</A>}
       </Flexbox>
       {renderBody(widget, shown)}
     </Flexbox>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { A, ActionIcon, toast } from '@lobehub/ui'
+import { A, ActionIcon, Modal, Text, toast } from '@lobehub/ui'
 import {SquaresFour as LayoutGrid, Monitor, Moon, Palette, ArrowsClockwise as RefreshCw, Rss, Gear as Settings, Sparkle as Sparkles, Sun} from '@phosphor-icons/react'
 import { pageIcon } from './lib/pageIcons'
 import { FROZEN_PAGE_ID, activeTheme } from './lib/workspace'
@@ -27,10 +27,12 @@ import { MonitorPage } from './components/Monitor'
 import { MarketPage } from './components/MarketPage'
 import { isInstalled } from './lib/market'
 import { resetStorage } from './lib/storage'
-import { beginTurn, contextTurns, initChat, useChat, type Turn } from './lib/chat'
+import { beginTurn, contextTurns, initChat, turnContent, useChat, type Turn } from './lib/chat'
+import { articleContext } from './lib/articleContext'
+import { normalizeHost } from './lib/customWidget'
 import type { Article, BookmarkGroup, Feed, Settings as SettingsShape } from './lib/types'
 import type { ComponentHost } from './lib/registry'
-import { useWorkspace } from './lib/workspaceStore'
+import { getWorkspace, useWorkspace } from './lib/workspaceStore'
 import { grantHost, removeComponent, updateComponent } from './lib/ops'
 import { removeData, useComponentData, SHARED } from './lib/componentData'
 import { wallpaperUrl } from './lib/wallpaper'
@@ -78,6 +80,8 @@ export default function App() {
   const [pendingPage, setPendingPage] = useState<string | null>(null)
 
   const [reader, setReader] = useState<Article | null>(null)
+  const [draftArticle, setDraftArticle] = useState<Article | null>(null)
+  const [assistantSeed, setAssistantSeed] = useState({ text: '', key: 0 })
   const [assistantOpen, setAssistantOpen] = useState(false)
   // 对话面板有两种样子：侧栏（快速看一眼）和全屏。
   // 从侧栏图标、⌘J 进来用用户的偏好（默认全屏）；在首页输入框发出的消息先用侧栏，直接看到回答。
@@ -100,6 +104,38 @@ export default function App() {
   const [section, setSection] = useState('profile')
 
   const { workspace, edit } = useWorkspace()
+
+  // 同一域名共享一次确认；其他域名排队，避免并发请求覆盖尚未答复的弹窗。
+  const grantQueue = useRef<{host: string; promise: Promise<boolean>; resolve: (allowed: boolean) => void}[]>([])
+  const [grantPrompt, setGrantPrompt] = useState<string | null>(null)
+  const requestNetworkGrant = useCallback((raw: string): Promise<boolean> => {
+    const host = normalizeHost(raw)
+    if (!host) return Promise.resolve(false)
+    if (getWorkspace().network.some((grant) => grant.host === host)) return Promise.resolve(true)
+    const pending = grantQueue.current.find((item) => item.host === host)
+    if (pending) return pending.promise
+    let resolve!: (allowed: boolean) => void
+    const promise = new Promise<boolean>((settle) => { resolve = settle })
+    grantQueue.current.push({ host, promise, resolve })
+    setGrantPrompt(grantQueue.current[0].host)
+    return promise
+  }, [])
+  const answerNetworkGrant = useCallback((expectedHost: string | null, allowed: boolean) => {
+    const pending = grantQueue.current[0]
+    if (!pending || pending.host !== expectedHost) return
+    grantQueue.current.shift()
+    if (allowed) edit((ws) => grantHost(ws, pending.host))
+    pending.resolve(allowed)
+    setGrantPrompt(grantQueue.current[0]?.host ?? null)
+  }, [edit])
+  useEffect(() => () => {
+    grantQueue.current.splice(0).forEach((pending) => pending.resolve(false))
+  }, [])
+
+  const clearArticleDraft = useCallback(() => {
+    setDraftArticle(null)
+    setAssistantSeed((prev) => ({ text: '', key: prev.key + 1 }))
+  }, [])
 
   const goPage = useCallback(
     (id: string) => {
@@ -197,90 +233,100 @@ export default function App() {
    * 在对话面板里接着问则不传，继续当前对话。
    */
   const ask = useCallback(
-    async (text: string, options?: { fresh?: boolean }) => {
-      await initChat()
-      if (options?.fresh) await newConv()
-      const turn = beginTurn(text)
-      if (!aiConfigured) {
-        setTurns((prev) => [...prev, {...turn, error: '先到设置里填接口地址与模型。', endedAt: Date.now()}])
-        return
-      }
-
-      // 历史按轮展开成消息：只带问答正文，思考过程和工具细节不进上下文
-      const history: ChatMessage[] = contextTurns(options?.fresh ? [] : turns, settings.ai.contextTurns).flatMap((t) => {
-        const items: ChatMessage[] = [{ role: 'user', content: t.prompt }]
-        if (t.answer) items.push({ role: 'assistant', content: t.answer })
-        return items
-      })
-
-      setTurns((prev) => [...prev, turn])
-      setBusy(true)
+    async (text: string, options?: { fresh?: boolean; article?: Article }) => {
+      if (abortRef.current) return
+      // 在任何异步存储操作前占住发送锁，避免新对话尚未就绪时重复发起。
       const controller = new AbortController()
       abortRef.current = controller
-
-      /** 只改这一轮，不碰其它轮。 */
-      const patch = (part: Partial<Turn>) =>
-        setTurns((prev) => prev.map((t) => (t.id === turn.id ? { ...t, ...part } : t)))
-
-      /**
-       * 把确认请求交给界面，等用户点。
-       * 答复函数存进 ref，让界面上的按钮能触发；只 resolve 一次，之后清空。
-       */
-      const onApproval = (request: ApprovalRequest) =>
-        new Promise<boolean | 'always'>((resolve) => {
-          settleRef.current = (approved) => {
-            settleRef.current = null
-            patch({ pending: undefined })
-            resolve(approved)
-          }
-          patch({ pending: { request } })
-        })
-
-      let answer = ''
-      let reasoning = ''
+      setBusy(true)
       try {
-        await runAgent({
-          config: settings.ai,
-          userName: settings.name,
-          messages: [...history, { role: 'user', content: text }],
-          host: { openPage: (next: string) => setPendingPage(next), openSettings: (section?: string) => openSettings(section) },
-          onApproval,
-          onReasoning: (chunk) => {
-            reasoning += chunk
-            patch({ reasoning })
-          },
-          onDelta: (chunk) => {
-            answer += chunk
-            patch({ answer })
-          },
-          onTool: (info) => {
-            setTurns((prev) =>
-              prev.map((t) =>
-                t.id === turn.id
-                  ? { ...t, tools: [...t.tools, { name: info.name, title: info.title, ok: info.ok, text: info.text }] }
-                  : t,
-              ),
-            )
-            // 成功不打扰；失败才提示，细节已在对话里
-            if (!info.ok) toast.error(info.text)
-          },
-          signal: controller.signal,
-        })
-        patch({ endedAt: Date.now() })
-      } catch (err) {
-        if ((err as Error).name === 'AbortError') {
-          patch({ endedAt: Date.now(), aborted: true })
-        } else {
-          const message = err instanceof Error ? err.message : String(err)
-          patch({ endedAt: Date.now(), error: `请求失败：${message}` })
-          toast.error(message)
+        await initChat()
+        if (options?.fresh) await newConv()
+        const turn = beginTurn(text)
+        if (options?.article) {
+          turn.article = { title: options.article.title, link: options.article.link, context: articleContext(options.article) }
         }
+        if (!aiConfigured) {
+          setTurns((prev) => [...prev, {...turn, error: '先到设置里填接口地址与模型。', endedAt: Date.now()}])
+          return
+        }
+
+        // 历史按轮展开成消息：只带问答正文，思考过程和工具细节不进上下文
+        const history: ChatMessage[] = contextTurns(options?.fresh ? [] : turns, settings.ai.contextTurns).flatMap((t) => {
+          const items: ChatMessage[] = [{ role: 'user', content: turnContent(t) }]
+          if (t.answer) items.push({ role: 'assistant', content: t.answer })
+          return items
+        })
+
+        setTurns((prev) => [...prev, turn])
+
+        /** 只改这一轮，不碰其它轮。 */
+        const patch = (part: Partial<Turn>) =>
+          setTurns((prev) => prev.map((t) => (t.id === turn.id ? { ...t, ...part } : t)))
+
+        /**
+         * 把确认请求交给界面，等用户点。
+         * 答复函数存进 ref，让界面上的按钮能触发；只 resolve 一次，之后清空。
+         */
+        const onApproval = (request: ApprovalRequest) =>
+          new Promise<boolean | 'always'>((resolve) => {
+            settleRef.current = (approved) => {
+              settleRef.current = null
+              patch({ pending: undefined })
+              resolve(approved)
+            }
+            patch({ pending: { request } })
+          })
+
+        let answer = ''
+        let reasoning = ''
+        try {
+          await runAgent({
+            config: settings.ai,
+            userName: settings.name,
+            messages: [...history, { role: 'user', content: turnContent(turn) }],
+            host: { openPage: (next: string) => setPendingPage(next), openSettings: (section?: string) => openSettings(section) },
+            onApproval,
+            onReasoning: (chunk) => {
+              reasoning += chunk
+              patch({ reasoning })
+            },
+            onDelta: (chunk) => {
+              answer += chunk
+              patch({ answer })
+            },
+            onTool: (info) => {
+              setTurns((prev) =>
+                prev.map((t) =>
+                  t.id === turn.id
+                    ? { ...t, tools: [...t.tools, { name: info.name, title: info.title, ok: info.ok, text: info.text }] }
+                    : t,
+                ),
+              )
+              // 成功不打扰；失败才提示，细节已在对话里
+              if (!info.ok) toast.error(info.text)
+            },
+            signal: controller.signal,
+          })
+          patch({ endedAt: Date.now() })
+        } catch (err) {
+          if ((err as Error).name === 'AbortError') {
+            patch({ endedAt: Date.now(), aborted: true })
+          } else {
+            const message = err instanceof Error ? err.message : String(err)
+            patch({ endedAt: Date.now(), error: `请求失败：${message}` })
+            toast.error(message)
+          }
+        } finally {
+          // 中止或出错时若有未答复的确认，一并清掉，否则卡片会一直挂着
+          settleRef.current?.(false)
+          patch({ pending: undefined })
+        }
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : String(error))
       } finally {
         setBusy(false)
         abortRef.current = null
-        // 中止或出错时若有未答复的确认，一并清掉，否则卡片会一直挂着
-        settleRef.current?.(false)
-        patch({ pending: undefined })
       }
     },
     [settings.ai, turns, aiConfigured, setTurns, newConv],
@@ -368,8 +414,7 @@ export default function App() {
       search: doSearch,
       monitor: monitorInfo,
       networkGrants: workspace.network.map((grant) => grant.host),
-      // 用户点「允许访问」是明确的主动行为，直接授权，不再二次确认
-      requestNetworkGrant: (host: string) => edit((ws) => grantHost(ws, host)),
+      requestNetworkGrant,
       profile: {
         name: settings.name,
         city: settings.city,
@@ -379,7 +424,7 @@ export default function App() {
         showFavicons: settings.showFavicons,
       },
     }),
-    [settings, readIds, setReadIds, ask, aiConfigured, busy, doSearch, openArticle, edit, workspace.network, openSettings, openMonitor, monitorInfo, openAssistant, assistantMode],
+    [settings, readIds, setReadIds, ask, aiConfigured, busy, doSearch, openArticle, requestNetworkGrant, workspace.network, openSettings, openMonitor, monitorInfo, openAssistant, assistantMode],
   )
 
   const onUpdateConfig = useCallback(
@@ -617,10 +662,15 @@ export default function App() {
           ai={settings.ai}
           onClose={() => setReader(null)}
           onMarkRead={() => undefined}
-          onAskAi={(prompt) => {
+          onAskAi={(article) => {
+            if (busy) {
+              toast.info('搭搭正在回答，请等回答结束后再带入文章。')
+              return
+            }
             setReader(null)
+            setDraftArticle(article)
+            setAssistantSeed((prev) => ({ text: '关于这篇文章，我想问：', key: prev.key + 1 }))
             openAssistant('drawer')
-            void ask(prompt, { fresh: true })
           }}
           onOpenSettings={() => openSettings('ai')}
         />
@@ -634,17 +684,34 @@ export default function App() {
           ready={chat.ready}
           convs={chat.convs}
           convId={chat.convId}
-          onNewConv={() => void chat.newConv()}
-          onOpenConv={(id) => void chat.openConv(id)}
-          onDeleteConv={(id) => void chat.deleteConv(id)}
+          onNewConv={() => { clearArticleDraft(); void chat.newConv() }}
+          onOpenConv={(id) => { clearArticleDraft(); void chat.openConv(id) }}
+          onDeleteConv={(id) => { if (id === chat.convId) clearArticleDraft(); void chat.deleteConv(id) }}
           busy={busy}
-          seed={{ text: '', key: 0 }}
-          onSend={(text) => void ask(text)}
+          seed={assistantSeed}
+          articleTitle={draftArticle?.title}
+          onRemoveArticle={() => setDraftArticle(null)}
+          onSend={(text) => {
+            void ask(text, draftArticle ? { fresh: true, article: draftArticle } : undefined)
+            setDraftArticle(null)
+          }}
           onStop={() => abortRef.current?.abort()}
           onClose={() => setAssistantOpen(false)}
           onOpenSettings={() => openSettings('ai')}
           onApprovalAnswer={answerApproval}
         />
+
+        <Modal
+          key={grantPrompt}
+          open={Boolean(grantPrompt)}
+          title="允许访问外部数据？"
+          okText="允许这个域名"
+          cancelText="拒绝"
+          onOk={() => answerNetworkGrant(grantPrompt, true)}
+          onCancel={() => answerNetworkGrant(grantPrompt, false)}
+        >
+          <Text>自定义组件或应用希望从 <strong>{grantPrompt}</strong> 获取数据。允许后会记住此域名，可以在「设置 → 网络」中撤销授权。</Text>
+        </Modal>
 
         <PageSwitcher
           open={switcherOpen}

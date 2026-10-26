@@ -25,6 +25,8 @@ type Props = {
   onDeleteConv: (id: string) => void
   busy: boolean
   seed: {text: string; key: number}
+  articleTitle?: string
+  onRemoveArticle: () => void
   onSend: (text: string) => void
   onStop: () => void
   onClose: () => void
@@ -38,7 +40,7 @@ const FOLLOW_THRESHOLD = 120
 /** 一次渲染多少轮。 */
 const PAGE = 40
 
-export function Assistant({open, mode, onMode, ai, turns, ready, convs, convId, onNewConv, onOpenConv, onDeleteConv, busy, seed, onSend, onStop, onClose, onOpenSettings, onApprovalAnswer}: Props) {
+export function Assistant({open, mode, onMode, ai, turns, ready, convs, convId, onNewConv, onOpenConv, onDeleteConv, busy, seed, articleTitle, onRemoveArticle, onSend, onStop, onClose, onOpenSettings, onApprovalAnswer}: Props) {
   const [input, setInput] = useState('')
   const logRef = useRef<HTMLDivElement>(null)
   const followRef = useRef(true)
@@ -52,9 +54,11 @@ export function Assistant({open, mode, onMode, ai, turns, ready, convs, convId, 
   const visible = turns.length > shown ? turns.slice(-shown) : turns
   const hiddenCount = turns.length - visible.length
   const configured = Boolean(ai.baseUrl.trim() && ai.model.trim())
+  const consumedSeed = useRef(seed.key)
 
   useEffect(() => {
-    if (!open || !seed.text) return
+    if (!open || consumedSeed.current === seed.key) return
+    consumedSeed.current = seed.key
     setInput(seed.text)
   }, [seed.key, open, seed.text])
 
@@ -176,13 +180,19 @@ export function Assistant({open, mode, onMode, ai, turns, ready, convs, convId, 
           </Button>
         )}
 
+        {articleTitle && (
+          <div className="chat-article" role="status">
+            <div><Text type="secondary" fontSize={12}>随问题发送的文章</Text><div>{articleTitle}</div></div>
+            <ActionIcon icon={X} title="移除文章" onClick={onRemoveArticle} />
+          </div>
+        )}
         <Composer
           value={input}
           onChange={setInput}
           onSend={submit}
           onStop={onStop}
           busy={busy}
-          placeholder={configured ? '问点什么，或者让搭搭动手做点事' : '先配置模型'}
+          placeholder={configured ? (articleTitle ? '输入你想问这篇文章的问题' : '问点什么，或者让搭搭动手做点事') : '先配置模型'}
           hint={configured ? ai.model : '未配置模型'}
           model={configured ? ai.model : undefined}
         />
@@ -271,6 +281,7 @@ function TurnView({turn, busy, onApprovalAnswer}: {turn: Turn; busy: boolean; on
 
   return (
     <div className="turn" id={`turn-${turn.id}`}>
+      {turn.article && <div className="turn-article">参考文章：{turn.article.title}</div>}
       <p className="turn-ask">{turn.prompt}</p>
 
       {turn.reasoning && (

@@ -71,7 +71,7 @@ export type ComponentHost = {
   /** 已授权可访问的域名列表（自定义组件的网络取数用）。 */
   networkGrants: string[]
   /** 请求用户授权一个域名；用户同意后写入工作空间。 */
-  requestNetworkGrant: (host: string) => void
+  requestNetworkGrant: (host: string) => Promise<boolean>
   /** 监控接入的实时概况，状态条和监控组件用。 */
   monitor: {online: number; total: number; tone: 'ok' | 'err' | 'loading' | ''; items: {id: string; name: string; tone: 'ok' | 'err' | 'loading' | ''; text: string}[]}
   /** 全局设置里组件需要读的部分。 */
