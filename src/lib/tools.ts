@@ -863,7 +863,7 @@ export const HOME_TOOLS = [
           look: {
             type: 'object',
             description:
-              '外观：{variant, tone, titleSize, animation, css}。css 写纯属性声明，例如 "border-radius: 18px; box-shadow: 0 8px 30px rgb(0 0 0 / 12%)"；不要写选择器和花括号。',
+              '外观：{variant, tone, titleSize, animation, css}。css 写纯属性声明，例如 "background: var(--bg2); color: var(--text); border-radius: var(--radius)"；颜色和圆角沿用主题变量，不写选择器和花括号。',
             properties: {
               variant: {type: 'string', enum: ['plain', 'card', 'accent', 'quiet']},
               tone: {type: 'string', enum: ['neutral', 'main', 'green', 'blue', 'amber', 'violet']},
@@ -882,9 +882,9 @@ export const HOME_TOOLS = [
       description: [
         '改单个组件的样式，不改内容和数据。两种用法：',
         '1. 预设档位：variant（plain 无边框 / card 卡片 / accent 左侧彩条 / quiet 淡底）、tone（强调色）、titleSize（标题字号）、animation（预置动画）',
-        '2. 自定义 CSS：css 字段写纯属性声明，例如 "background: linear-gradient(135deg,#f6d365,#fda085); border-radius: 20px; box-shadow: 0 10px 40px rgb(0 0 0 / 15%)"。',
+        '2. 自定义 CSS：css 字段写纯属性声明，例如 "background: var(--bg2); color: var(--text); padding: 16px; border-radius: var(--radius)"。先沿用主题，不默认添加大圆角、重阴影或固定配色。',
         '   只作用于这一块，不要写选择器、花括号、@import、url(http...)。',
-        '想做出独特的视觉效果时用 css；只要统一感时用预设档位。',
+        '优先通过内容层级、间距和预设档位调整；确需局部样式时再用 css。按实际容器布局，并核对浅色、深色两种模式。',
       ].join('\n'),
       effect: 'write',
       highRisk: () => false,
@@ -961,7 +961,7 @@ export const HOME_TOOLS = [
     },
   ),
 
-  // ───── 素材库：炫酷效果 ─────
+  // ───── 素材库：特效 ─────
   define(
     {
       schema: {parse: (raw) => ({id: optStr(obj(raw).id), kind: optStr(obj(raw).kind)})},
@@ -977,14 +977,15 @@ export const HOME_TOOLS = [
       name: 'list_effects',
       title: '查看特效素材库',
       description: [
-        '素材库里有二十多种现成的炫酷效果（来自 React Bits 和 Spline），你可以像搭积木一样自由组合。不带参数先看概览；要用某个效果，再带 id 查完整参数。',
+        '素材库提供已注册的 React Bits 本地效果与 Spline 场景入口。先确定内容主次与用户想要的氛围，再按需选择；不带参数看概览，要用某个效果再带 id 查完整参数。',
         '类别：',
         '  background  动态背景（极光、丝绸、光束、星系、虹彩、液态金属、光球、粒子、丝线、波纹线、点阵）→ 用 set_page_layers 铺满整页，或 add_component(type:"fx") 做成横幅块',
         '  text        会动的文字（分字入场、模糊显影、流光、渐变、解码、打字机、轮播词、数字滚动、毛边故障字、滚动字幕）→ add_component(type:"fx")',
         '  card        带光效的卡片（聚光、扫光）→ add_component(type:"fx")',
         '  overlay     整页质感层（胶片颗粒、点击火花）→ 只能 set_page_layers',
         '  scene       Spline 3D 场景 → 整页图层或横幅块',
-        '组装思路：整页背景图层（1~2 层）+ 一个大标题特效块 + 若干信息组件。图层最多 3 层，别叠太多，保持可读。',
+        '默认建议：一个主要视觉效果即可，不必同时添加动态背景和动态标题；信息密集页面优先静态或低干扰装饰。最多 3 个图层只是数量上限，不是性能保证，内容块中的效果也要一起考虑。',
+        '适配手机、抽屉和 AI 分栏的实际容器宽度；不依赖悬停才能读到内容。只能依据目录明确披露的信息判断浅深色、减少动画与失败处理；未说明的能力视为未知，不声称已核对或统一适配。Spline 只在用户明确需要 3D 时使用。',
       ].join('\n'),
       effect: 'read',
       highRisk: () => false,
@@ -1030,7 +1031,7 @@ export const HOME_TOOLS = [
       name: 'set_page_layers',
       title: '设置页面特效图层',
       description:
-        '给整页铺动态背景或叠质感层，整体替换该页现有图层。例如 [{"effect":"aurora","params":{"colorStops":["#ff5a3c","#ffb86b","#7c5cff"]}},{"effect":"noise"}]。文字、卡片类效果不能当图层，请用 add_component(type:"fx")。设置后用户立刻能看到。',
+        '给整页设置背景或质感层，整体替换该页现有图层。例如 [{"effect":"waves","params":{"speed":0.5}}]。先读取现有图层，保留仍需要的效果；不要默认叠加多个持续动画。文字、卡片类效果不能当图层，请用 add_component(type:"fx")。设置会立即应用，成功仅表示配置已写入，不代表已完成视觉验证。',
       effect: 'write',
       highRisk: () => false,
       execute: (args) =>

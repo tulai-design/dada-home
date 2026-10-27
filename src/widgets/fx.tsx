@@ -64,7 +64,7 @@ registerComponent<FxConfig>({
   type: 'fx',
   name: '特效块',
   description:
-    '素材库里的任意效果作为一个内容块：动态背景横幅、会动的大标题/数字/字幕、聚光卡片、Spline 3D。先用 list_effects 查看可用效果和参数，再用 add_component(type:"fx", config:{effect, text, height, params}) 添加。可以反复叠加多个块来组装炫酷的页面。',
+    '将素材库中支持内容块的效果用于横幅、标题/数字/字幕、光效卡片或 Spline 场景。先用 list_effects 查看效果和参数，再用 add_component(type:"fx", config:{effect, text, height, params}) 添加。根据内容主次按需使用，同页背景和效果块一起考虑；不默认叠加多个持续动画，窄容器仍须保持文字与操作可用。',
   category: 'content',
   defaultConfig: {effect: 'split-text', text: '', height: 0, params: {}},
   configSchema: {

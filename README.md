@@ -8,6 +8,8 @@
 
 搭搭采用本地优先的数据存储，不依赖应用后端；AI 接口、联网搜索和跨设备同步由你选择和配置。
 
+开发入口：[文档中心](docs/README.md) · [领域术语](GLOSSARY.md) · [任务与技能工作流](docs/agents/workflow.md) · [AI 搭建增强计划](docs/work/milestones/2026-10-27-ai-builder.md)。
+
 ## 项目现状
 
 当前版本已实现数据化页面、统一组件协议、AI 工具调用、主题与模板库，仍在持续完善功能和使用体验。

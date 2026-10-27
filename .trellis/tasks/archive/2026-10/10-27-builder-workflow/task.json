@@ -1,0 +1,31 @@
+{
+  "id": "builder-workflow",
+  "name": "builder-workflow",
+  "title": "建立项目工作流和文档基线",
+  "description": "后续会话可通过统一文档入口恢复产品事实、任务状态与编码约束。",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P1",
+  "creator": "ROYIANS",
+  "assignee": "ROYIANS",
+  "createdAt": "2026-10-27",
+  "completedAt": "2026-10-27",
+  "branch": "main",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "00-bootstrap-guidelines"
+  ],
+  "parent": "10-27-ai-builder",
+  "relatedFiles": [],
+  "notes": "2026-10-27 已完成本任务验收；未提交，按main直接开发，无PR。证据见 verification.md。",
+  "meta": {
+    "blocked_by": [],
+    "planning_depth": "execution-ready"
+  }
+}

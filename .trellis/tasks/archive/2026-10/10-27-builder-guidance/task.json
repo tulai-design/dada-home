@@ -1,0 +1,29 @@
+{
+  "id": "builder-guidance",
+  "name": "builder-guidance",
+  "title": "统一 AI 设计指引与工具示例",
+  "description": "消除大圆角、重阴影、固定色和叠加特效的矛盾引导。",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P1",
+  "creator": "ROYIANS",
+  "assignee": "ROYIANS",
+  "createdAt": "2026-10-27",
+  "completedAt": "2026-10-27",
+  "branch": "main",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-27-ai-builder",
+  "relatedFiles": [],
+  "notes": "2026-10-27 已完成本任务验收；未提交，按main直接开发，无PR。证据见 verification.md。",
+  "meta": {
+    "blocked_by": [],
+    "planning_depth": "execution-ready"
+  }
+}

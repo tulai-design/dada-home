@@ -1,0 +1,36 @@
+# 执行地图
+
+## 任务图
+
+父任务负责本地图和最后集成；每个子任务有独立 PRD 与验收。任务状态以各 task.json 为准，归档目录仍保留原 task id。
+
+| 任务 | 交付 | Blocked by |
+| --- | --- | --- |
+| `10-27-builder-workflow` | 建立项目工作流和文档基线 | 无 |
+| `10-27-builder-guidance` | 统一 AI 设计指引与工具示例 | 无 |
+| `10-27-effect-policy` | 约束页面特效组合与运行质量 | `10-27-builder-guidance` |
+| `10-27-effect-theme-fallback` | 特效双主题配色与静态内容降级 | `10-27-effect-policy` |
+| `10-27-page-inspector` | 为 AI 提供真实页面检查反馈 | 无 |
+| `10-27-page-sections` | 响应式首页布局积木 | 无 |
+| `10-27-homepage-recipes` | 首页组合与草稿预览应用 | `10-27-page-sections`、`10-27-page-inspector`、`10-27-effect-theme-fallback` |
+| `10-27-applet-charts` | 增强 Applet 数据图表能力 | 无 |
+| `10-27-applet-data-table` | 增强 Applet 数据管理能力 | 无 |
+
+## 当前批次
+
+- [x] 初始化工作流、完成文档和源码约束、校验上下文。
+- [x] 修正 AI 工具示例与设计指引，运行现有回归。
+- [x] 两轴审查并归档本轮已验收子任务，记录未提交状态。
+
+## 后续批次
+
+1. 效果策略贯通目录→写入→渲染，再做主题/内容降级；检查器可以并行。
+2. 响应式布局积木→四类首页组合与草稿应用，结合第一批检查能力验收。
+3. 图表和数据列表分别选定版本、封装目录、做完整小工具示例。
+
+## 验证
+
+本机 pnpm：`/Users/xiaomengdao/.nvm/versions/node/v24.11.0/bin/pnpm`。
+按子任务运行现有针对性脚本、`exec tsc --noEmit` 和必要的 `test`/`build`；build 子进程 PATH 也优先本机路径。文档检查任务关系、上下文、Markdown本地链接和workflow phase提取。UI任务增加实际浏览器证据。
+
+父任务最终做全范围需求审查和组合场景验证；一批通过不等于父任务完成。

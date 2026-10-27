@@ -1,0 +1,29 @@
+{
+  "id": "applet-data-table",
+  "name": "applet-data-table",
+  "title": "增强 Applet 数据管理能力",
+  "description": "在简单 Table 之外提供筛选、排序、分页和窄屏详情。",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "ROYIANS",
+  "assignee": "ROYIANS",
+  "createdAt": "2026-10-27",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-27-ai-builder",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "blocked_by": [],
+    "planning_depth": "behavior-defined; design-required-before-start"
+  }
+}

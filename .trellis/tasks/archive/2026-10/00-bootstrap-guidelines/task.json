@@ -1,0 +1,28 @@
+{
+  "id": "00-bootstrap-guidelines",
+  "name": "00-bootstrap-guidelines",
+  "title": "初始化项目源码规范",
+  "description": "用真实搭搭源码填充前端、AI、取数代理与跨层规范；由工作流基线任务统一验收。",
+  "status": "completed",
+  "dev_type": "docs",
+  "scope": null,
+  "package": null,
+  "priority": "P1",
+  "creator": "ROYIANS",
+  "assignee": "ROYIANS",
+  "createdAt": "2026-10-27",
+  "completedAt": "2026-10-27",
+  "branch": null,
+  "base_branch": null,
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-27-builder-workflow",
+  "relatedFiles": [
+    ".trellis/spec/"
+  ],
+  "notes": "First-time setup task created by trellis init (frontend project)",
+  "meta": {}
+}
