@@ -1,10 +1,10 @@
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ActionIcon, Badge, Button } from '@lobehub/ui'
-import {DotsThree as Ellipsis, SquaresFour as LayoutGrid, Monitor, Gear as Settings, Sparkle as Sparkles} from '@phosphor-icons/react'
+import {AppWindow, DotsThree as Ellipsis, SquaresFour as LayoutGrid, Monitor, Gear as Settings, Sparkle as Sparkles} from '@phosphor-icons/react'
 import { scopeDockCss, DEFAULT_DOCK_PRESET, type DockStyle } from '../lib/dock'
 import { pageIcon } from '../lib/pageIcons'
 import { useIsMobile } from '../lib/useMedia'
-import { FROZEN_PAGE_ID, type Page } from '../lib/workspace'
+import { FROZEN_PAGE_ID, type GeneratedApplication, type Page } from '../lib/workspace'
 
 /** 一个导航项占的高度（含间距），dock.css 里是 --dock-pitch，量不到就用这个。 */
 const SLOT_PITCH = 48
@@ -13,7 +13,7 @@ const MOBILE_SLOT_WIDTH = 56
 /** 手机底栏最宽 380，两侧各留 12。 */
 const MOBILE_DOCK_MAX = 380
 
-type View = 'page' | 'settings' | 'monitor' | 'market'
+type View = 'page' | 'settings' | 'monitor' | 'market' | 'application'
 
 /**
  * Dock：电脑上是左侧悬浮的一列，手机上是底部悬浮的一排。只有图标，名字在提示里。
@@ -21,8 +21,8 @@ type View = 'page' | 'settings' | 'monitor' | 'market'
  * 也可以换预设，或者让搭搭写一份全新的 CSS（lib/dock.ts）。
  *
  *   ┌ 首页                     固定：始终第一个，不可改
- *   │ 页面 …                   可编辑：按顺序排，放不下的自动收进「更多」
- *   │ 更多                     打开「全部页面」切换器
+ *   │ 页面 / 固定应用 …        按顺序排，放不下的自动收进「更多」
+ *   │ 更多                     查看所有页面和固定应用
  *   └ AI / 监控* / 市场 / 设置   固定（* 监控装了才有）
  *
  * 页面很多时不靠滚动条：量一下中间区域能放几项，放不下的折进「更多」，
@@ -42,15 +42,21 @@ export function Rail({
   monitorInstalled,
   badges,
   assistantBusy,
+  applications = [],
+  applicationId,
+  onApplication,
 }: {
   pages: Page[]
+  applications?: GeneratedApplication[]
+  applicationId?: string
+  onApplication?: (id: string) => void
   page: string
   /** 画布当前显示的是页面还是系统页 */
   view?: View
   /** Dock 样式；不传就是默认的拟态液体玻璃 */
   dock?: DockStyle
   onPage: (id: string) => void
-  /** 打开「全部页面」切换器 */
+  /** 打开所有页面和固定应用的切换器 */
   onMore: () => void
   onAssistant: () => void
   /** AI 正在工作，入口上显示一个提示点 */
@@ -64,7 +70,13 @@ export function Rail({
   badges?: Record<string, number>
 }) {
   const home = pages.find((item) => item.id === FROZEN_PAGE_ID) ?? pages[0]
-  const rest = useMemo(() => pages.filter((item) => item.id !== home?.id), [pages, home])
+  const rest = useMemo(() => [
+    ...pages.filter((item) => item.id !== home?.id && item.dock !== false),
+    ...applications.filter((item) => item.dock).map((item) => ({id:`application:${item.id}`,name:item.instance.title || '应用',label:item.instance.title || '应用',components:[],applicationId:item.id})),
+  ] as (Page & {applicationId?: string})[], [pages, home, applications])
+  const selectedId = applicationId ? `application:${applicationId}` : page
+  const navigationCount = pages.length + applications.filter((item) => item.dock).length
+  const hasUnpinnedPages = pages.some((item) => item.id !== home?.id && item.dock === false)
 
   const mobile = useIsMobile()
   const shellRef = useRef<HTMLElement>(null)
@@ -159,12 +171,12 @@ export function Rail({
   useLayoutEffect(placeGlider)
 
   // 放得下就全放；放不下留一格给「更多」，并保证当前页可见
-  const overflow = rest.length > capacity
+  const overflow = rest.length + (hasUnpinnedPages ? 1 : 0) > capacity
   let shown = rest
   if (overflow) {
     const slots = Math.max(0, capacity - 1)
     shown = rest.slice(0, slots)
-    const active = rest.findIndex((item) => item.id === page)
+    const active = rest.findIndex((item) => item.id === selectedId)
     if (active >= slots && slots > 0) shown = [...shown.slice(0, slots - 1), rest[active]]
     else if (active >= slots) shown = [rest[active]].slice(0, slots)
   }
@@ -198,8 +210,8 @@ export function Rail({
     )
   }
 
-  const pageEntry = (item: Page) =>
-    entry(item.id, item.name, pageIcon(item.icon), view === 'page' && page === item.id, () => onPage(item.id), { count: badges?.[item.id] })
+  const pageEntry = (item: Page & {applicationId?: string}) =>
+    entry(item.id, item.name, item.applicationId ? AppWindow : pageIcon(item.icon), item.applicationId ? applicationId === item.applicationId : !applicationId && view === 'page' && page === item.id, () => item.applicationId ? onApplication?.(item.applicationId) : onPage(item.id), { count: badges?.[item.id] })
 
   // 手机：页面放不下的收进「更多」，那里也有市场、监控、设置
   let top: ReactNode
@@ -210,7 +222,7 @@ export function Rail({
     let tabs = rest
     if (rest.length > slots) {
       tabs = rest.slice(0, slots)
-      const active = rest.findIndex((item) => item.id === page)
+      const active = rest.findIndex((item) => item.id === selectedId)
       if (active >= slots && slots > 0) tabs = [...tabs.slice(0, slots - 1), rest[active]]
       else if (active >= slots) tabs = []
     }
@@ -219,7 +231,7 @@ export function Rail({
     bottom = (
       <>
         {entry('ai', '搭搭 AI', Sparkles, false, onAssistant, { busy: assistantBusy })}
-        {entry('more', '更多', Ellipsis, view !== 'page' && view !== undefined, onMore)}
+        {entry('more', `更多（${navigationCount} 个页面与应用）`, Ellipsis, view !== 'page' && view !== undefined, onMore)}
       </>
     )
   } else {
@@ -227,7 +239,7 @@ export function Rail({
     mid = (
       <>
         {shown.map(pageEntry)}
-        {(overflow || hidden > 0) && entry('more', `全部页面（${pages.length}）`, Ellipsis, false, onMore)}
+        {(overflow || hidden > 0 || hasUnpinnedPages) && entry('more', `页面与应用（${navigationCount}）`, Ellipsis, false, onMore)}
       </>
     )
     bottom = (

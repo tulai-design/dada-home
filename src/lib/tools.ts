@@ -11,6 +11,8 @@ import {NO_EXTENSION_HINT, SYNC_FOLDER, call, detect, importFromBrowser, listBro
 import {addBookmarks, countBookmarks, getBookmarks, removeBookmarks, removeGroup, renameGroup, setBookmarks, updateBookmark} from './bookmarks'
 import {activeTheme} from './workspace'
 import {getAppearance, resetAppearance} from './appearance'
+import {createApplication, updateApplication, configureApplication, findApplication, listApplications, mountApplication, removeApplication} from './applications'
+import type {ApplicationOpenMode} from './workspace'
 import {PRESETS} from './presets'
 import {MEMORY_KINDS, addMemory, aiEditSoul, getPersona, removeMemory} from './persona'
 import {isSynced, summarize} from './templates'
@@ -34,6 +36,8 @@ export type ToolHost = {
   openPage: (pageId: string) => void
   /** 打开设置页的某一项（不改数据）。 */
   openSettings?: (section?: string) => void
+  /** 从应用目录打开，展示位置不改变安装记录。 */
+  openApplication?: (id: string, mode?: ApplicationOpenMode) => void
 }
 
 export type HomeToolContext = ToolContext<void> & ToolHost
@@ -50,6 +54,29 @@ const themeVars = (value: unknown, field: string): Record<string, unknown> | nul
   if (value === undefined || value === null) return value
   if (typeof value !== 'object' || Array.isArray(value)) throw new WorkspaceError(`${field} 必须是 CSS 变量对象或 null`)
   return value as Record<string, unknown>
+}
+const applicationPatch = (raw: unknown) => {
+  const value = obj(raw)
+  for (const key of ['dock', 'status'] as const) if (value[key] !== undefined && typeof value[key] !== 'boolean') throw new WorkspaceError(`${key} 必须是布尔值`)
+  return {
+    title: optStr(value.title), description: typeof value.description === 'string' ? value.description : undefined,
+    group: typeof value.group === 'string' ? value.group : undefined,
+    openMode: optStr(value.openMode), dock: value.dock as boolean | undefined, status: value.status as boolean | undefined,
+    statusMode: optStr(value.statusMode),
+    settingsSchema: value.settingsSchema, settings: value.settings, span: optStr(value.span),
+  }
+}
+const applicationProperties = {
+  title: {type: 'string', description: '应用名称，不超过 24 字'},
+  description: {type: 'string', description: '用途说明'},
+  group: {type: 'string', description: '应用分组，例如 效率、生活、开发；空字符串取消分组'},
+  openMode: {type: 'string', enum: ['modal', 'drawer', 'page'], description: '从市场、Dock 或状态栏打开的形式，默认 modal 弹窗；drawer 抽屉；page 全页面'},
+  dock: {type: 'boolean', description: '是否固定到左侧 Dock，默认 false，按用户需要开启'},
+  status: {type: 'boolean', description: '是否显示在顶部状态栏，默认 false，显示方式由 statusMode 决定'},
+  statusMode: {type: 'string', enum: ['launcher', 'compact'], description: '默认 launcher 只显示打开入口；compact 运行真实紧凑视图。只有源码显式处理 ctx.surface === "status" / tada.surface === "status" 并返回单行窄界面才启用 compact。主窗口或可见页面小组件运行时状态栏自动回退入口，避免同一应用并发写数据'},
+  settingsSchema: {type: 'object', description: '用户设置字段：{key:{kind:"string"|"number"|"boolean"|"select",label,description?,default?,min?,max?,options?:[{value,label}]}}，最多24项。系统自动在设置页生成表单'},
+  settings: {type: 'object', description: '匹配 settingsSchema 的当前设置值；运行时 app 用 tada.settings，applet 用 ctx.settings 读取'},
+  span: {type: 'string', enum: ['full', 'two-thirds', 'half', 'third']},
 }
 
 /** 让一个操作的错误变成给模型看的文字，而不是抛出去中断整轮对话。 */
@@ -117,7 +144,7 @@ export const HOME_TOOLS = [
           .join('\n')
         const status = workspace.statusbar.map((item) => `${item.type} ${JSON.stringify(item.config)}`).join('；') || '（空）'
         const addons = workspace.addons.map((id) => ADDONS.find((a) => a.id === id)?.name ?? id).join('、') || '（无）'
-        return `${pages}\n\n已安装的市场组件：${addons}\n状态条：${status}\nDock：${workspace.dock ? `${workspace.dock.preset}${workspace.dock.css ? ' + 自定义 CSS' : ''}` : '默认（拟态液体玻璃）'}，用 get_dock / set_dock\n主题：${activeTheme(workspace).name}（${activeTheme(workspace).id}）｜明暗 ${workspace.theme.mode}｜主题库 ${workspace.themes.length} 个，用 list_themes 查看\n模板库：我的 ${workspace.templates.length} 个 + 内置预设，用 list_templates 查看\n完整外观（默认样式、背景、组件外观及差异）用 get_appearance 查看；恢复默认外观用 reset_appearance，不要用布局或模板操作替代。`
+        return `${pages}\n\n已安装的市场组件：${addons}\n状态条：${status}\nDock：${workspace.dock ? `${workspace.dock.preset}${workspace.dock.css ? ' + 自定义 CSS' : ''}` : '默认（拟态液体玻璃）'}，用 get_dock / set_dock\n主题：${activeTheme(workspace).name}（${activeTheme(workspace).id}）｜明暗 ${workspace.theme.mode}｜主题库 ${workspace.themes.length} 个，用 list_themes 查看\n模板库：我的 ${workspace.templates.length} 个 + 内置预设，用 list_templates 查看\nAI 应用：${listApplications(workspace).length} 个，用 list_applications 查看源码、分组、入口与设置；默认从组件市场打开。\n完整外观（默认样式、背景、组件外观及差异）用 get_appearance 查看；恢复默认外观用 reset_appearance，不要用布局或模板操作替代。`
       },
     },
   ),
@@ -1019,34 +1046,33 @@ export const HOME_TOOLS = [
     {
       schema: {
         parse: (raw) => ({
-          pageId: str(obj(raw).pageId),
-          title: optStr(obj(raw).title),
+          ...applicationPatch(raw),
+          pageId: optStr(obj(raw).pageId),
           html: typeof obj(raw).html === 'string' ? (obj(raw).html as string) : '',
           css: typeof obj(raw).css === 'string' ? (obj(raw).css as string) : '',
           js: typeof obj(raw).js === 'string' ? (obj(raw).js as string) : '',
           height: num(obj(raw).height),
-          span: optStr(obj(raw).span),
         }),
       },
       json: {
         type: 'object',
         properties: {
-          pageId: {type: 'string'},
-          title: {type: 'string', description: '应用名称，不超过 24 字'},
+          ...applicationProperties,
+          pageId: {type: 'string', description: '可选：挂载为该页小组件；省略则只安装到组件市场，不创建页面或自动进入 Dock'},
           html: {type: 'string', description: 'body 内的 HTML 片段'},
           css: {type: 'string', description: 'CSS'},
           js: {type: 'string', description: 'JavaScript，作为 ES module 运行'},
           height: {type: 'number', description: '高度 px，120~900，默认 320'},
           span: {type: 'string', enum: ['full', 'two-thirds', 'half', 'third']},
         },
-        required: ['pageId', 'html'],
+        required: ['html'],
       },
     },
     {
       name: 'create_app',
       title: '创建沙盒应用',
       description: [
-        '写一个完整的小应用放到页面上：小游戏、Canvas/WebGL/Three.js 场景、需要完全自定义视觉的东西。普通的交互工具（计算器、生成器、记账、待办）请用 create_applet，它用系统控件，风格一致、交互可靠。',
+        '写一个完整的小应用安装进组件市场：小游戏、Canvas/WebGL/Three.js 场景、需要完全自定义视觉的东西。普通的交互工具（计算器、生成器、记账、待办）请用 create_applet，它用系统控件，风格一致、交互可靠。',
         '你写 html（body 内片段）、css、js；运行在隔离 iframe 里，不会影响主页，也读不到主页数据。',
         '',
         '可用能力：',
@@ -1056,6 +1082,9 @@ export const HOME_TOOLS = [
         '  · window.tada.store.get(key) / .set(key, value)：本应用私有的持久存储，Promise，值需可 JSON 化，总共约 100KB。',
         '  · window.tada.fetch(url)：取数，Promise<{ok,status,text,json}>。域名必须先被用户授权，未授权会自动弹出授权请求。应用自己不能直接 fetch/XHR。',
         '  · window.tada.open(url)：新标签打开 https 链接。window.tada.ask(text)：把一句话发给搭搭助手。window.tada.dark：是否深色。',
+        '  · window.tada.settings：只读用户设置；window.tada.surface：当前 widget/modal/drawer/page/status。settingsSchema 定义设置表单，settings 提供值，修改后应用会安全重载，私有持久数据保留。',
+        '默认只安装进组件市场，从市场打开和管理；pageId 可选，给出才挂载为页面小组件。不自动创建页面或 Dock；入口用 dock/status 按需开启，group 管理分组，openMode 选择打开形式。',
+        '顶部状态栏默认 statusMode:"launcher" 只显示启动入口。需要实时状态时，源码必须按 tada.surface === "status" 输出单行窄布局，再启用 status:true,statusMode:"compact"。状态栏高度有限，不能把整页表单塞进去；完整窗口打开时宿主自动暂停紧凑运行，避免同一应用并发写数据。',
         '  · 图片只能来自 data:/blob:、images.unsplash.com 和已授权域名。',
         '',
         '写法建议：先把 html 结构写好，js 里用 const el=document.querySelector(...) 绑事件；动画优先用 requestAnimationFrame；',
@@ -1065,15 +1094,13 @@ export const HOME_TOOLS = [
       highRisk: () => false,
       execute: (args) =>
         guard(() => {
-          const result = ops.addComponent(getWorkspace(), {
-            pageId: args.pageId,
+          const result = createApplication(getWorkspace(), {
+            ...args,
             type: 'app',
-            span: args.span,
-            title: args.title,
             config: {html: args.html, css: args.css, js: args.js, ...(args.height ? {height: args.height} : {})},
           })
-          commit(result.workspace)
-          return `已创建沙盒应用，id=${result.instance.id}。用 update_app 修改。`
+          commit(args.pageId ? mountApplication(result.workspace, result.application.id, args.pageId, args.span) : result.workspace)
+          return `已安装沙盒应用，id=${result.application.id}。可从组件市场打开和设置；用 update_app 修改。`
         }),
     },
   ),
@@ -1081,6 +1108,7 @@ export const HOME_TOOLS = [
     {
       schema: {
         parse: (raw) => ({
+          ...applicationPatch(raw),
           ref: str(obj(raw).ref),
           pageId: optStr(obj(raw).pageId),
           html: typeof obj(raw).html === 'string' ? (obj(raw).html as string) : undefined,
@@ -1092,7 +1120,8 @@ export const HOME_TOOLS = [
       json: {
         type: 'object',
         properties: {
-          ref: {type: 'string', description: '应用的实例 id 或标题'},
+          ...applicationProperties,
+          ref: {type: 'string', description: '应用目录中的 id 或标题，未挂页面也可修改'},
           pageId: {type: 'string'},
           html: {type: 'string', description: '给了就整体替换 html'},
           css: {type: 'string', description: '给了就整体替换 css'},
@@ -1105,17 +1134,17 @@ export const HOME_TOOLS = [
     {
       name: 'update_app',
       title: '修改沙盒应用',
-      description: '修改已有沙盒应用的 html / css / js / 高度。只传要改的字段；传了的字段整体替换。能力和限制同 create_app。',
+      description: '修改应用目录中的沙盒应用源码、高度、打开方式、分组、入口或设置字段，未挂页面也可修改。只传要改的字段；传了的源码整体替换。能力和限制同 create_app。',
       effect: 'write',
       highRisk: () => false,
       execute: (args) =>
         guard(() => {
           const config: Obj = {}
           for (const key of ['html', 'css', 'js', 'height'] as const) if (args[key] !== undefined) config[key] = args[key]
-          const result = ops.updateComponent(getWorkspace(), args.ref, {config}, args.pageId)
-          if (result.instance.type !== 'app') throw new WorkspaceError(`${args.ref} 不是沙盒应用`)
+          if (findApplication(getWorkspace(), args.ref).instance.type !== 'app') throw new WorkspaceError(`${args.ref} 不是沙盒应用`)
+          const result = updateApplication(getWorkspace(), args.ref, {...args, config})
           commit(result.workspace)
-          return `已更新沙盒应用 ${result.instance.id}。`
+          return `已更新沙盒应用 ${result.application.id}。`
         }),
     },
   ),
@@ -1124,21 +1153,20 @@ export const HOME_TOOLS = [
     {
       schema: {
         parse: (raw) => ({
-          pageId: str(obj(raw).pageId),
-          title: optStr(obj(raw).title),
+          ...applicationPatch(raw),
+          pageId: optStr(obj(raw).pageId),
           source: str(obj(raw).source),
-          span: optStr(obj(raw).span),
         }),
       },
       json: {
         type: 'object',
         properties: {
-          pageId: {type: 'string'},
-          title: {type: 'string', description: '小程序名称，不超过 24 字'},
+          ...applicationProperties,
+          pageId: {type: 'string', description: '可选：挂载为该页小组件；不传只安装到组件市场'},
           source: {type: 'string', description: '脚本全文（ES module），里面调用一次 applet({...})'},
           span: {type: 'string', enum: ['full', 'two-thirds', 'half', 'third']},
         },
-        required: ['pageId', 'source'],
+        required: ['source'],
       },
     },
     {
@@ -1148,44 +1176,108 @@ export const HOME_TOOLS = [
         '做有交互的小工具首选：计算器、生成器、记账、待办、换算、抽签、问卷、小看板……',
         '你写的是逻辑（任意 JavaScript）；界面用系统自带的 Lobe 控件拼，所以风格和主页一致、深浅色自动适配、点击输入可靠。不要写 HTML/CSS。',
         '第一次用之前先 use_skill applet，取回完整的积木目录、写法和设计要求；按它写，别凭记忆。',
+        '默认安装进组件市场；pageId 可选，给出才挂载小组件。不自动创建页面或 Dock；group 管分组，openMode 选 modal/drawer/page，dock/status 按需开启。settingsSchema 定义用户设置表单，运行时用 ctx.settings 读取，ctx.surface 得知当前展示位置。',
+        '顶部状态栏默认 statusMode:"launcher" 只显示启动入口；只有 view 显式按 ctx.surface === "status" 返回单行紧凑内容时才启用 status:true,statusMode:"compact"。主窗口或可见页面小组件运行时，宿主自动回退启动入口，保持单实例数据一致。',
         '做游戏、Canvas/WebGL/Three.js、需要完全自定义视觉的东西，才用 create_app。',
       ].join('\n'),
       effect: 'write',
       highRisk: () => false,
       execute: (args) =>
         guard(() => {
-          const result = ops.addComponent(getWorkspace(), {pageId: args.pageId, type: 'applet', span: args.span, title: args.title, config: {source: args.source}})
-          commit(result.workspace)
-          return `已创建小程序，id=${result.instance.id}。如果运行出错，用户会在组件上看到错误并可以让你修复；用 update_applet 修改。`
+          const result = createApplication(getWorkspace(), {...args, type: 'applet', config: {source: args.source}})
+          commit(args.pageId ? mountApplication(result.workspace, result.application.id, args.pageId, args.span) : result.workspace)
+          return `已安装小程序，id=${result.application.id}。可从组件市场打开和设置；用 update_applet 修改。`
         }),
     },
   ),
   define(
     {
-      schema: {parse: (raw) => ({ref: str(obj(raw).ref), pageId: optStr(obj(raw).pageId), source: str(obj(raw).source)})},
+      schema: {parse: (raw) => ({...applicationPatch(raw), ref: str(obj(raw).ref), pageId: optStr(obj(raw).pageId), source: typeof obj(raw).source === 'string' ? obj(raw).source as string : undefined})},
       json: {
         type: 'object',
         properties: {
-          ref: {type: 'string', description: '小程序的实例 id 或标题'},
+          ...applicationProperties,
+          ref: {type: 'string', description: '应用目录中的小程序 id 或标题，未挂页面也可修改'},
           pageId: {type: 'string'},
           source: {type: 'string', description: '新的脚本全文，整体替换'},
         },
-        required: ['ref', 'source'],
+        required: ['ref'],
       },
     },
     {
       name: 'update_applet',
       title: '修改小程序',
-      description: '整体替换已有小程序的脚本。改之前可以先 get_workspace 取回现有源码，在它的基础上改，不要从零重写。写法同 create_applet（先 use_skill applet）。',
+      description: '更新应用目录中的小程序脚本、打开方式、分组、入口或设置。只传要改的项；source 给出时整体替换。改之前用 list_applications 取回现有源码，在它的基础上改。写法同 create_applet（先 use_skill applet）。',
       effect: 'write',
       highRisk: () => false,
       execute: (args) =>
         guard(() => {
-          const result = ops.updateComponent(getWorkspace(), args.ref, {config: {source: args.source}}, args.pageId)
-          if (result.instance.type !== 'applet') throw new WorkspaceError(`${args.ref} 不是小程序`)
+          if (findApplication(getWorkspace(), args.ref).instance.type !== 'applet') throw new WorkspaceError(`${args.ref} 不是小程序`)
+          const result = updateApplication(getWorkspace(), args.ref, {...args, ...(args.source !== undefined ? {config: {source: args.source}} : {})})
           commit(result.workspace)
-          return `已更新小程序 ${result.instance.id}。`
+          return `已更新小程序 ${result.application.id}。`
         }),
+    },
+  ),
+
+  define(
+    {schema: {parse: (raw) => ({ref: optStr(obj(raw).ref), includeSource: obj(raw).includeSource !== false})}, json: {type: 'object', properties: {ref: {type: 'string', description: '可选应用 id 或名称，只查看这一项'}, includeSource: {type: 'boolean', description: '默认 true，返回源码以便修改；只看安装和分组时可 false'}}}},
+    {
+      name: 'list_applications', title: '查看 AI 应用',
+      description: '查看组件市场里全部 AI 应用，含分组、源码、默认打开方式、Dock/顶部入口、设置字段与当前值、页面小组件挂载位置。编辑应用前先读；应用不需要挂到页面也能安装和运行。',
+      effect: 'read', highRisk: () => false,
+      execute: (args) => guard(() => {
+        const workspace = getWorkspace()
+        const applications = args.ref ? [findApplication(workspace, args.ref)] : listApplications(workspace)
+        return JSON.stringify(applications.map((application) => ({
+          ...application,
+          instance: args.includeSource ? application.instance : {...application.instance, config: undefined},
+          mountedPages: workspace.pages.filter((page) => page.components.some((item) => item.id === application.id)).map((page) => ({id: page.id, name: page.name})),
+          settingsSection: `application:${application.id}`,
+        })), null, 2)
+      }),
+    },
+  ),
+  define(
+    {schema: {parse: (raw) => ({ref: str(obj(raw).ref), mode: optStr(obj(raw).mode)})}, json: {type: 'object', properties: {ref: {type: 'string'}, mode: {type: 'string', enum: ['modal', 'drawer', 'page'], description: '本次打开形式，不改默认打开偏好'}}, required: ['ref']}},
+    {
+      name: 'open_application', title: '打开 AI 应用',
+      description: '按应用 id 或名称打开已安装 AI 应用，默认用它的打开方式，可选弹窗 modal、抽屉 drawer、全页面 page。不新建页面、不固定 Dock、不修改应用数据。',
+      effect: 'read', highRisk: () => false,
+      execute: (args, context) => guard(() => {
+        const application = findApplication(getWorkspace(), args.ref)
+        if (args.mode !== undefined && !['modal', 'drawer', 'page'].includes(args.mode)) throw new WorkspaceError('mode 只能是 modal、drawer 或 page')
+        if (!context.openApplication) return '当前视图无法打开应用，请从组件市场进入。'
+        context.openApplication(application.id, args.mode as ApplicationOpenMode | undefined)
+        return `已打开「${application.instance.title}」。`
+      }),
+    },
+  ),
+  define(
+    {schema: {parse: (raw) => ({...applicationPatch(raw), ref: str(obj(raw).ref)})}, json: {type: 'object', properties: {...applicationProperties, ref: {type: 'string'}}, required: ['ref']}},
+    {
+      name: 'configure_application', title: '配置 AI 应用',
+      description: '修改 AI 应用的名称、分组、说明、默认打开方式、Dock/顶部状态栏、用户设置值或设置字段。按用户需要固定入口。settings 按字段合并；源码用 update_app / update_applet。statusMode 默认 launcher，compact 只有源码显式按 surface:"status" 实现单行紧凑视图后才能启用，主窗口或可见小组件运行时自动回退入口。',
+      effect: 'write', highRisk: () => false,
+      execute: (args) => guard(() => {commit(configureApplication(getWorkspace(), args.ref, args)); return '已更新应用配置，可在组件市场与设置页查看。'}),
+    },
+  ),
+  define(
+    {schema: {parse: (raw) => ({ref: str(obj(raw).ref), pageId: obj(raw).pageId === null ? null : str(obj(raw).pageId), span: optStr(obj(raw).span)})}, json: {type: 'object', properties: {ref: {type: 'string'}, pageId: {type: ['string', 'null'], description: '页面 id；传 null 从页面移除小组件，应用仍安装在市场'}, span: applicationProperties.span}, required: ['ref', 'pageId']}},
+    {
+      name: 'mount_application', title: '放置应用小组件',
+      description: '把已安装 AI 应用放到一个页面作为小组件，或 pageId:null 仅取消挂载。保留同一应用 id 和私有数据；一个应用只挂一个页面，避免多份运行状态互相覆盖。',
+      effect: 'write', highRisk: () => false,
+      execute: (args) => guard(() => {commit(mountApplication(getWorkspace(), args.ref, args.pageId, args.span)); return args.pageId === null ? '已取消页面小组件，仍可从市场打开应用。' : '已放置应用小组件。'}),
+    },
+  ),
+  define(
+    {schema: {parse: (raw) => ({ref: str(obj(raw).ref)})}, json: {type: 'object', properties: {ref: {type: 'string'}}, required: ['ref']}},
+    {
+      name: 'uninstall_application', title: '卸载 AI 应用',
+      description: '从组件市场卸载一个 AI 应用，并移除其页面小组件、Dock 和顶部入口。保留本机私有数据，支持撤销找回。卸载前确认用户确实要删除该应用。',
+      effect: 'write', highRisk: () => true,
+      execute: (args) => guard(() => {commit(removeApplication(getWorkspace(), args.ref)); return '已卸载应用，所有入口已移除。可撤销，本机私有数据保留。'}),
     },
   ),
 

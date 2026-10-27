@@ -8,6 +8,7 @@ import {isPageIcon} from './pageIcons'
 import {readDock} from './dock'
 import {ADDONS} from './market'
 import {cleanOverrides, readThemes} from './themes'
+import {isApplicationType, readApplications} from './applications'
 
 /** 旧数据里没有 icon 的页面，按 id 补回当初的图标，别全变成同一个。 */
 const LEGACY_ICONS: Record<string, string> = {home: 'home', feeds: 'newspaper', desk: 'notebook-pen', marks: 'bookmark', hot: 'flame'}
@@ -69,6 +70,7 @@ export function migrate(raw: unknown): Workspace | null {
       ...readPageStyle(page),
       ...readIcon(page),
       ...readLayers(page.layers),
+      ...(typeof page.dock === 'boolean' ? {dock: page.dock} : !Array.isArray(data.applications) && page.id !== FROZEN_PAGE_ID && page.components.length > 0 && page.components.every((item) => item && isApplicationType(item.type)) ? {dock: false} : {}),
     })
   }
   if (!pages.length) return null
@@ -80,9 +82,16 @@ export function migrate(raw: unknown): Workspace | null {
   else if (homeAt > 0) pages.unshift(...pages.splice(homeAt, 1))
   const theme = readThemeState(data)
   const statusbar = readStatusbar(data.statusbar, fallback.statusbar)
+  let statusSlots = Math.max(0, MAX_STATUS_ITEMS - statusbar.length)
+  const applications = readApplications(data.applications, pages).map((application) => application.status && statusSlots-- <= 0 ? {...application, status: false} : application)
+  const canonical = new Map(applications.map((application) => [application.id, application.instance]))
   return {
     version: WORKSPACE_VERSION,
-    pages,
+    pages: pages.map((page) => ({...page, components: page.components.map((item) => {
+      const app = canonical.get(item.id)
+      return app ? {...item, type: app.type, title: app.title, config: app.config} : item
+    })})),
+    applications,
     addons: readAddons((data as { addons?: unknown }).addons, pages, statusbar),
     theme: theme.config,
     themes: theme.themes,
@@ -115,6 +124,7 @@ export function readTemplates(raw: unknown): TemplateEntry[] {
       widgets: snap.widgets,
       statusbar: snap.statusbar,
       addons: snap.addons ?? [],
+      applications: snap.applications,
       layout: snap.layout,
       themes: snap.theme ? [snap.theme] : undefined,
     })
@@ -133,6 +143,7 @@ export function readTemplates(raw: unknown): TemplateEntry[] {
         layout: checked.layout,
         widgets: checked.widgets,
         addons: checked.addons,
+        applications: checked.applications,
         ...(readDock(snap.dock) ? {dock: readDock(snap.dock)} : {}),
         ...(theme ? { theme } : {}),
       },

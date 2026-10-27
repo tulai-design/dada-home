@@ -1,0 +1,68 @@
+/* 应用目录：两级导航、紧凑列表，不使用卡片或列表边框。 */
+.application-catalog { display: flex; height: 100%; min-height: 0; width: 100%; }
+.application-catalog .sys-page { max-width: 1080px; }
+.application-catalog .sys-head { padding-bottom: 28px; }
+.application-catalog .sys-extra { width: 220px; max-width: 42%; }
+.catalog-search { width: 100%; }
+.catalog-tabs { display: flex; align-items: center; gap: 28px; margin: 0 0 24px; }
+.catalog-tabs > button { position: relative; padding: 0 0 10px; border: 0; border-radius: 0; background: none; color: var(--text2); font: 500 15px/1.5 var(--font-sans); cursor: pointer; }
+.catalog-tabs > button[aria-selected='true'] { color: var(--text); font-weight: 600; }
+.catalog-tabs > button[aria-selected='true']::after { content: ''; position: absolute; left: 0; bottom: 0; width: 18px; height: 2px; background: var(--main); }
+.catalog-tabs > button > span { margin-left: 5px; color: var(--text3); font: 11px/1 var(--font-mono); }
+.catalog-groups { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 20px; margin: 0 0 12px; }
+.catalog-groups > button { display: inline-flex; align-items: center; gap: 7px; padding: 5px 0; border: 0; border-radius: 0; background: none; color: var(--text2); font: 12px/1.5 var(--font-sans); cursor: pointer; }
+.catalog-groups > button[aria-pressed='true'] { color: var(--text); font-weight: 600; }
+.catalog-groups > button > span { color: var(--text3); font: 10px/1 var(--font-mono); }
+.catalog-list { display: flex; flex-direction: column; }
+.catalog-row { display: flex; align-items: center; gap: 16px; min-height: 76px; padding: 14px 0; border: 0; border-radius: 0; background: transparent; }
+.catalog-icon { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 40px; width: 40px; height: 40px; border-radius: 4px; background: color-mix(in srgb, currentColor 6%, transparent); color: var(--text2); }
+.catalog-copy { flex: 1; min-width: 0; }
+.catalog-copy h3 { margin: 0; overflow-wrap: anywhere; color: var(--text); font: 600 14px/1.5 var(--font-sans); }
+.catalog-copy h3 > button { margin: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.catalog-copy h3 > button:hover { color: var(--main); }
+.catalog-copy p { max-width: 620px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 4px 0 0; color: var(--text3); font: 12px/1.5 var(--font-sans); }
+.catalog-actions { display: flex; align-items: center; justify-content: flex-end; gap: 5px; flex: none; margin-left: 20px; }
+.catalog-open { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 62px; min-height: 30px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 4px; background: transparent; color: var(--text2); font: 12px/1.5 var(--font-sans); cursor: pointer; }
+.catalog-icon-action { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--text2); cursor: pointer; }
+.catalog-open:hover, .catalog-icon-action:hover { background: color-mix(in srgb, var(--text) 5%, transparent); color: var(--text); }
+.catalog-icon-action[data-danger]:hover { color: var(--c-red); }
+.application-catalog button:focus-visible { outline: 2px solid var(--main); outline-offset: 3px; }
+.catalog-empty { padding: 56px 0; color: var(--text3); font-size: 12px; }
+.catalog-empty p { margin: 0 0 8px; color: var(--text2); font-size: 14px; }
+.application-setting-input { width: 100%; min-width: 0; border: none; outline: none; padding: 6px 0; color: var(--text); background: transparent; text-align: right; font: inherit; }
+.application-setting-input::placeholder { color: var(--text3); }
+.application-setting-input:focus-visible { box-shadow: 0 1px 0 var(--main); }
+.application-settings .ios-row[data-stack='true'] .application-setting-input { text-align: left; }
+.application-select { min-width: 140px; max-width: 100%; }
+.application-number { width: 140px; }
+.application-modal-tools { display: flex; justify-content: flex-end; margin: 0 0 16px; }
+.application-runtime { min-width: 0; width: 100%; max-height: min(70dvh, 800px); overflow: auto; overscroll-behavior: contain; padding: 4px 0 12px; }
+.application-runtime[data-surface='page'] { max-height: none; overflow: visible; }
+.application-runtime > .applet { min-width: 0; padding: 0; border: 0; background: transparent; }
+.application-runtime > .app-frame { border-top: 0; }
+.application-status { display: inline-flex; align-items: center; flex: 0 1 auto; gap: 4px; min-width: 0; max-width: 240px; }
+.application-status[data-compact='true'] > .applet { display: inline-flex; flex-direction: row; align-items: center; gap: 4px !important; min-width: 0; max-width: 200px; max-height: 32px; padding: 0; border: 0; background: transparent; }
+.application-status[data-compact='true'] > .applet > :not(.applet-runner) { min-width: 0; max-width: 200px; max-height: 32px; overflow: hidden; white-space: nowrap; }
+.application-status[data-compact='true'] .applet-runner { position: absolute; width: 0; height: 0; border: 0; visibility: hidden; pointer-events: none; }
+.application-status[data-compact='true'] > .app-frame { flex: none; width: 160px; height: 32px !important; border: 0; }
+.application-in-use { padding: 18px 16px; border: 1px dashed var(--border); background: color-mix(in srgb, var(--bg2) 45%, transparent); color: var(--text3); font-size: 12px; }
+.application-in-use > button { align-self: flex-start; }
+@media (max-width: 640px) {
+  .application-catalog .sys-head { padding-bottom: 22px; }
+  .application-catalog .sys-head h1 { font-size: 26px; white-space: nowrap; }
+  .application-catalog .sys-extra { width: 150px; }
+  .catalog-tabs { margin-bottom: 20px; gap: 24px; }
+  .catalog-groups { gap: 4px 16px; }
+  .catalog-row { gap: 10px; min-height: 72px; padding: 12px 0; }
+  .catalog-icon { flex-basis: 32px; width: 32px; height: 32px; }
+  .catalog-actions { margin-left: 0; gap: 1px; }
+  .catalog-open { min-width: 48px; padding-inline: 6px; }
+  .catalog-open > svg { display: none; }
+  .catalog-icon-action { width: 28px; }
+  .catalog-copy p { font-size: 11px; }
+  .application-settings .ios-row-value { min-width: 0; max-width: 65%; }
+  .application-settings .ios-row[data-stack='true'] .ios-row-value { max-width: none; }
+  .application-status { max-width: 180px; }
+  .application-status[data-compact='true'] > .applet, .application-status[data-compact='true'] > .applet > :not(.applet-runner) { max-width: 140px; }
+  .application-status[data-compact='true'] > .app-frame { width: 130px; }
+}

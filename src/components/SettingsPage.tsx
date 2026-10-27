@@ -5,6 +5,7 @@ import type {Icon as PhosphorIcon} from '@phosphor-icons/react'
 import {appVisible} from '../lib/market'
 import {defaultWorkspace, revokeHost} from '../lib/ops'
 import {AppSettingsCtx, listApps, type AppSettingsContext} from '../lib/apps'
+import {listApplications} from '../lib/applications'
 import {PROXY_PRESETS} from '../lib/rss'
 import {useStored} from '../lib/store'
 import {SEARCH_KEY, defaultSearchConfig, providerInfo, searchReady, type SearchConfig} from '../lib/webSearch'
@@ -21,6 +22,7 @@ import {AppearanceSettings} from './ThemeSettings'
 import {TemplateSettings} from './TemplateSettings'
 import {MemorySettings, ProfileForm, SoulSettings} from './PersonaSettings'
 import {usePersona} from '../lib/persona'
+import {ApplicationSettings} from './ApplicationSettings'
 
 /**
  * 设置页，仿 iOS 设置：左边是分组列表，右边是当前项的详情。
@@ -139,8 +141,8 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, onSection, o
       name: '状态条',
       icon: PanelTop,
       color: '#ff9f0a',
-      summary: `${ctx.workspace.statusbar.length} 项`,
-      description: '顶栏右侧的实时小组件，比如时钟、天气、服务在线数。',
+      summary: `${ctx.workspace.statusbar.length + listApplications(ctx.workspace).filter((app) => app.status).length} 项`,
+      description: '顶栏右侧的实时状态与应用入口。AI 应用的启动按钮或紧凑视图，在各自的应用设置中管理。',
       render: () => <StatusbarSettings />,
     },
   ]
@@ -248,7 +250,7 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, onSection, o
             <Row label="导入备份" icon={<Upload size={16} />} chevron onClick={() => fileRef.current?.click()} />
           </Group>
           <Group footer="只把页面、侧栏、状态条和已装的组件恢复成初始状态；订阅、书签、待办、密钥和已存的模板都保留。">
-            <Row label="恢复默认布局" icon={<LayoutTemplate size={16} />} onClick={() => ctx.edit((ws) => ({...defaultWorkspace(), theme: ws.theme, themes: ws.themes, templates: ws.templates}))} />
+            <Row label="恢复默认布局" icon={<LayoutTemplate size={16} />} onClick={() => ctx.edit((ws) => ({...defaultWorkspace(), theme: ws.theme, themes: ws.themes, templates: ws.templates, applications: listApplications(ws)}))} />
           </Group>
           <Group footer="会清掉订阅、书签、待办、页面、模板和密钥，回到初始状态。">
             <Row label="恢复默认" icon={<RotateCcw size={16} />} danger onClick={() => setResetOpen(true)} />
@@ -266,7 +268,7 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, onSection, o
     },
   ]
 
-  const apps: Section[] = listApps().filter((app) => appVisible(ctx.workspace, app.id)).map((app) => ({
+  const builtinApps: Section[] = listApps().filter((app) => appVisible(ctx.workspace, app.id)).map((app) => ({
     id: app.id,
     name: app.name,
     icon: app.icon,
@@ -275,6 +277,16 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, onSection, o
     summary: app.summary?.(ctx),
     render: () => <app.Panel />,
   }))
+  const generatedApps: Section[] = listApplications(ctx.workspace).map((app) => ({
+    id: `application:${app.id}`,
+    name: app.instance.title || '未命名应用',
+    icon: Sparkles,
+    color: 'var(--main)',
+    description: app.description || '搭搭为你制作的应用。在这里管理打开方式、入口和应用设置。',
+    summary: app.group || 'AI 应用',
+    render: () => <ApplicationSettings key={app.id} application={app} />,
+  }))
+  const apps = [...builtinApps, ...generatedApps]
 
   const all = [...general, ...system, ...apps]
   const current = all.find((item) => item.id === section) ?? general[0]

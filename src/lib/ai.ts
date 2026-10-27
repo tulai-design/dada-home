@@ -42,6 +42,7 @@ const SYSTEM_PROMPT = [
     '- 默认外观：用户说「还原默认主题」「恢复默认外观」时，先 get_appearance 看 defaults、current 和 differences，再 reset_appearance scope:"all"。它恢复默认纸张主题、字体、外框、玻璃 Dock，清掉各页自定义壁纸、背景特效图层、页面 CSS 与组件外观，首页恢复默认背景；保留页面内容、组件顺序与配置、宽度和对齐、业务数据、主题库及模板库。默认保留当前明暗，用户明确指定才传 mode。仅还原首页背景或装饰用 scope:"home"，不动全局主题和 Dock。完成后再 get_appearance 核对；embeddedVisuals 中独立特效组件与自编应用作为内容保留，若仍影响视觉，检查其配置或源码，不假称全部清除。默认具体值以工具返回为准，不凭记忆拼凑；不要用恢复布局、套用模板或删除用户组件代替外观还原。',
     '- 模板库：模板是整套页面设计（页面、组件、状态条、版式，可带主题）的快照，存在模板库里，另有几套内置预设。用户满意一版设计、或想存一下现在的布局 → save_template；想换一套布局、回到之前那版、要现成模板 → 先 list_templates，再 apply_template（会整体替换当前设计，当前设计没存过时先问用户要不要先存）。模板不含待办、便签这类用户数据。大改版之前主动建议先存一份模板。',
     '- 书签：用 list_bookmarks 看，add_bookmarks 批量加（自动建分组、自动去重，别一个一个加），update_bookmark / move_bookmarks 改和归类，remove_bookmarks 删（高危）。用户说「整理书签」→ 先 list_bookmarks，按用途定好分组再 move_bookmarks。浏览器里真正的书签要靠扩展「搭搭书签桥」：list_browser_bookmarks 读、add/move/remove_browser_bookmarks 改（删除高危）、import_browser_bookmarks 导入搭搭、push_bookmarks_to_browser 同步过去；工具说没连上扩展，就让用户在书签页点「导入与同步」装扩展。分清「搭搭书签」和「浏览器书签」，用户没说清时先问或先看一眼。',
+    '- AI 应用管理：create_applet / create_app 默认安装进组件市场，不自动新建页面或固定 Dock。先 list_applications 查看已有应用与源码；编辑用 update_applet / update_app，按用户需要用 configure_application 设置 group 分组、openMode（modal 弹窗 / drawer 抽屉 / page 全页面）、dock/status 启动入口与 settings。页面小组件用 mount_application，一个应用只挂一个页面；取消挂载不会卸载。open_application 打开，卸载用 uninstall_application（高危）。用户说「把某应用归到效率组」就改 group，空字符串取消分组。可配置项用 settingsSchema（string/number/boolean/select 与 label/default）声明，系统设置页自动生成表单；app 读 tada.settings，applet 读 ctx.settings，surface 区分展示位置。用户要设置时 open_settings section:application:<id>。顶部状态栏默认 statusMode:"launcher" 为启动入口；用户要真实紧凑状态时，先在源码实现 ctx.surface === "status" / tada.surface === "status" 的单行窄布局，再启用 status:true,statusMode:"compact"。主窗口或可见页面小组件运行时宿主自动回退入口，避免同一应用并发写状态。',
     '- 组件市场：热榜、订阅、书桌（待办+便签）、书签、服务监控、日历（月历+日程+倒数日）、番茄钟、音乐默认没装。用户要用这些功能时，先 list_addons 看状态，没装就 install_addon 装上（装完会自动建好页面），再继续搭；用户说不要了可以 uninstall_addon，卸载是高危操作要先确认。',
     '',
     '做事顺序：',
@@ -289,6 +290,7 @@ async function dispatchTool(
         signal: signal ?? new AbortController().signal,
         openPage: host.openPage,
         openSettings: host.openSettings,
+        openApplication: host.openApplication,
     }
 
     try {

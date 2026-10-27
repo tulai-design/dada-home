@@ -5,6 +5,8 @@ import type {ComponentHost, ComponentDefinition} from '../lib/registry'
 import {isCustomType, SPAN_COLUMNS, type Page, type Workspace} from '../lib/workspace'
 import {WidgetBoundary} from './WidgetBoundary'
 import {CustomWidgetView} from '../widgets/custom'
+import {applicationInstance, listApplications} from '../lib/applications'
+import {ApplicationInUse} from './ApplicationHost'
 
 /** 自定义组件的定义来自工作空间本身，不是注册表。 */
 function resolveDefinition(type: string): {definition: ComponentDefinition | undefined; customId?: string} {
@@ -24,12 +26,16 @@ export function PageView({
   host,
   onUpdateConfig,
   onRemove,
+  suspendedApplicationId,
+  onResumeApplication,
 }: {
   page: Page
   workspace: Workspace
   host: ComponentHost
   onUpdateConfig: (instanceId: string, patch: Record<string, unknown>) => void
   onRemove: (instanceId: string) => void
+  suspendedApplicationId?: string
+  onResumeApplication?: () => void
 }) {
   const pageStyleId = useId()
   const layout = workspace.layout
@@ -50,7 +56,9 @@ export function PageView({
       style={{['--cols' as string]: layout.columns, maxWidth: layout.maxWidth, ...(stage ? {['--stage-width' as string]: `${stage.width}px`} : {})}}
     >
       {page.css && <style>{`.page-grid[data-page-style="${pageStyleId}"]{${page.css}}`}</style>}
-      {page.components.map((instance) => {
+      {page.components.map((placed) => {
+        const application = listApplications(workspace).find((item) => item.id === placed.id)
+        const instance = application ? {...applicationInstance(workspace, application.id, 'widget'), span: placed.span, look: placed.look} : placed
         const {definition, customId} = resolveDefinition(instance.type)
         const custom = customId ? workspace.widgets.find((w) => w.id === customId) : undefined
         const label = instance.title || definition?.name || custom?.name || instance.type
@@ -59,7 +67,9 @@ export function PageView({
         const look = instance.look ?? {}
 
         // 自定义组件和内置组件走同一个容器，只是内容由规格解释
-        const content = custom ? (
+        const content = application && application.id === suspendedApplicationId ? (
+          <ApplicationInUse name={label} onOpen={() => onResumeApplication?.()} />
+        ) : custom ? (
           <CustomWidgetView widget={custom} host={host} />
         ) : definition ? (
           <definition.component

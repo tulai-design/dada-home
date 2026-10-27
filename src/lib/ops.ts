@@ -10,6 +10,7 @@ import {
   FROZEN_PAGE_ID,
   MAX_PAGES,
   MAX_STATUS_ITEMS,
+  MAX_APPLICATIONS,
   WORKSPACE_VERSION,
   type StatusItem,
   instanceId,
@@ -27,6 +28,7 @@ import {ANIMATIONS, normalizeHost, normalizeWidget, sanitizeCss} from './customW
 import {isPageIcon, PAGE_ICON_KEYS} from './pageIcons'
 import {tweakTheme} from './themes'
 import {ADDONS, addonOfType, getAddon, isInstalled, typeAvailable} from './market'
+import {isApplicationType, listApplications, readApplications, updateApplication} from './applications'
 
 /**
  * 工作空间的全部编辑操作。
@@ -113,7 +115,7 @@ export function removePage(workspace: Workspace, pageId: string): Workspace {
   findPage(workspace, pageId)
   if (pageId === FROZEN_PAGE_ID) throw new WorkspaceError('首页是固定项，不能删除。')
   if (workspace.pages.length <= 1) throw new WorkspaceError('至少要保留一个页面')
-  return {...workspace, pages: workspace.pages.filter((page) => page.id !== pageId)}
+  return {...workspace, applications: listApplications(workspace), pages: workspace.pages.filter((page) => page.id !== pageId)}
 }
 
 /** 页面级样式：整页背景、对齐、自定义 CSS。 */
@@ -155,7 +157,7 @@ export function movePage(workspace: Workspace, pageId: string, toIndex: number):
  */
 export function setStatusbar(workspace: Workspace, raw: unknown): Workspace {
   if (!Array.isArray(raw)) throw new WorkspaceError('items 必须是数组')
-  if (raw.length > MAX_STATUS_ITEMS) throw new WorkspaceError(`状态条最多 ${MAX_STATUS_ITEMS} 项`)
+  if (raw.length + listApplications(workspace).filter((application) => application.status).length > MAX_STATUS_ITEMS) throw new WorkspaceError(`状态条最多 ${MAX_STATUS_ITEMS} 项（包含应用入口）`)
   const items: StatusItem[] = raw.map((entry, index) => {
     const value = entry && typeof entry === 'object' ? (entry as Record<string, unknown>) : {}
     const type = typeof value.type === 'string' ? value.type : ''
@@ -281,7 +283,12 @@ export function addComponent(
   const components = [...page.components]
   const at = input.index === undefined ? components.length : Math.max(0, Math.min(components.length, Math.trunc(input.index)))
   components.splice(at, 0, instance)
-  return {workspace: replacePage(workspace, {...page, components}), instance}
+  const next = replacePage(workspace, {...page, components})
+  if (isApplicationType(instance.type)) {
+    if (listApplications(workspace).length >= MAX_APPLICATIONS) throw new WorkspaceError(`应用最多安装 ${MAX_APPLICATIONS} 个`)
+    return {workspace: {...next, applications: readApplications(listApplications(workspace), next.pages)}, instance}
+  }
+  return {workspace: next, instance}
 }
 
 export function updateComponent(
@@ -321,16 +328,19 @@ export function updateComponent(
     if (patch.title === null || !patch.title.trim()) delete next.title
     else next.title = patch.title.trim().slice(0, 24)
   }
-  return {
-    workspace: replacePage(workspace, {...page, components: page.components.map((item) => (item.id === instance.id ? next : item))}),
-    instance: next,
+  let updated = replacePage(workspace, {...page, components: page.components.map((item) => (item.id === instance.id ? next : item))})
+  if (isApplicationType(instance.type)) {
+    updated = updateApplication({...updated, applications: listApplications(workspace)}, instance.id, {
+      config: next.config, ...(next.title ? {title: next.title} : {}), ...(next.span ? {span: next.span} : {}),
+    }).workspace
   }
+  return {workspace: updated, instance: next}
 }
 
 export function removeComponent(workspace: Workspace, ref: string, pageId?: string): {workspace: Workspace; removed: ComponentInstance} {
   const {page, instance} = locate(workspace, ref, pageId)
   return {
-    workspace: replacePage(workspace, {...page, components: page.components.filter((item) => item.id !== instance.id)}),
+    workspace: replacePage(isApplicationType(instance.type) ? {...workspace, applications: listApplications(workspace)} : workspace, {...page, components: page.components.filter((item) => item.id !== instance.id)}),
     removed: instance,
   }
 }
@@ -483,6 +493,7 @@ export function defaultWorkspace(): Workspace {
     themes: [DEFAULT_THEME],
     layout: {...DEFAULT_LAYOUT},
     widgets: [],
+    applications: [],
     network: [],
     // 状态条默认只放一个时钟；天气、监控等想看的，让搭搭放上来
     statusbar: [{id: instanceId('status-clock'), type: 'clock', config: normalizeConfig(getDefinition('clock')!, {showSeconds: true})}],

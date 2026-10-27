@@ -99,6 +99,8 @@
 
 中文，短，动词开头（「添加」「开始」「换一句」）。不用感叹号，不用「请」。数字和单位之间不留空格以外的东西（「25 分钟」）。
 
+市场与管理列表只保留名称、必要简介和操作。不放口号、重复的入口说明、打开方式或安装提示；分组集中在筛选栏显示。列表不使用大圆角卡片、色块容器或逐行上边框，靠对齐和间距区分项目。
+
 ## 8. AI 造的东西：选对档位
 
 有交互的小工具，**首选小程序（`create_applet`）**：逻辑是 AI 写的 JavaScript，界面只能用积木目录里的 Lobe 控件拼，由主页真实渲染。风格、深浅色、无障碍、点击输入都由系统保证，AI 不用也不能写 CSS。写法见技能 `applet`（积木目录由 `src/lib/applet/catalog.ts` 生成，和实现同源）。
@@ -110,6 +112,20 @@
 - 同样遵守第 2、3、4、5、6 节。
 
 声明式组件（`create_widget`）直接使用已有的列表、卡片、数字、插图样式，不另写 CSS。
+
+### 应用目录、形态与设置
+
+`create_applet` / `create_app` 默认安装进组件市场的应用目录，不自动创建页面或固定 Dock。创建时 `pageId` 可选，只有用户需要页面小组件时才提供。一个应用保留同一 ID、源码与私有数据，最多挂载一个页面；`mount_application` 的 `pageId: null` 仅取消挂载。编辑前用 `list_applications` 读取目录记录与源码，分组用 `group`，常用入口用 `dock` / `status` 按需开启，管理配置用 `configure_application`。
+
+默认打开方式由 `openMode` 指定：`modal` 弹窗、`drawer` 抽屉、`page` 全页面；在各容器宽度下都应能正常使用。运行时 App 读 `tada.surface`，Applet 读 `ctx.surface`，值为 `widget`、`modal`、`drawer`、`page` 或 `status`。状态栏默认 `statusMode: "launcher"` 只显示启动按钮；需要真实状态视图时，先在源码处理 `surface === "status"`，只显示单行数字、图标或核心状态，再启用 `status: true, statusMode: "compact"`。主窗口或可见页面小组件运行时，宿主暂停同一应用的紧凑视图并回退启动按钮，防止并发写入持久状态。
+
+可配置项使用 `settingsSchema` 声明，`settings` 保存当前值；系统在「设置 → 应用」生成表单，例如：
+
+```json
+{"settingsSchema":{"minutes":{"kind":"number","label":"专注分钟","default":25,"min":1,"max":120}},"settings":{"minutes":30}}
+```
+
+字段支持 `string`、`number`、`boolean`、`select`；选项字段提供 `options: [{value, label}]`。App 通过只读 `tada.settings` 读取，修改设置后宿主安全重载应用；Applet 通过只读 `ctx.settings` 读取，设置变化更新上下文并重渲，保留 `persist` 状态。设置与业务状态分开，后者仍用 `tada.store` 或 Applet 的 `persist`。打开设置用 `open_settings` 的 `section: "application:<id>"`。卸载使用 `uninstall_application`，移除目录与入口但保留本机私有数据，支持撤销。
 
 ## 9. 交付前自检
 

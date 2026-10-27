@@ -1,7 +1,7 @@
 import {createContext, useContext, type ComponentType} from 'react'
 import type {Icon as PhosphorIcon} from '@phosphor-icons/react'
 import type {BookmarkGroup, Feed, Settings} from './types'
-import type {Workspace} from './workspace'
+import type {ApplicationOpenMode, Workspace} from './workspace'
 
 /**
  * 「应用」：一个组件（或一组组件）自带的设置面板。
@@ -24,6 +24,8 @@ export type AppSettingsContext = {
   /** 工作空间本身（页面、状态条…），以及改它的入口。侧栏、状态条的设置用。 */
   workspace: Workspace
   edit: (fn: (workspace: Workspace) => Workspace) => void
+  /** 打开已安装的 AI 应用；不传 mode 时采用应用的默认打开方式。 */
+  openApplication?: (id: string, mode?: ApplicationOpenMode) => void
 }
 
 export type AppDefinition = {

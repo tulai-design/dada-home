@@ -115,8 +115,12 @@ applet({
     ctx.fetch(url) → Promise<{ok,status,text,json}>，域名必须先被用户授权，未授权会弹出授权请求
     ctx.copy(text) 复制到剪贴板；ctx.open(url) 新标签打开 https 链接；ctx.toast(text, "success"|"error"|"info") 弹提示；ctx.ask(text) 把一句话发给搭搭助手
     ctx.every(ms, fn) 定时执行（返回取消函数）；ctx.after(ms, fn) 延时执行；ctx.render() 在长异步过程中手动刷新；ctx.dark 是否深色
+    ctx.settings 只读用户设置；ctx.surface 当前展示形态：widget / modal / drawer / page / status。设置变化会更新上下文并重新渲染，persist 状态保持。
 - view(s, ctx) 的参数就是 state 和 ctx，也可以不用参数、直接用外面的 s。
 - 可选的 init(s, ctx)：启动时执行一次，可以是 async，用来拉取初始数据、启动定时器。
+- 应用默认安装进组件市场，用户可从市场打开、设置、分组和卸载；创建时不必给 pageId。只有用户要页面小组件时才给 pageId，不自动建页面或固定 Dock。
+- create_applet 的 openMode 选择 modal 弹窗、drawer 抽屉、page 全页面；dock/status 按需开启。顶部默认 statusMode:"launcher" 为启动入口；只有 view 明确按 ctx.surface === "status" 返回单行窄内容时，才开启 statusMode:"compact" 运行真实紧凑视图。避免标题和大按钮，只留数字/图标/一项核心状态。主窗口或可见页面小组件运行时，状态栏自动回退入口，防止同一份持久状态被并发改写。
+- 可配置的值通过 settingsSchema 声明，例如 {minutes:{kind:"number",label:"专注分钟",default:25,min:1,max:120}}。系统在设置页自动生成表单；view/init 使用 ctx.settings.minutes，别把设置和 persist 业务数据混在一起。
 - 沙盒里没有 DOM 可操作，也没有 localStorage（用 persist）。可以 import "https://esm.sh/包名" 来用库（dayjs、mathjs 等）做计算。
 
 ## 积木（ui.Xxx(props?, ...children)）

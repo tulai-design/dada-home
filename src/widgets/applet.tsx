@@ -15,7 +15,7 @@ import {bridgeFetch, copyText} from './app'
  * 小程序只把「逻辑」交给沙盒，界面由主页用 Lobe UI 真实渲染，所以样式一致、交互可靠，逻辑照样自由。
  */
 
-type AppletConfig = {source: string}
+type AppletConfig = {source: string; settings?: Record<string, unknown>; surface?: string}
 
 const MAX_STORE = 100_000
 
@@ -57,6 +57,9 @@ function Applet({instance, config, host}: ComponentProps<AppletConfig>) {
   darkRef.current = dark
   const hostRef = useRef(host)
   hostRef.current = host
+  const contextRef = useRef({settings: config.settings ?? {}, surface: config.surface ?? 'widget'})
+  contextRef.current = {settings: config.settings ?? {}, surface: config.surface ?? 'widget'}
+  const contextKey = JSON.stringify(contextRef.current)
 
   const [tree, setTree] = useState<UiNode | null>(null)
   const [error, setError] = useState('')
@@ -88,7 +91,7 @@ function Applet({instance, config, host}: ComponentProps<AppletConfig>) {
       if (!message || message.applet !== 1) return
       switch (message.k) {
         case 'ready':
-          post({k: 'init', saved: readStored<Record<string, unknown>>(storeKey, {}), dark: darkRef.current})
+          post({k: 'init', saved: readStored<Record<string, unknown>>(storeKey, {}), dark: darkRef.current, ...contextRef.current})
           break
         case 'view':
           setTree(message.tree as UiNode)
@@ -117,6 +120,9 @@ function Applet({instance, config, host}: ComponentProps<AppletConfig>) {
   useEffect(() => {
     post({k: 'dark', dark})
   }, [dark, post])
+  useEffect(() => {
+    post({k: 'context', ...contextRef.current})
+  }, [contextKey, post])
 
   const fire = useCallback((fn: number, payload?: unknown) => post({k: 'event', fn, payload}), [post])
 
@@ -160,6 +166,8 @@ registerComponent<AppletConfig>({
   defaultConfig: {source: "const {Stack, Text} = ui\napplet({\n  state: {},\n  view: () => Stack([Text({text: '你好，搭搭', size: 'lg'})]),\n})"},
   configSchema: {
     source: {kind: 'string', label: '脚本（ES module，调用 applet({...})）'},
+    settings: {kind: 'json', label: '应用设置（由应用目录注入）'},
+    surface: {kind: 'string', label: '运行形态（由宿主注入）'},
   },
   defaultSpan: 'half',
   component: Applet,

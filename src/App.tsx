@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { A, ActionIcon, Modal, Text, toast } from '@lobehub/ui'
-import {SquaresFour as LayoutGrid, Monitor, Moon, Palette, ArrowsClockwise as RefreshCw, Rss, Gear as Settings, Sparkle as Sparkles, Sun} from '@phosphor-icons/react'
+import {AppWindow, SquaresFour as LayoutGrid, Monitor, Moon, Palette, ArrowClockwise as Redo, ArrowsClockwise as RefreshCw, Rss, Gear as Settings, Sparkle as Sparkles, Sun, ArrowCounterClockwise as Undo} from '@phosphor-icons/react'
 import { pageIcon } from './lib/pageIcons'
-import { FROZEN_PAGE_ID, activeTheme } from './lib/workspace'
+import { FROZEN_PAGE_ID, activeTheme, type ApplicationOpenMode } from './lib/workspace'
+import {findApplication, listApplications, updateApplication} from './lib/applications'
+import {ApplicationHost} from './components/ApplicationHost'
 import { applyTheme, resolveThemeOverrides, setMode } from './lib/themes'
 import { fontVars, syncFonts } from './lib/fonts'
 import { useStored } from './lib/store'
@@ -37,6 +39,7 @@ import { grantHost, removeComponent, updateComponent } from './lib/ops'
 import { removeData, useComponentData, SHARED } from './lib/componentData'
 import { wallpaperUrl } from './lib/wallpaper'
 import './widgets'
+import './applications.css'
 
 /**
  * 应用外壳。
@@ -100,10 +103,37 @@ export default function App() {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [switcherOpen, setSwitcherOpen] = useState(false)
   // 当前画布显示什么：普通页面、设置、监控。设置和监控是整页，不再用抽屉
-  const [view, setView] = useState<'page' | 'settings' | 'monitor' | 'market'>('page')
+  const [view, setView] = useState<'page' | 'settings' | 'monitor' | 'market' | 'application'>('page')
+  const [applicationView, setApplicationView] = useState<{id: string; mode: ApplicationOpenMode} | null>(null)
+  const viewRef = useRef(view)
+  viewRef.current = view
+  const applicationReturnView = useRef<'page' | 'settings' | 'monitor' | 'market'>('market')
   const [section, setSection] = useState('profile')
 
-  const { workspace, edit } = useWorkspace()
+  const { workspace, edit, undo, redo, canUndo, canRedo } = useWorkspace()
+
+  const openApplication = useCallback((ref: string, requestedMode?: ApplicationOpenMode) => {
+    try {
+      const application = findApplication(getWorkspace(), ref)
+      const mode = requestedMode ?? application.openMode
+      if (viewRef.current !== 'application') applicationReturnView.current = viewRef.current
+      setApplicationView({id: application.id, mode})
+      setView(mode === 'page' ? 'application' : applicationReturnView.current)
+      setReader(null)
+      setAssistantOpen(false)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error))
+    }
+  }, [])
+  const closeApplication = useCallback(() => {
+    setApplicationView(null)
+    if (viewRef.current === 'application') setView(applicationReturnView.current)
+  }, [])
+  const applications = listApplications(workspace)
+  const openedApplication = applicationView && applications.find((item) => item.id === applicationView.id)
+  useEffect(() => {
+    if (applicationView && !openedApplication) closeApplication()
+  }, [applicationView, openedApplication, closeApplication])
 
   // 同一域名共享一次确认；其他域名排队，避免并发请求覆盖尚未答复的弹窗。
   const grantQueue = useRef<{host: string; promise: Promise<boolean>; resolve: (allowed: boolean) => void}[]>([])
@@ -139,6 +169,7 @@ export default function App() {
 
   const goPage = useCallback(
     (id: string) => {
+      setApplicationView(null)
       setPageId(id)
       setView('page')
     },
@@ -146,16 +177,19 @@ export default function App() {
   )
   /** 打开设置页；section 指定落在哪一项（热榜、ai…）。从对话面板、阅读器里打开时先收起它们。 */
   const openSettings = useCallback((target?: string) => {
+    setApplicationView(null)
     setAssistantOpen(false)
     setReader(null)
     if (typeof target === 'string' && target) setSection(target)
     setView('settings')
   }, [])
   const openMonitor = useCallback(() => {
+    setApplicationView(null)
     setAssistantOpen(false)
     setView('monitor')
   }, [])
   const openMarket = useCallback(() => {
+    setApplicationView(null)
     setAssistantOpen(false)
     setView('market')
   }, [])
@@ -171,6 +205,7 @@ export default function App() {
     if (!pendingPage) return
     if (workspace.pages.some((page) => page.id === pendingPage)) {
       setPageId(pendingPage)
+      setApplicationView(null)
       setView('page')
     }
     setPendingPage(null)
@@ -285,7 +320,7 @@ export default function App() {
             config: settings.ai,
             userName: settings.name,
             messages: [...history, { role: 'user', content: turnContent(turn) }],
-            host: { openPage: (next: string) => setPendingPage(next), openSettings: (section?: string) => openSettings(section) },
+            host: { openPage: (next: string) => setPendingPage(next), openSettings: (section?: string) => openSettings(section), openApplication },
             onApproval,
             onReasoning: (chunk) => {
               reasoning += chunk
@@ -329,7 +364,7 @@ export default function App() {
         abortRef.current = null
       }
     },
-    [settings.ai, turns, aiConfigured, setTurns, newConv],
+    [settings.ai, turns, aiConfigured, setTurns, newConv, openSettings, openApplication],
   )
 
   /** 用户点了确认卡片上的允许/拒绝。 */
@@ -429,7 +464,7 @@ export default function App() {
 
   const onUpdateConfig = useCallback(
     (instanceId: string, patch: Record<string, unknown>) => {
-      edit((ws) => updateComponent(ws, instanceId, { config: patch }).workspace)
+      edit((ws) => listApplications(ws).some((item) => item.id === instanceId) ? updateApplication(ws, instanceId, {config: patch}).workspace : updateComponent(ws, instanceId, { config: patch }).workspace)
     },
     [edit],
   )
@@ -458,7 +493,10 @@ export default function App() {
       const meta = e.metaKey || e.ctrlKey
       const target = e.target as HTMLElement | null
       const typing = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
-      if (meta && e.key.toLowerCase() === 'k') {
+      // 文本编辑保持浏览器自身撤销；工作空间历史仅在非输入区域接管。
+      if (meta && !e.altKey && !e.isComposing && !typing && e.key.toLowerCase() === 'z') {
+        if (e.shiftKey ? redo() : undo()) e.preventDefault()
+      } else if (meta && e.key.toLowerCase() === 'k') {
         e.preventDefault()
         setPaletteOpen((v) => !v)
       } else if (meta && e.key.toLowerCase() === 'j') {
@@ -478,7 +516,7 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [workspace.pages, goPage, openSettings])
+  }, [workspace.pages, goPage, openSettings, undo, redo])
 
   const paletteActions = useMemo(
     () => [
@@ -490,6 +528,9 @@ export default function App() {
         icon: pageIcon(page.icon),
         run: () => goPage(page.id),
       })),
+      ...applications.map((application) => ({id:`application-${application.id}`,label:application.instance.title || '应用',hint:application.description.slice(0,20),group:application.group || 'AI 应用',icon:AppWindow,run:() => openApplication(application.id)})),
+      ...(canUndo ? [{id: 'cmd-undo', label: '撤销上一步', hint: '⌘Z / Ctrl+Z', group: '编辑', icon: Undo, run: () => { undo() }}] : []),
+      ...(canRedo ? [{id: 'cmd-redo', label: '重做上一步', hint: '⌘⇧Z / Ctrl+Shift+Z', group: '编辑', icon: Redo, run: () => { redo() }}] : []),
       { id: 'cmd-ai', label: '和搭搭对话', hint: '⌘J', group: '动作', icon: Sparkles, run: () => openAssistant() },
       ...(isInstalled(workspace, 'monitor') ? [{ id: 'cmd-monitor', label: '服务监控', group: '动作', icon: Monitor, run: openMonitor }] : []),
       { id: 'cmd-market', label: '组件市场', group: '动作', icon: LayoutGrid, run: openMarket },
@@ -521,7 +562,7 @@ export default function App() {
           run: () => window.open(f.url, '_blank', 'noopener'),
         })),
     ],
-    [workspace.pages, workspace.theme, workspace.themes, workspace.addons, feeds, edit, goPage, openMonitor, openMarket, openSettings],
+    [workspace.pages, workspace.applications, workspace.theme, workspace.themes, workspace.addons, feeds, edit, goPage, openMonitor, openMarket, openSettings, openApplication, canUndo, canRedo, undo, redo],
   )
 
   const appCtx: AppSettingsContext = useMemo(
@@ -539,11 +580,16 @@ export default function App() {
       updateConfig: onUpdateConfig,
       workspace,
       edit,
+      openApplication,
     }),
-    [settings, setSettings, feeds, setFeeds, groups, setGroups, workspace, onUpdateConfig, edit],
+    [settings, setSettings, feeds, setFeeds, groups, setGroups, workspace, onUpdateConfig, edit, openApplication],
   )
 
   const monitorOn = isInstalled(workspace, 'monitor')
+  const activeApplicationIds = [...new Set([
+    ...(applicationView ? [applicationView.id] : []),
+    ...(view === 'page' ? currentPage.components.filter((item) => applications.some((application) => application.id === item.id)).map((item) => item.id) : []),
+  ])]
   const paper = currentPage?.wallpaper
   const paperUrl = paper ? wallpaperUrl(paper.mode as never, paper.mode === 'unsplash' ? paper.index : 0, paper.mode === 'custom' ? paper.url : '') : ''
 
@@ -561,6 +607,9 @@ export default function App() {
         </div>
         <Rail
           pages={workspace.pages}
+          applications={applications}
+          applicationId={openedApplication ? openedApplication.id : undefined}
+          onApplication={openApplication}
           page={currentPage?.id ?? ''}
           onPage={goPage}
           view={view}
@@ -576,7 +625,7 @@ export default function App() {
 
         <div className="canvas">
           <TopBar
-            status={<StatusBar items={workspace.statusbar} host={host} onConfig={onStatusConfig} />}
+            status={<StatusBar items={workspace.statusbar} host={host} onConfig={(id,patch) => applications.some((application) => application.id === id) ? onUpdateConfig(id,patch) : onStatusConfig(id,patch)} applications={applications} onApplication={openApplication} workspace={workspace} activeApplicationIds={activeApplicationIds} />}
             theme={workspace.theme.mode}
             onTheme={toggleTheme}
             onPalette={() => setPaletteOpen((v) => !v)}
@@ -597,6 +646,8 @@ export default function App() {
                   host={host}
                   onUpdateConfig={onUpdateConfig}
                   onRemove={onRemoveComponent}
+                  suspendedApplicationId={applicationView?.id}
+                  onResumeApplication={closeApplication}
                 />
               )}
             </FxLayers>
@@ -637,7 +688,7 @@ export default function App() {
           )}
           {view === 'market' && (
             <div className="page sys-view">
-              <MarketPage workspace={workspace} edit={edit} onOpenPage={goPage} onOpenMonitor={openMonitor} />
+              <MarketPage workspace={workspace} edit={edit} onOpenPage={goPage} onOpenMonitor={openMonitor} onOpenApplication={openApplication} onOpenSettings={openSettings} />
             </div>
           )}
           {view === 'monitor' && monitorOn && (
@@ -655,7 +706,14 @@ export default function App() {
               />
             </div>
           )}
+          {view === 'application' && openedApplication && applicationView && (
+            <div className="page sys-view">
+              <ApplicationHost application={openedApplication} mode="page" workspace={workspace} host={host} onMode={(mode) => openApplication(openedApplication.id, mode)} onClose={closeApplication} onSettings={() => openSettings(`application:${openedApplication.id}`)} onConfig={onUpdateConfig}/>
+            </div>
+          )}
         </div>
+
+        {applicationView && openedApplication && applicationView.mode !== 'page' && <ApplicationHost application={openedApplication} mode={applicationView.mode} workspace={workspace} host={host} onMode={(mode) => openApplication(openedApplication.id, mode)} onClose={closeApplication} onSettings={() => openSettings(`application:${openedApplication.id}`)} onConfig={onUpdateConfig}/>}
 
         <Reader
           article={reader}
@@ -716,6 +774,7 @@ export default function App() {
         <PageSwitcher
           open={switcherOpen}
           system={[
+            ...applications.filter((application) => application.dock).map((application) => ({id:`sys-application-${application.id}`,label:application.instance.title || '应用',icon:AppWindow,run:() => openApplication(application.id),hint:application.group || '应用'})),
             ...(monitorOn ? [{ id: 'sys-monitor', label: '服务监控', icon: Monitor, run: openMonitor }] : []),
             { id: 'sys-market', label: '组件市场', icon: LayoutGrid, run: openMarket },
             { id: 'sys-settings', label: '设置', icon: Settings, run: () => openSettings() },

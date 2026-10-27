@@ -44,6 +44,8 @@ const FRONTEND_DESIGN = `# 技能：前端设计（frontend-design）
 - 需要特别字体时，沙盒允许从 Google Fonts 引入（css 里 @import url('https://fonts.googleapis.com/...')）。选有性格的字体，成对搭配：一个展示字体加一个正文字体；避开 Arial、Inter、Roboto 这类默认字体。中文内容优先考虑 Noto Serif SC、Noto Sans SC、ZCOOL 系列。
 - 动效：优先纯 CSS；一次编排好的入场（错开的 animation-delay）比到处散落的小动画更有质感。需要库时 import 自 esm.sh（例如 gsap、three）。尊重 prefers-reduced-motion。
 - 数据：window.tada.store 存本组件私有状态，window.tada.fetch 取已授权域名的数据，window.tada.ask 可以把一句话发回搭搭。
+- 安装和入口：create_app / create_applet 默认安装到组件市场，不自动建页面、不把每个应用放进 Dock。用 group 分组、openMode 选择弹窗/抽屉/全页面；用户确有需要再固定 dock/status 入口或给 pageId 挂页面小组件。入口管理用 configure_application，用户设置用 settingsSchema 定义并在应用读取 tada.settings / ctx.settings；运行形态为 tada.surface / ctx.surface。
+- 顶部状态栏：statusMode 默认 launcher 为启动入口；用户需要实时紧凑形态时，先在源码实现 surface === "status" 的单行窄视图，再配置 status:true,statusMode:"compact"。主窗口或可见小组件运行时宿主自动回退入口，避免同应用并发写状态。完整页面和紧凑状态要分别适配。
 
 ## 审美准则
 - 排版：层级分明，字号反差要大；行距和字距认真调。

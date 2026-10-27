@@ -36,7 +36,9 @@ const RUNNER = String.raw`
   }
   try{Object.defineProperty(navigator,'clipboard',{value:{writeText:(t)=>call('copy',{text:String(t)})},configurable:true})}catch{}
 
-  let def=null,state={},persist=[],handlers=new Map(),hid=0,dirty=false,started=false,dark=false,lastSaved='',count=0;
+  let def=null,state={},persist=[],handlers=new Map(),hid=0,dirty=false,started=false,dark=false,lastSaved='',count=0,settings={},surface='widget';
+  const freeze=(v)=>{if(v&&typeof v==='object'){Object.values(v).forEach(freeze);Object.freeze(v)}return v};
+  const context=(m)=>{settings=freeze(m.settings&&typeof m.settings==='object'&&!Array.isArray(m.settings)?m.settings:{});surface=typeof m.surface==='string'?m.surface:'widget'};
   const timers=new Set();
 
   const isNode=(x)=>x&&typeof x==='object'&&typeof x.$t==='string';
@@ -105,6 +107,8 @@ const RUNNER = String.raw`
     every:(ms,fn)=>{const id=setInterval(()=>run(fn),Math.max(50,Number(ms)||1000));timers.add(id);return()=>{clearInterval(id);timers.delete(id)}},
     after:(ms,fn)=>{const id=setTimeout(()=>run(fn),Math.max(0,Number(ms)||0));timers.add(id);return()=>clearTimeout(id)},
     get dark(){return dark},
+    get settings(){return settings},
+    get surface(){return surface},
   };
 
   window.applet=(d)=>{
@@ -120,6 +124,7 @@ const RUNNER = String.raw`
     if(!m||m.applet!==1)return;
     if(m.k==='init'){
       dark=!!m.dark;
+      context(m);
       const saved=m.saved&&typeof m.saved==='object'?m.saved:{};
       for(const k of persist)if(saved[k]!==undefined)state[k]=saved[k];
       lastSaved=JSON.stringify(pick());
@@ -134,6 +139,8 @@ const RUNNER = String.raw`
       m.error?p.rej(new Error(m.error)):p.res(m.result);
     }else if(m.k==='dark'){
       dark=!!m.dark;schedule();
+    }else if(m.k==='context'){
+      context(m);schedule();
     }
   });
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ActionIcon, Flexbox, Modal, Select, Switch, Text } from '@lobehub/ui'
+import { ActionIcon, Flexbox, Modal, Select, Switch, Text, toast } from '@lobehub/ui'
 import {ArrowDown, ArrowUp, Lock, Plus, Trash as Trash2, X} from '@phosphor-icons/react'
 import { useAppSettings } from '../lib/apps'
 import { removeData } from '../lib/componentData'
@@ -10,6 +10,7 @@ import { getDefinition, type ConfigField } from '../lib/registry'
 import { FROZEN_PAGE_ID, MAX_STATUS_ITEMS, type Page } from '../lib/workspace'
 import { Group, Row, TextRow } from './ios'
 import {ArrowCounterClockwise as RotateCcw} from '@phosphor-icons/react'
+import {configureApplication, listApplications} from '../lib/applications'
 
 /* ---------------- 侧栏 ---------------- */
 
@@ -35,6 +36,9 @@ function PageEditor({ page, index, last, onMove, onRemove }: { page: Page; index
     <Group>
       <TextRow label="名称" value={name} onChange={setName} />
       <TextRow label="侧栏标签" hint="不超过 4 个字" value={label} onChange={(v) => setLabel(v.slice(0, 4))} />
+      <Row label="显示在 Dock" hint="关闭后仍可从全部页面打开">
+        <Switch checked={page.dock !== false} onChange={(dock) => edit((ws) => ({...ws,pages:ws.pages.map((item) => item.id === page.id ? {...item,dock} : item)}))}/>
+      </Row>
       <Row label="图标">
         <Select
           className="ios-select"
@@ -116,7 +120,7 @@ export function SidebarSettings() {
             <Row
               key={page.id}
               label={page.name}
-              hint={`${page.components.length} 个组件`}
+              hint={`${page.components.length} 个组件${page.dock === false ? ' · 未固定' : ''}`}
               icon={<Icon size={16} />}
               chevron
               onClick={() => setEditing(page.id)}
@@ -192,6 +196,8 @@ export function StatusbarSettings() {
   const { workspace, edit } = useAppSettings()
   const items = workspace.statusbar
   const addable = listStatusTypes(workspace)
+  const applications = listApplications(workspace)
+  const total = items.length + applications.filter((application) => application.status).length
 
   const replace = (next: { id?: string; type: string; config: Record<string, unknown> }[]) => edit((ws) => setStatusbar(ws, next))
   const asInput = items.map((item) => ({ id: item.id, type: item.type as string, config: item.config }))
@@ -199,7 +205,7 @@ export function StatusbarSettings() {
   return (
     <>
       <Group
-        title={`当前 · ${items.length} 项`}
+        title={`当前 · ${total} 项`}
         footer="状态条在顶栏右侧，用来实时看一眼状态。默认只有时钟；想放天气、服务在线数，在下面添加，或对搭搭说「把天气放到状态条」。"
       >
         {items.length === 0 && <Row label="还没有内容" />}
@@ -248,14 +254,22 @@ export function StatusbarSettings() {
         )
       })}
 
-      <Group title="可添加" footer={items.length >= MAX_STATUS_ITEMS ? `最多 ${MAX_STATUS_ITEMS} 项。` : '任何声明了状态条形态的组件都会出现在这里。'}>
+      <Group title="AI 应用入口" footer="按需在顶栏放一个启动按钮，点击后用应用设定的方式打开。应用自己的设置在「应用」分组中。">
+        {applications.length === 0 && <Row label="还没有 AI 应用"/>}
+        {applications.map((application) => <Row key={application.id} label={application.instance.title || '应用'} hint={application.group || undefined}>
+          <Switch checked={application.status} onChange={(status) => {
+            try {edit((ws) => configureApplication(ws,application.id,{status}))} catch(error) {toast.error(error instanceof Error ? error.message : String(error))}
+          }}/>
+        </Row>)}
+      </Group>
+      <Group title="可添加" footer={total >= MAX_STATUS_ITEMS ? `最多 ${MAX_STATUS_ITEMS} 项。` : '任何声明了状态条形态的组件都会出现在这里。'}>
         {addable.map((definition) => (
           <Row
             key={definition.type}
             label={definition.name}
             hint={definition.description.slice(0, 40)}
             icon={<Plus size={16} />}
-            onClick={items.length >= MAX_STATUS_ITEMS ? undefined : () => replace([...asInput, { type: definition.type, config: definition.type === 'clock' ? { showSeconds: true } : {} }])}
+            onClick={total >= MAX_STATUS_ITEMS ? undefined : () => replace([...asInput, { type: definition.type, config: definition.type === 'clock' ? { showSeconds: true } : {} }])}
           />
         ))}
       </Group>

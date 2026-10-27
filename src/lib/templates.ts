@@ -1,6 +1,7 @@
 import {WorkspaceError} from './errors'
 import {findPreset, PRESETS} from './presets'
-import {instanceId, DEFAULT_THEME, DEFAULT_THEME_ID, MAX_TEMPLATES, MAX_THEMES, type Page, type StatusItem, type TemplateEntry, type TemplateSnapshot, type ThemeEntry, type Workspace} from './workspace'
+import {instanceId, DEFAULT_THEME, DEFAULT_THEME_ID, MAX_APPLICATIONS, MAX_STATUS_ITEMS, MAX_TEMPLATES, MAX_THEMES, type Page, type StatusItem, type TemplateEntry, type TemplateSnapshot, type ThemeEntry, type Workspace} from './workspace'
+import {listApplications, readApplications} from './applications'
 
 /**
  * 模板库的纯函数。
@@ -22,6 +23,7 @@ export function snapshotOf(workspace: Workspace, withTheme = true): TemplateSnap
     layout: workspace.layout,
     widgets: workspace.widgets,
     addons: workspace.addons,
+    applications: listApplications(workspace),
     ...(workspace.dock ? {dock: workspace.dock} : {}),
     ...(withTheme && active ? {theme: active} : {}),
   })
@@ -95,9 +97,18 @@ export function removeTemplate(workspace: Workspace, ref: string): {workspace: W
 
 /** 给预设里的页面和组件换上全新的 id，避免两次套用共用同一份组件数据。 */
 function freshIds(snapshot: TemplateSnapshot): TemplateSnapshot {
-  const pages: Page[] = snapshot.pages.map((page) => ({...page, components: page.components.map((item) => ({...item, id: instanceId(item.type)}))}))
+  const ids = new Map<string, string>()
+  const fresh = (id: string, type: string) => {
+    if (!ids.has(id)) ids.set(id, instanceId(type))
+    return ids.get(id)!
+  }
+  const pages: Page[] = snapshot.pages.map((page) => ({...page, components: page.components.map((item) => ({...item, id: fresh(item.id, item.type)}))}))
   const statusbar: StatusItem[] = snapshot.statusbar.map((item) => ({...item, id: instanceId(`status-${item.type}`)}))
-  return {...snapshot, pages, statusbar}
+  const applications = snapshot.applications?.map((application) => {
+    const id = fresh(application.id, application.instance.type)
+    return {...application, id, instance: {...application.instance, id}}
+  })
+  return {...snapshot, pages, statusbar, ...(applications ? {applications} : {})}
 }
 
 /** 把模板里带的配色放进主题库并启用；库里已有一模一样的就直接用它。 */
@@ -125,6 +136,10 @@ export function applyTemplate(workspace: Workspace, ref: string): {workspace: Wo
   const base = hit.kind === 'own' ? clone(hit.entry.snapshot) : freshIds(hit.preset.build())
   const id = hit.kind === 'own' ? hit.entry.id : hit.preset.id
   const name = hit.kind === 'own' ? hit.entry.name : hit.preset.name
+  const incomingApps = readApplications(base.applications, base.pages)
+  const applications = [...incomingApps, ...listApplications(workspace).filter((application) => !incomingApps.some((item) => item.id === application.id))]
+  if (applications.length > MAX_APPLICATIONS) throw new WorkspaceError(`套用模板后应用将超过 ${MAX_APPLICATIONS} 个，请先卸载不用的应用`)
+  if (applications.filter((application) => application.status).length + base.statusbar.length > MAX_STATUS_ITEMS) throw new WorkspaceError(`套用模板后状态栏将超过 ${MAX_STATUS_ITEMS} 项，请先关闭不用的应用入口`)
   let next: Workspace = {
     ...workspace,
     pages: base.pages,
@@ -132,6 +147,7 @@ export function applyTemplate(workspace: Workspace, ref: string): {workspace: Wo
     layout: base.layout,
     widgets: base.widgets,
     addons: base.addons,
+    applications,
     template: id,
   }
   // 模板里没有 Dock 设置就回到默认的玻璃，别把上一套的留下来
@@ -145,7 +161,7 @@ export function applyTemplate(workspace: Workspace, ref: string): {workspace: Wo
 export function isSynced(workspace: Workspace, entry: TemplateEntry): boolean {
   const now = snapshotOf(workspace, false)
   const saved = entry.snapshot
-  return JSON.stringify([now.pages, now.statusbar, now.layout, now.widgets, now.addons, now.dock ?? null]) === JSON.stringify([saved.pages, saved.statusbar, saved.layout, saved.widgets, saved.addons, saved.dock ?? null])
+  return JSON.stringify([now.pages, now.statusbar, now.layout, now.widgets, now.addons, now.dock ?? null, now.applications ?? []]) === JSON.stringify([saved.pages, saved.statusbar, saved.layout, saved.widgets, saved.addons, saved.dock ?? null, saved.applications ?? []])
 }
 
 /** 一句话说清模板里有什么，列表里和给 AI 看都用它。 */

@@ -25,6 +25,8 @@ type AppConfig = {
   css: string
   js: string
   height: number
+  settings?: Record<string, unknown>
+  surface?: string
 }
 
 const MAX_STORE = 100_000
@@ -66,6 +68,8 @@ button{font:inherit;color:var(--text);cursor:pointer}
 /** 注入应用内的 SDK。window.tada 是应用与主页对话的唯一通道。 */
 const SDK = `
 (()=>{
+  const freeze=(v)=>{if(v&&typeof v==='object'){Object.values(v).forEach(freeze);Object.freeze(v)}return v};
+  const context=freeze(__APPLICATION_CONTEXT__);
   const pending=new Map();let seq=0;
   const call=(op,payload)=>new Promise((resolve,reject)=>{
     const id=++seq;pending.set(id,{resolve,reject});
@@ -100,6 +104,8 @@ const SDK = `
     /** 把一句话发给搭搭的 AI 助手 */
     ask:(text)=>call('ask',{text}),
     dark:document.documentElement.dataset.theme==='dark',
+    get settings(){return context.settings},
+    get surface(){return context.surface},
   };
 })();
 `
@@ -123,14 +129,17 @@ export function buildSrcdoc(config: AppConfig, grants: string[], dark: boolean):
     "form-action 'none'",
     "base-uri 'none'",
   ].join('; ')
+  // JSON 只能作为数据进入脚本，不能由设置里的 </script> 提前闭合标签。
+  const context = JSON.stringify({settings: config.settings ?? {}, surface: config.surface ?? 'widget'}).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029')
+  const sdk = SDK.replace('__APPLICATION_CONTEXT__', () => context)
   // 用户代码放在后面：SDK 和样式套件先就位
   return `<!doctype html><html data-theme="${dark ? 'dark' : 'light'}"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="${csp}">
-<style>:root{${themeCss()};color-scheme:${dark ? 'dark' : 'light'}}${KIT}</style>
+<style>:root{${themeCss()};color-scheme:${dark ? 'dark' : 'light'}}${KIT}${config.surface === 'status' ? 'html,body{height:100%;overflow:hidden}body{padding:0}' : ''}</style>
 <style>${config.css}</style>
-<script>${SDK}</script>
+<script>${sdk}</script>
 </head><body>${config.html}
-<script type="module">${config.js}</script>
+<script type="module">${config.js.replace(/<\/script/gi, '<\\/script')}</script>
 </body></html>`
 }
 
@@ -241,7 +250,7 @@ function AppBlock({instance, config, host}: ComponentProps<AppConfig>) {
   // 新授权直接供 tada.fetch 使用，保留当前文档与待完成的请求。
   // 图片、媒体的 CSP 使用文档快照：重新挂载、修改源码或切换主题后才加入新域名；
   // 已写入 CSP 的域名一旦撤销，则立即重建文档以收紧权限。
-  if (!previous || previous.config.html !== config.html || previous.config.css !== config.css || previous.config.js !== config.js || previous.dark !== dark || previous.grants.some((grant) => !host.networkGrants.includes(grant))) {
+  if (!previous || previous.config.html !== config.html || previous.config.css !== config.css || previous.config.js !== config.js || JSON.stringify(previous.config.settings) !== JSON.stringify(config.settings) || previous.config.surface !== config.surface || previous.dark !== dark || previous.grants.some((grant) => !host.networkGrants.includes(grant))) {
     documentRef.current = {config: {...config}, dark, grants: [...host.networkGrants]}
   }
   const appDocument = documentRef.current!
@@ -302,7 +311,7 @@ function AppBlock({instance, config, host}: ComponentProps<AppConfig>) {
         sandbox="allow-scripts"
         referrerPolicy="no-referrer"
         srcDoc={srcdoc}
-        style={{height: config.height}}
+        style={{height: config.surface === 'status' ? '100%' : config.height}}
       />
     </>
   )
@@ -325,6 +334,8 @@ registerComponent<AppConfig>({
     css: {kind: 'string', label: 'CSS'},
     js: {kind: 'string', label: 'JavaScript（ES module，可 import https://esm.sh/...）'},
     height: {kind: 'number', label: '高度 px', min: 120, max: 900},
+    settings: {kind: 'json', label: '应用设置（由应用目录注入）'},
+    surface: {kind: 'string', label: '运行形态（由宿主注入）'},
   },
   defaultSpan: 'half',
   component: AppBlock,

@@ -15,7 +15,7 @@
 import type {DockStyle} from './dock'
 import type {ThemeFont} from './fonts'
 
-export const WORKSPACE_VERSION = 4
+export const WORKSPACE_VERSION = 5
 
 /** 内置组件类型。新增内置组件要在 registry 里注册，并在这里加一个值。 */
 export type BuiltinType =
@@ -86,6 +86,35 @@ export type ComponentInstance = {
   /** 外观覆盖 */
   look?: Appearance
 }
+
+/** AI 应用的入口与用户设置属于安装记录，与它是否放在某一页无关。 */
+export type ApplicationOpenMode = 'modal' | 'drawer' | 'page'
+export type ApplicationSurface = ApplicationOpenMode | 'widget' | 'status'
+export type ApplicationStatusMode = 'launcher' | 'compact'
+export type ApplicationSettingField = {
+  kind: 'string' | 'number' | 'boolean' | 'select'
+  label: string
+  description?: string
+  default?: string | number | boolean
+  min?: number
+  max?: number
+  options?: {value: string; label: string}[]
+}
+export type GeneratedApplication = {
+  id: string
+  /** 与原实例共用 id，打开形式变化不会改变私有数据命名空间。 */
+  instance: ComponentInstance
+  description: string
+  group: string
+  openMode: ApplicationOpenMode
+  dock: boolean
+  status: boolean
+  /** 未适配紧凑界面的脚本默认只作为启动入口。 */
+  statusMode?: ApplicationStatusMode
+  settingsSchema?: Record<string, ApplicationSettingField>
+  settings?: Record<string, string | number | boolean>
+}
+export const MAX_APPLICATIONS = 60
 
 // ───────────────────────── 自定义组件 ─────────────────────────
 
@@ -208,6 +237,8 @@ export type Page = {
   align?: 'start' | 'center'
   /** 侧栏图标，取值见 pageIcons；不填用通用图标 */
   icon?: string
+  /** 不填默认展示；应用自己的旧页面可以保留内容而不占用 Dock。 */
+  dock?: boolean
 }
 
 /** 首页是固定项：不能删除、不能挪走、始终排第一。 */
@@ -284,6 +315,7 @@ export type TemplateSnapshot = {
   layout: LayoutConfig
   widgets: CustomWidget[]
   addons: string[]
+  applications?: GeneratedApplication[]
   /** 带上配色。不填表示套用模板时保持当前主题不变。 */
   theme?: ThemeEntry
   /** Dock 样式。不填就是默认的液体玻璃。 */
@@ -310,6 +342,8 @@ export type Workspace = {
   layout: LayoutConfig
   /** AI 创建的自定义组件，按 id 索引 */
   widgets: CustomWidget[]
+  /** AI 开发并安装的应用；市场是固定入口，其他挂载按需启用。 */
+  applications?: GeneratedApplication[]
   /** 已授权可访问的域名 */
   network: NetworkGrant[]
   /** 状态条：顶栏右侧的实时小组件，默认只有一个时钟 */
