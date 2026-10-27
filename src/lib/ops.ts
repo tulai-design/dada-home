@@ -3,6 +3,7 @@ import {getDefinition, listDefinitions, normalizeConfig} from './registry'
 import {WorkspaceError} from './errors'
 import {normalizeLayer} from '../fx/catalog'
 import {assertFxBudgetChange} from '../fx/policy'
+import {insertPageComponent, normalizePageSections, setPageSections as setSections} from './pageSections'
 import {
   DEFAULT_LAYOUT,
   DEFAULT_HOME_LAYERS,
@@ -69,8 +70,14 @@ export function locate(workspace: Workspace, ref: string, pageId?: string): {pag
 }
 
 function replacePage(workspace: Workspace, next: Page): Workspace {
+  next = normalizePageSections(next)
   assertFxBudgetChange(workspace.pages.find((page) => page.id === next.id), next)
   return {...workspace, pages: workspace.pages.map((page) => (page.id === next.id ? next : page))}
+}
+
+/** 设置一页的分区；只安排原实例，不改变内容或应用身份。 */
+export function setPageSections(workspace: Workspace, pageId: string, raw: unknown): Workspace {
+  return replacePage(workspace, setSections(findPage(workspace, pageId), raw))
 }
 
 function readIcon(value: unknown): string | undefined {
@@ -245,7 +252,7 @@ export function uninstallAddon(workspace: Workspace, id: string): {workspace: Wo
   if (!isInstalled(workspace, id)) throw new WorkspaceError(`「${addon.name}」没有安装。`)
   const owned = new Set<string>(addon.types)
   const pages = workspace.pages
-    .map((page) => ({...page, components: page.components.filter((item) => !owned.has(item.type))}))
+    .map((page) => normalizePageSections({...page, components: page.components.filter((item) => !owned.has(item.type))}))
     .filter((page) => !(page.id === addon.page?.id && page.components.length === 0))
   return {
     workspace: {
@@ -284,10 +291,7 @@ export function addComponent(
     span,
     ...(input.title?.trim() ? {title: input.title.trim().slice(0, 24)} : {}),
   }
-  const components = [...page.components]
-  const at = input.index === undefined ? components.length : Math.max(0, Math.min(components.length, Math.trunc(input.index)))
-  components.splice(at, 0, instance)
-  const next = replacePage(workspace, {...page, components})
+  const next = replacePage(workspace, insertPageComponent(page, instance, input.index))
   if (isApplicationType(instance.type)) {
     if (listApplications(workspace).length >= MAX_APPLICATIONS) throw new WorkspaceError(`应用最多安装 ${MAX_APPLICATIONS} 个`)
     return {workspace: {...next, applications: readApplications(listApplications(workspace), next.pages)}, instance}
@@ -358,13 +362,9 @@ export function moveComponent(
 ): Workspace {
   const {page: from, instance} = locate(workspace, ref, pageId)
   const target = input.toPageId ? findPage(workspace, input.toPageId) : from
+  if (target.id === from.id) return replacePage(workspace, insertPageComponent(from, instance, input.toIndex))
   const removed = {...from, components: from.components.filter((item) => item.id !== instance.id)}
-  const base = target.id === from.id ? removed : target
-  const components = [...base.components]
-  const at = input.toIndex === undefined ? components.length : Math.max(0, Math.min(components.length, Math.trunc(input.toIndex)))
-  components.splice(at, 0, instance)
-  if (target.id === from.id) return replacePage(workspace, {...removed, components})
-  return replacePage(replacePage(workspace, removed), {...target, components})
+  return replacePage(replacePage(workspace, removed), insertPageComponent(target, instance, input.toIndex))
 }
 
 /** 设置页面壁纸。custom 只接受 http(s) 图片地址，防止 javascript: 之类的 URL 进入 CSS。 */
@@ -425,7 +425,7 @@ export function removeWidget(workspace: Workspace, id: string): {workspace: Work
       instances.push(c.id)
       return false
     })
-    return kept.length === page.components.length ? page : {...page, components: kept}
+    return kept.length === page.components.length ? page : normalizePageSections({...page, components: kept})
   })
   return {workspace: {...workspace, pages, widgets: workspace.widgets.filter((w) => w.id !== id)}, removed: widget, instances}
 }

@@ -39,6 +39,9 @@ const FRONTEND_DESIGN = `# 技能：前端设计（frontend-design）
 
 ## 在搭搭里怎么落地
 - 先走低档位：list_component_types 和 list_effects 能解决的，就别写代码。素材库放得下的标题、背景、卡片光效直接用。
+- 改页面层次先 get_workspace 读取现有组件 ID、sections、effectiveOrder 与 ungrouped，再 list_page_layouts 取受控布局目录。set_page_sections 引用本页已有组件，用 hero 承载主视觉、section 组织1–3列内容、split 安排主次栏；不为改布局新建应用或复制组件。这三种是布局结构，不是 add_component 的类型。
+- 分区最多8个、hero最多1个；id用1–48位ASCII字母/数字/下划线/短横线，标题可省略且最多80字。一个组件在全页只引用一次；分区有序展开，split先primary后secondary，未分组项最后。分区及槽位决定已分组组件的位置，未分组项沿用原span；实际内容容器小于720px时全部按阅读顺序单列。空分区不显示空标题。先安排真实内容与主操作，再决定是否需要特效，不能用空标题或装饰填满分区。
+- set_page_sections 会整体替换分区，保留仍需要的分区一起传回；null或[]只清除结构，保留当前组件顺序、配置与数据。新增/移动组件时index按有效顺序插在目标组件的槽位内，末尾默认未分组；move先移除旧项再定位。要把新内容并入某区可再次set_page_sections，不必重建页面。
 - 自写交互工具先 use_skill applet，按真实积木目录写 create_applet；不用 HTML/CSS，布局与控件由宿主渲染。先 use_skill design-system 读取主页规范。
 - create_app 只用于上述需要自定义视觉的场景，写 html、css、js 三段。它在隔离沙盒里运行，读不到主页数据；颜色、字体用主页变量：var(--bg) var(--text) var(--text2) var(--text3) var(--border) var(--main) 和 var(--font-serif) var(--font-sans) var(--font-mono)，圆角用 var(--radius) / var(--radius-lg)。背景透明，不给 body 设固定底色；浅色、深色都要可读。
 - 自定义字体、CSS 动效仅适用于 app；默认沿用主页字体，不额外引字体或装饰库。必要动效尊重 prefers-reduced-motion。
@@ -58,7 +61,7 @@ const FRONTEND_DESIGN = `# 技能：前端设计（frontend-design）
 1. 核对源码适配了实际开启的形态；手机 320–375px、半宽小组件、抽屉和弹窗都按各自容器布局，横向控件必要时换行或纵排。
 2. 核对浅色和深色的变量、对比度、键盘操作、空/加载/错误反馈；图片仅来自 data:/blob:、images.unsplash.com 和已授权域名。
 3. 核对设置确实被逻辑使用，修改后副作用能更新；持久数据、设置、临时 UI 状态各用对应机制。
-4. 创建或更新后用 list_applications 核对源码、分组、设置与入口，再按用户需要 open_application。inspect_page 可测当前挂载页面的宿主容器和组件外框，修改后可复查；独立应用窗口或 iframe 内部、Canvas 内容、对比度和审美不在测量范围。报告 unknown / unavailable 不能当成通过；没有截图反馈，不能声称已亲眼检查页面或完成视觉验收。
+4. 应用创建或更新后用 list_applications 核对源码、分组、设置与入口，再按用户需要 open_application。页面编排后用 get_workspace 核对分区、阅读顺序与未分组项；inspect_page 可测当前挂载页面的宿主容器和组件外框，修改后可复查。独立应用窗口或 iframe 内部、Canvas 内容、对比度和审美不在测量范围。报告 unknown / unavailable 不能当成通过；没有截图反馈，不能声称已亲眼检查页面或完成视觉验收。
 5. 用一两句话说明结果、入口和必要限制，不重复介绍界面上已有的标签。`
 
 /** 设计规范的原文放在 docs/design-system.md：人、写代码的 AI、搭搭自己读的是同一份。 */

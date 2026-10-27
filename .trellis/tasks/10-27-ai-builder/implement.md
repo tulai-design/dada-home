@@ -39,4 +39,6 @@
 
 工作流与设计指引已提交为 f8e5504。effect-policy已提交41ce919并归档。effect-theme-fallback已实现并通过验收：语义/双模式配色、失败上报与重试，详见子任务verification.md；已提交19b0c78并归档。
 
-page-inspector已接通真实页面ref、有限DOM采样、只读inspect_page与模型结果回灌，完成真实溢出→修复→复查路径及四种宽度/双主题浏览器矩阵。验收与提交见该子任务verification.md。下一项为page-sections：主视觉、内容分区和主次分栏，保持旧页面与组件/应用ID兼容；父任务保持进行中。
+page-inspector已接通真实页面ref、有限DOM采样、只读inspect_page与模型结果回灌，完成真实溢出→修复→复查路径及四种宽度/双主题浏览器矩阵。验收与提交见该子任务verification.md。
+
+page-sections已实现主视觉、内容分区、主次分栏及AI目录/写入工具；保持旧页面和组件/应用ID，接通CRUD、保存、模板与撤销。真实PageView覆盖四种宽度/双主题、桌面窄容器、键盘顺序与状态存活；真实App的AI双栏649px容器、inspect_page回灌和刷新恢复也已验证。详见该子任务verification.md。下一项为homepage-recipes：首页组合与草稿预览应用；父任务保持进行中。

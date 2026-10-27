@@ -8,6 +8,12 @@
 
 工具说明、[ai.ts](../../../src/lib/ai.ts) 主提示词、[skills.ts](../../../src/lib/skills.ts) 技能以及组件目录需要保持一致：不得推荐与设计规范相反的默认写法，不把配置检查说成视觉验证。涉及默认外观时读取 `get_appearance` 的统一资料，避免复制一套默认值。
 
+## 页面分区工具
+
+`list_page_layouts` 读取 [pageSections.ts](../../../src/lib/pageSections.ts) 的共享目录；`set_page_sections` 经严格参数校验与 `ops.setPageSections` 后一次提交。`sections` 必须显式提供，`null`/`[]` 才表示清除；缺字段、错误引用、重复组件或超额结构不能产生部分提交。`get_workspace` 披露分区、实际阅读顺序与未分组组件，新增/移动工具须说明索引与槽位关系。
+
+分区是页面布局，不能伪装成组件类型，也不能复制组件或重建应用。模型应先读目录与当前 ID，保留已有内容；写入成功后可用 `inspect_page` 复查当前容器，不能据此声称所有尺寸或审美已通过。数据及渲染约束见[页面布局规范](../frontend/page-layouts.md)。
+
 ## 只读页面检查
 
 `inspect_page` 通过 `ToolHost.inspectPage` 获取 App 显式注册的当前页面根节点；[pageInspectionHost.ts](../../../src/lib/pageInspectionHost.ts) 等待有界的两帧布局，再由 [pageInspector.ts](../../../src/lib/pageInspector.ts) 采样。`dispatchTool` 逐字段构造上下文，新增宿主能力必须显式转发，不能只扩展类型。工具返回 `JSON.stringify(report)`，避免对象被通用结果转换为 `[object Object]`。

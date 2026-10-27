@@ -9,6 +9,7 @@ import {readDock} from './dock'
 import {ADDONS} from './market'
 import {cleanOverrides, readThemes} from './themes'
 import {isApplicationType, readApplications} from './applications'
+import {normalizePageSections} from './pageSections'
 
 /** 旧数据里没有 icon 的页面，按 id 补回当初的图标，别全变成同一个。 */
 const LEGACY_ICONS: Record<string, string> = {home: 'home', feeds: 'newspaper', desk: 'notebook-pen', marks: 'bookmark', hot: 'flame'}
@@ -39,7 +40,7 @@ function emit() {
 
 /**
  * 读到旧版本数据时在这里升级。
- * 目前只有版本 1，所以只做结构兜底；以后改结构就在这里加 `if (version < 2)`。
+ * 按当前合同兜底；没有 sections 的旧页面保持原布局，坏引用在过滤组件后清理。
  */
 export function migrate(raw: unknown): Workspace | null {
   if (!raw || typeof raw !== 'object') return null
@@ -58,7 +59,7 @@ export function migrate(raw: unknown): Workspace | null {
   const pages: Page[] = []
   for (const page of data.pages) {
     if (!page || typeof page.id !== 'string' || !Array.isArray(page.components)) continue
-    pages.push({
+    pages.push(normalizePageSections({
       id: page.id,
       name: typeof page.name === 'string' ? page.name : page.id,
       label: typeof page.label === 'string' ? page.label : page.id,
@@ -66,12 +67,13 @@ export function migrate(raw: unknown): Workspace | null {
       components: page.components.filter(
         (item) => item && typeof item.id === 'string' && (getDefinition(item.type) || customTypes.has(item.type)),
       ),
+      ...(page.sections !== undefined ? {sections: page.sections} : {}),
       ...(readWallpaper(page.wallpaper) ? { wallpaper: readWallpaper(page.wallpaper) } : {}),
       ...readPageStyle(page),
       ...readIcon(page),
       ...readLayers(page.layers),
       ...(typeof page.dock === 'boolean' ? {dock: page.dock} : !Array.isArray(data.applications) && page.id !== FROZEN_PAGE_ID && page.components.length > 0 && page.components.every((item) => item && isApplicationType(item.type)) ? {dock: false} : {}),
-    })
+    }))
   }
   if (!pages.length) return null
 

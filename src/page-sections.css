@@ -1,0 +1,68 @@
+/* Structured pages use natural document height; legacy one-screen pages keep their existing layout. */
+.page:has(.page-grid[data-sections]) {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.page-grid[data-sections] {
+  container: page-sections / inline-size;
+  height: auto !important;
+  min-height: 100%;
+  grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
+  grid-template-rows: none;
+  grid-auto-rows: auto;
+  align-content: start;
+  align-items: start;
+  justify-items: stretch;
+  row-gap: 24px !important;
+  padding-block: 24px 48px !important;
+}
+
+.page-grid[data-sections] > .widget,
+.page-grid[data-sections] > .page-section-heading {
+  grid-column: var(--section-column) !important;
+  grid-row: var(--section-row) !important;
+  min-width: 0;
+  max-width: 100%;
+  max-height: none;
+  overflow: visible;
+  overflow-wrap: anywhere;
+}
+
+.page-grid[data-sections] > [data-section-start] {
+  margin-top: 24px;
+}
+
+.page-section-heading {
+  margin: 0;
+  color: var(--text);
+  font-family: var(--font-serif);
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.4;
+  pointer-events: auto;
+}
+
+.page-section-heading[data-section-kind='hero'] {
+  font-size: 40px;
+  line-height: 1.3;
+}
+
+.page-grid[data-sections] > [data-section-align='center'] {
+  text-align: center;
+}
+
+/* Query the grid's actual content box, including a narrow pane inside a wide window. */
+@container page-sections (width < 720px) {
+  .page-grid[data-sections] > .widget,
+  .page-grid[data-sections] > .page-section-heading {
+    grid-column: 1 / -1 !important;
+    grid-row: auto !important;
+  }
+  .page-section-heading[data-section-kind='hero'] {
+    font-size: 24px;
+  }
+  .page-grid[data-sections] > [data-section-start='row'] {
+    margin-top: 0;
+  }
+}

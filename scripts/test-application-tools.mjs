@@ -5,7 +5,7 @@ import ts from 'typescript'
 
 // 执行真实应用目录、工具、组件注册和沙盒 SDK，隔离用户存储、网络及 React 渲染。
 const modules = new Map()
-const core = new Set(['workspace', 'fonts', 'errors', 'registry', 'applications', 'dock'])
+const core = new Set(['workspace', 'fonts', 'errors', 'registry', 'applications', 'dock', 'pageSections'])
 function compile(file, dependencies = {}, globals = {}) {
   const module = {exports: {}}
   const source = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8')
@@ -32,7 +32,7 @@ let workspace, commits, opens
 const dependencies = {
   '@tulai-design/agent-core': {createToolFactory: () => (schema, definition) => ({...definition, parameters: schema.json, parseArguments: schema.schema.parse})},
   './errors': loadCore('errors'), './workspace': model, './registry': registry, './applications': applications,
-  './dock': loadCore('dock'),
+  './dock': loadCore('dock'), './pageSections': loadCore('pageSections'),
   '../fx/policy': fxPolicy,
   './workspaceStore': {getWorkspace: () => workspace, commit: (next) => {workspace = next; commits += 1}},
   './market': {ADDONS: []}, './siteTools': {SITE_TOOLS: []}, './searchTools': {SEARCH_TOOLS: []}, './lifeTools': {LIFE_TOOLS: []},

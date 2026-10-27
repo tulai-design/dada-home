@@ -7,6 +7,7 @@ import {WidgetBoundary} from './WidgetBoundary'
 import {CustomWidgetView} from '../widgets/custom'
 import {applicationInstance, listApplications} from '../lib/applications'
 import {ApplicationInUse} from './ApplicationHost'
+import {planPageSections} from '../lib/pageSectionLayout'
 
 /** 自定义组件的定义来自工作空间本身，不是注册表。 */
 function resolveDefinition(type: string): {definition: ComponentDefinition | undefined; customId?: string} {
@@ -39,31 +40,42 @@ export function PageView({
 }) {
   const pageStyleId = useId()
   const layout = workspace.layout
+  const sectioned = Boolean(page.sections?.length)
+  const columnCount = sectioned ? 12 : layout.columns
+  const columnsOf = (instance: Page['components'][number]) => {
+    const span = instance.span ?? resolveDefinition(instance.type).definition?.defaultSpan ?? 'half'
+    return Math.min(columnCount, Math.round(((SPAN_COLUMNS[span] ?? 12) / 12) * columnCount))
+  }
   if (!page.components.length) {
     return <Empty title="这一页还是空的" description="告诉搭搭你想放什么，或者从「添加组件」里挑。" />
   }
 
   // 页面里只有一个舞台型组件：居中展示，其余走普通栅格
-  const only = page.components.length === 1 ? page.components[0] : undefined
+  const only = !sectioned && page.components.length === 1 ? page.components[0] : undefined
   const stage = only && !isCustomType(only.type) ? getDefinition(only.type as never)?.stage : undefined
+  const applications = listApplications(workspace)
+  const entries = planPageSections(page, columnsOf)
 
   return (
     <div
       className="page-grid"
       data-page-style={pageStyleId}
-      data-align={page.align ?? 'start'}
+      data-align={sectioned ? 'start' : page.align ?? 'start'}
       data-stage={stage ? '' : undefined}
-      style={{['--cols' as string]: layout.columns, maxWidth: layout.maxWidth, ...(stage ? {['--stage-width' as string]: `${stage.width}px`} : {})}}
+      data-sections={sectioned ? '' : undefined}
+      style={{['--cols' as string]: columnCount, maxWidth: layout.maxWidth, ...(stage ? {['--stage-width' as string]: `${stage.width}px`} : {})}}
     >
       {page.css && <style>{`.page-grid[data-page-style="${pageStyleId}"]{${page.css}}`}</style>}
-      {page.components.map((placed) => {
-        const application = listApplications(workspace).find((item) => item.id === placed.id)
+      {entries.map((entry) => {
+        const position = {['--section-row' as string]: entry.row, ['--section-column' as string]: entry.column}
+        if (entry.type === 'heading') return <h2 key={`section:${entry.sectionId}`} className="page-section-heading" data-section-id={entry.sectionId} data-section-kind={entry.kind} data-section-align={entry.align} data-section-start={entry.start || undefined} style={position}>{entry.title}</h2>
+        const placed = entry.instance
+        const application = applications.find((item) => item.id === placed.id)
         const instance = application ? {...applicationInstance(workspace, application.id, 'widget'), span: placed.span, look: placed.look} : placed
         const {definition, customId} = resolveDefinition(instance.type)
         const custom = customId ? workspace.widgets.find((w) => w.id === customId) : undefined
         const label = instance.title || definition?.name || custom?.name || instance.type
-        const span = instance.span ?? definition?.defaultSpan ?? 'half'
-        const columns = Math.min(layout.columns, Math.round(((SPAN_COLUMNS[span] ?? 12) / 12) * layout.columns))
+        const columns = columnsOf(instance)
         const look = instance.look ?? {}
 
         // 自定义组件和内置组件走同一个容器，只是内容由规格解释
@@ -84,15 +96,19 @@ export function PageView({
 
         return (
           <div
-            key={instance.id}
+            key={`widget:${instance.id}`}
             className="widget"
             data-type={instance.type}
             data-id={instance.id}
+            data-section-id={entry.sectionId}
+            data-section-kind={entry.kind}
+            data-section-align={entry.align}
+            data-section-start={entry.start || undefined}
             data-variant={look.variant ?? 'card'}
             data-tone={look.tone ?? 'neutral'}
             data-title-size={look.titleSize ?? 'md'}
             data-animation={look.animation && look.animation !== 'none' ? look.animation : undefined}
-            style={{gridColumn: `span ${columns}`}}
+            style={{gridColumn: `span ${columns}`, ...position}}
           >
             {/* 组件自定义 CSS 只作用于这一块：按 data-id 限定，不写选择器 */}
             {look.css && <style>{`[data-id="${instance.id}"]{${look.css}}`}</style>}

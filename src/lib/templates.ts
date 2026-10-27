@@ -3,6 +3,7 @@ import {findPreset, PRESETS} from './presets'
 import {instanceId, DEFAULT_THEME, DEFAULT_THEME_ID, MAX_APPLICATIONS, MAX_STATUS_ITEMS, MAX_TEMPLATES, MAX_THEMES, type Page, type StatusItem, type TemplateEntry, type TemplateSnapshot, type ThemeEntry, type Workspace} from './workspace'
 import {listApplications, readApplications} from './applications'
 import {assertFxBudgetChange} from '../fx/policy'
+import {normalizePageSections, remapPageSectionIds} from './pageSections'
 
 /**
  * 模板库的纯函数。
@@ -103,7 +104,11 @@ function freshIds(snapshot: TemplateSnapshot): TemplateSnapshot {
     if (!ids.has(id)) ids.set(id, instanceId(type))
     return ids.get(id)!
   }
-  const pages: Page[] = snapshot.pages.map((page) => ({...page, components: page.components.map((item) => ({...item, id: fresh(item.id, item.type)}))}))
+  const pages: Page[] = snapshot.pages.map((page) => {
+    const components = page.components.map((item) => ({...item, id: fresh(item.id, item.type)}))
+    const sections = remapPageSectionIds(page.sections, ids)
+    return normalizePageSections({...page, components, ...(sections ? {sections} : {})})
+  })
   const statusbar: StatusItem[] = snapshot.statusbar.map((item) => ({...item, id: instanceId(`status-${item.type}`)}))
   const applications = snapshot.applications?.map((application) => {
     const id = fresh(application.id, application.instance.type)

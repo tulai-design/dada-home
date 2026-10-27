@@ -22,6 +22,7 @@ import {SITE_TOOLS} from './siteTools'
 import {SEARCH_TOOLS} from './searchTools'
 import {LIFE_TOOLS} from './lifeTools'
 import {unavailablePageInspection, type PageInspectionReport, type PageInspectionRequest} from './pageInspector'
+import {PAGE_SECTION_CATALOG} from './pageSections'
 
 /**
  * AI 可调用的工作空间工具。
@@ -82,6 +83,11 @@ const applicationProperties = {
   settings: {type: 'object', description: '匹配 settingsSchema 的当前设置值；App 用 tada.settings 读取，变更后安全重载；Applet 用 ctx.settings 读取，依赖设置的副作用由 onSettingsChange(s,ctx,previous) 更新，init 不会重跑'},
   span: {type: 'string', enum: ['full', 'two-thirds', 'half', 'third']},
 }
+const sectionProperties = {
+  id: {type: 'string', minLength: 1, maxLength: 48, pattern: '^[A-Za-z0-9_-]+$', description: '本页唯一的分区 ID，只含英文字母、数字、下划线或短横线'},
+  title: {type: 'string', maxLength: 80, description: '可选的内容标题；没有必要则不传，不添加口号或重复说明'},
+}
+const sectionItems = {type: 'array', items: {type: 'string', minLength: 1}, uniqueItems: true, description: '已有组件 ID，按阅读顺序排列；先从 get_workspace 读取。本页各分区和槽位之间不能重复引用'}
 
 /** 让一个操作的错误变成给模型看的文字，而不是抛出去中断整轮对话。 */
 async function guard(run: () => string): Promise<string> {
@@ -113,6 +119,17 @@ export const HOME_TOOLS = [
   define(
     {schema: {parse: obj}, json: {type: 'object', properties: {}}},
     {
+      name: 'list_page_layouts',
+      title: '查看页面布局积木',
+      description: '查看主视觉 hero、内容分区 section 和主次分栏 split 的受控参数、阅读顺序与实际容器重排规则。它们引用页面已有组件 ID，用 set_page_sections 设置，不是 add_component 的组件类型。',
+      effect: 'read',
+      highRisk: () => false,
+      execute: async () => JSON.stringify(PAGE_SECTION_CATALOG),
+    },
+  ),
+  define(
+    {schema: {parse: obj}, json: {type: 'object', properties: {}}},
+    {
       name: 'list_component_types',
       title: '查看可用组件',
       description: '列出当前可添加的组件类型（已安装的），含用途、可配置项和默认值。添加或配置组件前先看这个。没装的市场组件不在这里，用 list_addons 看。',
@@ -138,13 +155,16 @@ export const HOME_TOOLS = [
     {
       name: 'get_workspace',
       title: '查看工作空间',
-      description: '查看当前所有页面及组件、图层、特效预算和静态降级摘要。旧配置不会因超预算被删除；修改前先看清现状。默认外观、当前背景与样式差异用 get_appearance 查看。',
+      description: '查看当前所有页面及组件、分区结构、有效阅读顺序、未分组组件、图层、特效预算和静态降级摘要。旧配置不会因超预算被删除；修改前先看清现状。默认外观、当前背景与样式差异用 get_appearance 查看。',
       effect: 'read',
       highRisk: () => false,
       execute: async () => {
         const workspace = getWorkspace()
         const pages = workspace.pages
           .map((page) => {
+            const sections = page.sections ?? []
+            const grouped = new Set(sections.flatMap((section) => section.kind === 'split' ? [...section.primary, ...section.secondary] : section.items))
+            const layout = JSON.stringify({sections, effectiveOrder: page.components.map((item) => item.id), ungrouped: page.components.filter((item) => !grouped.has(item.id)).map((item) => item.id)})
             const desktop = planPageEffects(page, {compact: false})
             const compact = planPageEffects(page, {compact: true})
             const effects = desktop.entries.length ? `\n  特效策略：${JSON.stringify({
@@ -153,7 +173,7 @@ export const HOME_TOOLS = [
               compactStatic: compact.entries.filter((entry) => entry.mode === 'static'),
               note: '静态降级保留配置；这是预算规划，实际减少动画/可见性与容器尺寸还会进一步限制，并非视觉验收。',
             })}` : ''
-            return `# ${page.id}｜${page.name}｜图标 ${page.icon ?? '默认'}｜${page.components.length} 个组件${page.id === 'home' ? '｜固定项' : ''}\n${page.components.map((c) => `  - ${describeComponent(c)}`).join('\n') || '  （空）'}${page.layers?.length ? `\n  图层：${JSON.stringify(page.layers)}` : ''}${effects}`
+            return `# ${page.id}｜${page.name}｜图标 ${page.icon ?? '默认'}｜${page.components.length} 个组件${page.id === 'home' ? '｜固定项' : ''}\n${page.components.map((c) => `  - ${describeComponent(c)}`).join('\n') || '  （空）'}\n  页面布局：${layout}${page.layers?.length ? `\n  图层：${JSON.stringify(page.layers)}` : ''}${effects}`
           })
           .join('\n')
         const status = workspace.statusbar.map((item) => `${item.type} ${JSON.stringify(item.config)}`).join('；') || '（空）'
@@ -193,6 +213,47 @@ export const HOME_TOOLS = [
   ),
 
   // ───── 写：页面 ─────
+  define(
+    {
+      schema: {parse: (raw) => {
+        const value = obj(raw)
+        const pageId = str(value.pageId)
+        if (!pageId) throw new WorkspaceError('pageId 必须是非空的页面 ID')
+        if (!Object.prototype.hasOwnProperty.call(value, 'sections') || value.sections === undefined) throw new WorkspaceError('必须提供 sections；传 null 或 [] 才会清除分区')
+        return {pageId, sections: value.sections}
+      }},
+      json: {
+        type: 'object',
+        properties: {
+          pageId: {type: 'string', minLength: 1, description: '目标页面 ID，首页为 home'},
+          sections: {
+            description: '整体替换页面分区，最多8区且最多一个hero。每个组件只能引用一次且必须已在本页；未分组组件追加在末尾。null或[]只清分区，保留组件、顺序、宽度与业务数据。',
+            anyOf: [
+              {type: 'null'},
+              {type: 'array', maxItems: 8, items: {oneOf: [
+                {type: 'object', additionalProperties: false, properties: {...sectionProperties, kind: {type: 'string', enum: ['hero']}, items: sectionItems, align: {type: 'string', enum: ['start', 'center'], default: 'start'}}, required: ['id', 'kind', 'items']},
+                {type: 'object', additionalProperties: false, properties: {...sectionProperties, kind: {type: 'string', enum: ['section']}, items: sectionItems, columns: {type: 'integer', enum: [1, 2, 3], default: 2}}, required: ['id', 'kind', 'items']},
+                {type: 'object', additionalProperties: false, properties: {...sectionProperties, kind: {type: 'string', enum: ['split']}, primary: sectionItems, secondary: sectionItems, ratio: {type: 'string', enum: ['equal', 'wide-primary'], default: 'wide-primary'}}, required: ['id', 'kind', 'primary', 'secondary']},
+              ]}},
+            ],
+          },
+        },
+        required: ['pageId', 'sections'],
+      },
+    },
+    {
+      name: 'set_page_sections',
+      title: '设置页面分区',
+      description: '按 list_page_layouts 的规则组织当前页面已有组件：hero 主视觉、section 内容分区、split 主次分栏。仅引用 ID，不复制组件或创建应用。分区顺序、items顺序、split主栏→辅栏决定阅读与键盘顺序，未分组项最后；实际内容容器小于720px自动单列。分区中的位置由结构决定，未分组项沿用span。一次提交可撤销；完成后可inspect_page测当前挂载页，不代表已完成视觉验收。',
+      effect: 'write',
+      highRisk: () => false,
+      execute: ({pageId, sections}) => guard(() => {
+        const next = ops.setPageSections(getWorkspace(), pageId, sections)
+        commit(next)
+        return `已更新页面 ${pageId} 的分区。可用 get_workspace 核对结构与阅读顺序，再用 inspect_page 复查当前已挂载页面的布局。`
+      }),
+    },
+  ),
   define(
     {
       schema: {parse: (raw) => ({name: str(obj(raw).name), label: optStr(obj(raw).label), icon: optStr(obj(raw).icon)})},
@@ -304,7 +365,7 @@ export const HOME_TOOLS = [
           config: {type: 'object', description: '组件配置，只能包含该组件声明过的字段'},
           span: {type: 'string', enum: ['full', 'two-thirds', 'half', 'third'], description: '宽度'},
           title: {type: 'string', description: '给这一块起个名字，方便之后指代'},
-          index: {type: 'number', description: '插入位置，不填放最后'},
+          index: {type: 'number', description: '按 get_workspace 的 effectiveOrder 从0开始定位；有分区时插在目标组件所属槽位的该组件之前，不填或末尾位置放入未分组区域'},
         },
         required: ['pageId', 'type'],
       },
@@ -312,7 +373,7 @@ export const HOME_TOOLS = [
     {
       name: 'add_component',
       title: '添加组件',
-      description: '往某个页面添加一个组件。配置字段以 list_component_types 返回的为准，未声明的字段会被忽略。',
+      description: '往某个页面添加一个组件。配置字段以 list_component_types 返回的为准，未声明的字段会被忽略。有分区时index按有效阅读顺序定位：插入目标槽位的组件之前，末尾默认未分组；也可用set_page_sections重新安排。',
       effect: 'write',
       highRisk: () => false,
       execute: (args) =>
@@ -395,7 +456,7 @@ export const HOME_TOOLS = [
           ref: {type: 'string'},
           pageId: {type: 'string', description: '组件当前所在页，用于消除歧义'},
           toPageId: {type: 'string', description: '目标页；不填则在当前页内调整'},
-          toIndex: {type: 'number', description: '目标位置，从 0 开始；不填放最后'},
+          toIndex: {type: 'number', description: '先从目标页移除被移动项，再按有效阅读顺序从0开始定位；有分区时插入目标组件的槽位并放在它之前，不填或末尾位置落在未分组区域'},
         },
         required: ['ref'],
       },
@@ -403,7 +464,7 @@ export const HOME_TOOLS = [
     {
       name: 'move_component',
       title: '移动组件',
-      description: '调整组件在页内的顺序，或把它移到另一个页面。组件的数据随它一起走。',
+      description: '调整组件在页内的顺序，或把它移到另一个页面。组件的数据随它一起走。先移除旧引用，再按目标页有效阅读顺序插入目标槽位；末尾默认未分组。需要整页编排时使用set_page_sections。',
       effect: 'write',
       highRisk: () => false,
       execute: (args) =>

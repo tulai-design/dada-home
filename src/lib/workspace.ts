@@ -15,7 +15,7 @@
 import type {DockStyle} from './dock'
 import type {ThemeFont} from './fonts'
 
-export const WORKSPACE_VERSION = 5
+export const WORKSPACE_VERSION = 6
 
 /** 内置组件类型。新增内置组件要在 registry 里注册，并在这里加一个值。 */
 export type BuiltinType =
@@ -220,6 +220,12 @@ export type Layer = {
   params: Record<string, unknown>
 }
 
+/** 分区只引用现有实例，不拥有另一份组件或应用数据。 */
+export type PageSection =
+  | {id: string; kind: 'hero'; title?: string; items: string[]; align?: 'start' | 'center'}
+  | {id: string; kind: 'section'; title?: string; items: string[]; columns?: 1 | 2 | 3}
+  | {id: string; kind: 'split'; title?: string; primary: string[]; secondary: string[]; ratio?: 'equal' | 'wide-primary'}
+
 /** 一个页面：组件实例的有序集合。 */
 export type Page = {
   id: string
@@ -227,6 +233,8 @@ export type Page = {
   /** 左侧导航里显示的短标签。 */
   label: string
   components: ComponentInstance[]
+  /** 可选语义分区；缺省保持旧扁平栅格，未引用组件仍显示在末尾。 */
+  sections?: PageSection[]
   /** 不填等同于 {mode:'off'}。 */
   wallpaper?: Wallpaper
   /** 特效图层，最多 3 层。不填等同于没有。 */

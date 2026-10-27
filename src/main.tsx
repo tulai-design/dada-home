@@ -10,6 +10,7 @@ import { initStorage } from './lib/storage'
 import { startAutoSync } from './lib/sync'
 import './styles.css'
 import './theme.css'
+import './page-sections.css'
 import './dock.css'
 import './life.css'
 

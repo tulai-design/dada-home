@@ -1,5 +1,6 @@
 import {WorkspaceError} from './errors'
 import {getDefinition, normalizeConfig} from './registry'
+import {insertPageComponent, normalizePageSections} from './pageSections'
 import {MAX_APPLICATIONS, MAX_STATUS_ITEMS, instanceId, type ApplicationOpenMode, type ApplicationSettingField, type ApplicationStatusMode, type ApplicationSurface, type ComponentInstance, type ComponentSpan, type GeneratedApplication, type Page, type Workspace} from './workspace'
 
 const SPANS = ['full', 'half', 'third', 'two-thirds'] as const
@@ -211,7 +212,7 @@ export function configureApplication(workspace: Workspace, ref: string, patch: A
 /** 卸载移除所有入口和页面挂载；不接触应用的本地私有数据，撤销可完整找回。 */
 export function removeApplication(workspace: Workspace, ref: string): Workspace {
   const application = findApplication(workspace, ref)
-  return {...workspace, applications: listApplications(workspace).filter((item) => item.id !== application.id), pages: workspace.pages.map((page) => ({...page, components: page.components.filter((item) => item.id !== application.id)}))}
+  return {...workspace, applications: listApplications(workspace).filter((item) => item.id !== application.id), pages: workspace.pages.map((page) => normalizePageSections({...page, components: page.components.filter((item) => item.id !== application.id)}))}
 }
 
 /** 一个应用只挂载一个页面实例，避免多份逻辑同时改同一份私有数据。 */
@@ -221,8 +222,16 @@ export function mountApplication(workspace: Workspace, ref: string, pageId: stri
   if (pageId !== null && !page) throw new WorkspaceError(`找不到页面：${pageId}`)
   if (span !== undefined && !SPANS.includes(span as ComponentSpan)) throw new WorkspaceError('应用宽度不合法')
   if (page && page.components.filter((item) => item.id !== application.id).length >= 24) throw new WorkspaceError('这一页组件太多了，最多 24 个')
-  const instance = {...application.instance, ...(span ? {span: span as ComponentSpan} : {})}
-  return {...workspace, applications: listApplications(workspace), pages: workspace.pages.map((item) => ({...item, components: [...item.components.filter((child) => child.id !== application.id), ...(item.id === pageId ? [instance] : [])]}))}
+  const placed = workspace.pages.flatMap((item) => item.components).find((item) => item.id === application.id)
+  const instance = {...application.instance, ...(placed ? {span: placed.span, ...(placed.look ? {look: placed.look} : {})} : {}), ...(span ? {span: span as ComponentSpan} : {})}
+  return {...workspace, applications: listApplications(workspace), pages: workspace.pages.map((item) => {
+    const contains = item.components.some((child) => child.id === application.id)
+    // 已在本页时保留位置和槽位，只同步 canonical 内容与显式宽度。
+    if (item.id === pageId) return contains
+      ? {...item, components: item.components.map((child) => child.id === application.id ? instance : child)}
+      : insertPageComponent(item, instance)
+    return contains ? normalizePageSections({...item, components: item.components.filter((child) => child.id !== application.id)}) : item
+  })}
 }
 
 /** 每种展示复用 canonical id/config，设置只在渲染时注入。 */
