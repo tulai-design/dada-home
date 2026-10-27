@@ -1,3 +1,6 @@
+import {POINT_LIMIT, SERIES_LIMIT} from './lineChartData'
+import {TREND_APPLET_EXAMPLE} from './chartExample'
+
 /**
  * 小程序（applet）的组件目录。
  *
@@ -30,6 +33,7 @@ export const CATALOG: CatalogEntry[] = [
   {name: 'Empty', props: '{title, description?}  —— 空状态，列表为空时用'},
   {name: 'Icon', props: '{name, size:12-48, tone}  —— name 见「图标」'},
   {name: 'Bars', props: '{values:number[], labels?:string[], highlight?:index, height:40-240}  —— 简单柱状图'},
+  {name: 'LineChart', props: `{title?:string, labels:string[], series:{name:string,values:(number|null)[],tone?:"accent"|"blue"|"green"|"orange"}[], unit?:string, height:160-360(默认220)} —— 趋势折线图；最多${POINT_LIMIT}点/${SERIES_LIMIT}系列，values与labels等长。零和负数保留，null缺失断线；非法/超量明确报错，不截断。窄容器减刻度，图例与明细保留准确数据；标题/名称/标签最多80字符，unit最多16，数值绝对值≤1e12`},
   {name: 'Table', props: '{columns:string[], rows:(string|number)[][]}  —— 简单表格'},
 
   // 输入与操作
@@ -183,6 +187,16 @@ applet({
 \`\`\`
 
 此例需声明 refreshSeconds 为有正数默认值和下限的 number 设置。页面尺寸和展示形态变化只改变布局，不在 view 里重建定时器。
+
+## 趋势图示例
+
+趋势图使用 ui.LineChart，不导入宿主React图表库。labels按输入顺序等距排列；先排序，超过${POINT_LIMIT}点先按日/周/月聚合，单图最多${SERIES_LIMIT}系列。数值保留零和负数，缺失用null并断线；不把缺失当0，不静默删点，不混用不同单位。宿主按实际容器减少刻度，提供最新值摘要和可展开的精确数据表；触摸和键盘都可读取明细。
+
+下面示例从空记录开始，业务数据始终保存分钟，显示单位设置会实际换算；观察范围只改变展示，保留全部已存记录，并标明“最近N条”。达到${POINT_LIMIT}条后拒绝新增，用户可删除最近一条。默认安装到市场，不开启状态栏；若用户需要，可启用已实现的compact状态分支。
+
+\`\`\`json
+${JSON.stringify(TREND_APPLET_EXAMPLE, null, 2)}
+\`\`\`
 
 ## 积木（ui.Xxx(props?, ...children)）
 ${components}

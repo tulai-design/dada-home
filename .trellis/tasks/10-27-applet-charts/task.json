@@ -3,7 +3,7 @@
   "name": "applet-charts",
   "title": "增强 Applet 数据图表能力",
   "description": "在简单 Bars 之外提供主题一致、窄屏可读的折线和趋势图。",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -12,7 +12,7 @@
   "assignee": "ROYIANS",
   "createdAt": "2026-10-27",
   "completedAt": null,
-  "branch": null,
+  "branch": "main",
   "base_branch": "main",
   "worktree_path": null,
   "commit": null,
@@ -24,6 +24,6 @@
   "notes": "",
   "meta": {
     "blocked_by": [],
-    "planning_depth": "behavior-defined; design-required-before-start"
+    "planning_depth": "implemented-and-verified"
   }
 }

@@ -22,6 +22,9 @@ import {
   TextArea,
 } from '@lobehub/ui'
 import {iconOf} from './icons'
+import {LineChart} from './LineChart'
+import {useContainerWidth} from './useContainerWidth'
+export {useContainerWidth} from './useContainerWidth'
 
 /**
  * 小程序的渲染器：把沙盒送来的积木树（纯 JSON）画成 Lobe UI 的真控件。
@@ -45,23 +48,6 @@ const num = (v: unknown, fallback: number, min = -1e9, max = 1e9): number => {
 }
 const bool = (v: unknown): boolean => v === true
 const pick = <T extends string>(v: unknown, allowed: readonly T[], fallback: T): T => (allowed.includes(v as T) ? (v as T) : fallback)
-
-/** Measure the visible content container, rather than the applet's hidden runner iframe. */
-export function useContainerWidth() {
-  const ref = useRef<HTMLDivElement>(null)
-  const [width, setWidth] = useState(0)
-  useEffect(() => {
-    const element = ref.current
-    if (!element) return
-    const update = (value: number) => setWidth(Math.max(0, Math.round(value)))
-    const style = getComputedStyle(element)
-    update(element.clientWidth - (parseFloat(style.paddingLeft) || 0) - (parseFloat(style.paddingRight) || 0))
-    const observer = new ResizeObserver(([entry]) => update(entry.contentRect.width))
-    observer.observe(element)
-    return () => observer.disconnect()
-  }, [])
-  return {ref, width}
-}
 
 type Handler = {$fn: number}
 const isHandler = (v: unknown): v is Handler => !!v && typeof v === 'object' && typeof (v as Handler).$fn === 'number'
@@ -361,6 +347,8 @@ export function UiTree({node, fire}: {node: UiNode; fire: Fire}) {
     }
     case 'Bars':
       return <Bars p={p} />
+    case 'LineChart':
+      return <LineChart p={p} />
     case 'Table':
       return <Table p={p} />
 

@@ -44,3 +44,5 @@ page-inspector已接通真实页面ref、有限DOM采样、只读inspect_page与
 page-sections已实现主视觉、内容分区、主次分栏及AI目录/写入工具；保持旧页面和组件/应用ID，接通CRUD、保存、模板与撤销。真实PageView覆盖四种宽度/双主题、桌面窄容器、键盘顺序与状态存活；真实App的AI双栏649px容器、inspect_page回灌和刷新恢复也已验证。详见该子任务verification.md。后续首页组合消费此合同。
 
 homepage-recipes已接通四方向确定性编排、内存草稿、版本/正式首页冲突校验、静态预览和单次应用/取消/撤销，AI目录与独立草稿检查宿主完整转发。真实App模拟模型完成生成→检查→修正→复查→应用→撤销，便签与原DOM保留。验收范围仅布局，动态背景和业务内容不运行。详见该子任务verification.md。下一项applet-charts，随后applet-data-table；父任务仍需最终集成验收。
+
+2026-10-28：applet-charts接通有界LineChart目录/数据校验/宿主SVG、精确明细和共享本地记录示例；保留Bars与既有运行时。当前子任务验收见其verification.md，后续applet-data-table及父任务最终集成。此前main已推送至1d12e1f，CI和镜像发布成功。

@@ -30,6 +30,8 @@
 
 普通交互工具优先 Applet。其 UI 是 [catalog.ts](../../../src/lib/applet/catalog.ts) 里的积木树，经 [render.tsx](../../../src/lib/applet/render.tsx) 渲染为宿主控件；新增积木必须接通目录、渲染和可验证的属性行为。安装 npm 包不等于 AI 能使用对应 React 组件。
 
+折线/趋势使用LineChart，简单柱状仍用Bars。图表数据上限和缺失值规则由目录及lineChartData.ts统一；AI先排序/聚合，不能把缺失补0或超量静默截断。示例源码应与运行时指南同源并实际执行验证；不能只在测试页画图就声称AI会用。具体约束见[趋势图规范](../frontend/applet-charts.md)。
+
 Applet 计算逻辑可按现有沙盒策略导入远程 ESM 库，见 [runner.ts](../../../src/lib/applet/runner.ts)；这不授予任意 React/DOM UI 能力。UI 保持目录白名单，业务网络访问经过宿主授权。
 
 HTML App 用于游戏、Canvas/WebGL 或确需完全自定义视觉的场景。其主题、消息、存储桥与隔离规则由 [widgets/app.tsx](../../../src/widgets/app.tsx) 及运行时支持，不得通过增加宿主权限绕开沙盒。

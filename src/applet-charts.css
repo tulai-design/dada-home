@@ -1,0 +1,24 @@
+.ap-line-chart-container {width:100%; min-width:0; max-width:100%;}
+.ap-line-chart {margin:0; min-width:0; max-width:100%; color:var(--text);}
+.ap-line-chart-title {font:500 18px/1.4 var(--font-serif); overflow-wrap:anywhere;}
+.ap-line-chart-summary {list-style:none; margin:8px 0 0; padding:0; color:var(--text2); font-size:12px; line-height:1.6; overflow-wrap:anywhere; font-variant-numeric:tabular-nums;}
+.ap-line-chart-legend {display:flex; flex-wrap:wrap; gap:8px 16px; list-style:none; padding:0; margin:12px 0 0; font-size:12px; color:var(--text2);}
+.ap-line-chart-legend li {display:flex; align-items:center; gap:8px; min-width:0; max-width:100%;}
+.ap-line-chart-legend svg {flex:none;}
+.ap-line-chart-legend span {overflow-wrap:anywhere; min-width:0;}
+.ap-line-chart-plot {min-width:0; width:100%; margin-top:16px;}
+.ap-line-chart-plot > svg {display:block; max-width:100%; font:12px var(--font-sans); font-variant-numeric:tabular-nums;}
+.ap-line-chart-axis line {stroke:var(--border); stroke-width:1;}
+.ap-line-chart-axis text, .ap-line-chart-tick {fill:var(--text2);}
+.ap-line-chart-details {margin-top:12px; font-size:12px;}
+.ap-line-chart-details > summary {width:fit-content; max-width:100%; min-height:44px; box-sizing:border-box; padding:12px 0; cursor:pointer; color:var(--text2);}
+.ap-line-chart-details > summary:hover {color:var(--text);}
+.ap-line-chart-details > summary:focus-visible, .ap-line-chart-table-wrap:focus-visible {outline:2px solid var(--main); outline-offset:4px;}
+.ap-line-chart-table-wrap {max-width:100%; max-height:320px; overflow:auto; margin-top:8px;}
+.ap-line-chart-table-wrap table {width:100%; border-collapse:collapse; font-size:12px; font-variant-numeric:tabular-nums;}
+.ap-line-chart-table-wrap caption {text-align:left; padding-bottom:8px; color:var(--text2);}
+.ap-line-chart-table-wrap th, .ap-line-chart-table-wrap td {padding:8px 12px; text-align:right; min-width:80px; overflow-wrap:anywhere;}
+.ap-line-chart-table-wrap thead th {font-weight:500; border-bottom:1px solid var(--border);}
+.ap-line-chart-table-wrap th:first-child {text-align:left; font-weight:400;}
+.ap-line-chart-table-wrap tbody tr:hover {background:var(--bg2);}
+.ap-line-chart-error {min-width:0; overflow-wrap:anywhere;}
