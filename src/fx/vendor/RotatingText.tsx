@@ -323,7 +323,7 @@ const RotatingText = forwardRef<RotatingTextRef, RotatingTextProps>((props, ref)
   const charStyle = effect === 'flip' ? FLIP_STYLE : undefined;
 
   const blockStyle = highlight
-    ? { ...style, width, backgroundColor: highlightColor, color: readableText(highlightColor) ?? style?.color }
+    ? { ...style, width, backgroundColor: highlightColor, color: style?.color ?? readableText(highlightColor) }
     : style;
 
   const presence = (

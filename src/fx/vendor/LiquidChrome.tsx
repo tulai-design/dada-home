@@ -1,5 +1,7 @@
 'use client';
 
+import { reportFxFailure } from '../runtimeErrors';
+
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import './LiquidChrome.css';
 
@@ -395,11 +397,25 @@ const LiquidChrome = ({
       stencil: false,
       powerPreference: 'high-performance'
     });
-    const chrome = gl ? link(gl, CHROME) : null;
-    if (!gl || !chrome) return;
+    if (!gl) {
+      reportFxFailure(canvas, 'webgl-unavailable');
+      return;
+    }
+    const chrome = link(gl, CHROME);
+    if (!chrome) {
+      reportFxFailure(canvas, 'shader-failed');
+      return;
+    }
     const fluid = Boolean(gl.getExtension('EXT_color_buffer_float'));
     const sim = fluid ? link(gl, SIM) : null;
     const slope = fluid ? link(gl, SLOPE) : null;
+    if (fluid && (!sim || !slope)) {
+      gl.deleteProgram(chrome.program);
+      if (sim) gl.deleteProgram(sim.program);
+      if (slope) gl.deleteProgram(slope.program);
+      reportFxFailure(canvas, 'shader-failed');
+      return;
+    }
 
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const vao = gl.createVertexArray();

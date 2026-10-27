@@ -1,5 +1,7 @@
 'use client';
 
+import { reportFxFailure } from '../runtimeErrors';
+
 import { useEffect, useRef, type CSSProperties } from 'react';
 
 import './Silk.css';
@@ -258,7 +260,12 @@ const link = (gl: WebGL2RenderingContext, fragmentSource: string): Program | nul
   const vertex = compile(gl, gl.VERTEX_SHADER, VERTEX);
   const fragment = compile(gl, gl.FRAGMENT_SHADER, fragmentSource);
   const program = gl.createProgram();
-  if (!vertex || !fragment || !program) return null;
+  if (!vertex || !fragment || !program) {
+    if (vertex) gl.deleteShader(vertex);
+    if (fragment) gl.deleteShader(fragment);
+    if (program) gl.deleteProgram(program);
+    return null;
+  }
   gl.attachShader(program, vertex);
   gl.attachShader(program, fragment);
   gl.bindAttribLocation(program, 0, 'aPosition');
@@ -340,11 +347,20 @@ const Silk = ({
       stencil: false,
       powerPreference: 'high-performance'
     });
-    if (!container || !canvas || !gl) return undefined;
+    if (!container || !canvas) return undefined;
+    if (!gl) {
+      reportFxFailure(canvas, 'webgl-unavailable');
+      return undefined;
+    }
 
     const fieldProgram = link(gl, FIELD);
     const compositeProgram = link(gl, COMPOSITE);
-    if (!fieldProgram || !compositeProgram) return undefined;
+    if (!fieldProgram || !compositeProgram) {
+      if (fieldProgram) gl.deleteProgram(fieldProgram.program);
+      if (compositeProgram) gl.deleteProgram(compositeProgram.program);
+      reportFxFailure(canvas, 'shader-failed');
+      return undefined;
+    }
 
     const buffer = gl.createBuffer();
     const vao = gl.createVertexArray();

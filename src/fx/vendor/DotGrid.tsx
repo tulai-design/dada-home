@@ -1,5 +1,7 @@
 'use client';
 
+import { reportFxFailure } from '../runtimeErrors';
+
 import { useEffect, useRef, type CSSProperties } from 'react';
 
 import './DotGrid.css';
@@ -147,10 +149,13 @@ const backOut = (t: number) => {
 };
 
 const compile = (gl: WebGL2RenderingContext, type: number, source: string) => {
-  const shader = gl.createShader(type) as WebGLShader;
+  const shader = gl.createShader(type);
+  if (!shader) return null;
   gl.shaderSource(shader, source);
   gl.compileShader(shader);
-  return shader;
+  if (gl.getShaderParameter(shader, gl.COMPILE_STATUS)) return shader;
+  gl.deleteShader(shader);
+  return null;
 };
 
 const DotGrid = ({
@@ -212,13 +217,31 @@ const DotGrid = ({
     const canvas = canvasRef.current;
     if (!canvas) return;
     const gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false });
-    if (!gl) return;
+    if (!gl) {
+      reportFxFailure(canvas, 'webgl-unavailable');
+      return;
+    }
 
-    const program = gl.createProgram() as WebGLProgram;
-    gl.attachShader(program, compile(gl, gl.VERTEX_SHADER, VERTEX));
-    gl.attachShader(program, compile(gl, gl.FRAGMENT_SHADER, FRAGMENT));
+    const program = gl.createProgram();
+    const vertex = compile(gl, gl.VERTEX_SHADER, VERTEX);
+    const fragment = compile(gl, gl.FRAGMENT_SHADER, FRAGMENT);
+    if (!program || !vertex || !fragment) {
+      if (vertex) gl.deleteShader(vertex);
+      if (fragment) gl.deleteShader(fragment);
+      if (program) gl.deleteProgram(program);
+      reportFxFailure(canvas, 'shader-failed');
+      return;
+    }
+    gl.attachShader(program, vertex);
+    gl.attachShader(program, fragment);
     gl.linkProgram(program);
-    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return;
+    gl.deleteShader(vertex);
+    gl.deleteShader(fragment);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      gl.deleteProgram(program);
+      reportFxFailure(canvas, 'shader-failed');
+      return;
+    }
 
     const uniforms: Record<string, WebGLUniformLocation | null> = {};
     for (const name of [

@@ -1,5 +1,7 @@
 'use client';
 
+import { reportFxFailure } from '../runtimeErrors';
+
 import { useEffect, useRef, type HTMLAttributes } from 'react';
 import './Galaxy.css';
 
@@ -277,7 +279,12 @@ const start = (gl: WebGL2RenderingContext, palette: boolean, repel: boolean, war
   const program = gl.createProgram();
   const vertex = gl.createShader(gl.VERTEX_SHADER);
   const fragment = gl.createShader(gl.FRAGMENT_SHADER);
-  if (!program || !vertex || !fragment) return null;
+  if (!program || !vertex || !fragment) {
+    if (vertex) gl.deleteShader(vertex);
+    if (fragment) gl.deleteShader(fragment);
+    if (program) gl.deleteProgram(program);
+    return null;
+  }
   gl.shaderSource(vertex, VERTEX);
   gl.shaderSource(fragment, FRAGMENT.replace('\n', `\n${defines}`));
   gl.compileShader(vertex);
@@ -380,7 +387,11 @@ const Galaxy = ({
       depth: false,
       stencil: false
     });
-    if (!container || !canvas || !gl) return undefined;
+    if (!container || !canvas) return undefined;
+    if (!gl) {
+      reportFxFailure(canvas, 'webgl-unavailable');
+      return undefined;
+    }
 
     const parallel = gl.getExtension('KHR_parallel_shader_compile');
     const programs = new Map<number, Variant>();
@@ -395,10 +406,16 @@ const Galaxy = ({
     };
     const variant = (palette: boolean, repel: boolean, warp: boolean, wait: boolean) => {
       const found = entry(palette, repel, warp);
-      if (!found.done && found.program) {
+      if (!found.done) {
+        if (!found.program) {
+          found.done = true;
+          reportFxFailure(canvas, 'shader-failed');
+          return null;
+        }
         if (!wait && parallel && !gl.getProgramParameter(found.program, parallel.COMPLETION_STATUS_KHR)) return null;
         found.linked = finish(gl, found.program);
         found.done = true;
+        if (!found.linked) reportFxFailure(canvas, 'shader-failed');
       }
       return found.linked;
     };

@@ -1,6 +1,6 @@
 # 特效策略验收
 
-日期：2026-10-27。代码基线：f8e5504。结论：实现与审查通过，当前工作树未提交；提交后归档本任务。父任务仍有后续工作。
+日期：2026-10-27。代码基线：f8e5504。结论：实现与审查通过，已于41ce919提交并归档本任务。父任务仍有后续工作。
 
 ## 交付行为
 
@@ -25,7 +25,7 @@ TDD证据：原add允许Aurora图层+Silk块、原模板应用允许保存的超
 
 ## 浏览器证据
 
-入口：[真实组件fixture](../../../tests/effect-policy-regressions.html)，React StrictMode，独立浏览器上下文；不读取或修改用户工作空间。
+入口：[真实组件fixture](../../../../../tests/effect-policy-regressions.html)，React StrictMode，独立浏览器上下文；不读取或修改用户工作空间。
 
 Chromium实际运行Waves、Noise、TextType、CountUp和光效卡片，共17项断言通过：
 

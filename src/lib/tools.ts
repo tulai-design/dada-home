@@ -997,7 +997,8 @@ export const HOME_TOOLS = [
         '  scene       Spline 3D 场景 → 整页图层或横幅块',
         `默认建议：一个主要视觉效果即可；信息密集页面优先静态装饰。图层与内容块共同计预算：桌面最多 ${FX_BUDGET_LIMITS.totalCost} 点、${FX_BUDGET_LIMITS.gpuCount} 个 GPU 效果、${FX_BUDGET_LIMITS.continuousCount} 个持续动画；最多 3 个图层另行保留。各效果点数见目录，不是性能测量。`,
         `按手机、抽屉和 AI 分栏的实际容器宽度适配：小于 ${FX_COMPACT_WIDTH}px 时预算 ${FX_COMPACT_LIMITS.totalCost} 点，WebGL/Spline 和光效卡片静态显示；减少动画时全部静态保留内容，隐藏/离屏卸载装饰，粗指针关闭跟随、卡片光效与点击火花。旧超限配置保留并可减负编辑，运行时按图层→内容块顺序分配预算。`,
-        '详情 policy 披露质量上限、来源核对状态与实现局限；尚未统一双主题色板，未知许可不能声称已核对。Spline 只在用户明确需要 3D 时使用。',
+        '配色：params.palette:"theme" 跟随宿主语义色；params.light / params.dark 分别提供本效果的颜色字段。优先级为普通params→语义色板→当前模式分支。分支只接受目录color/colors字段，不能改变动画、布局或scene；未声明新配色保持旧固定色。更新组件时light/dark各分支整体替换，传null清除；palette:null关闭语义色板。',
+        '详情 theme 列出允许的颜色字段；Noise无颜色，Spline仅宿主横幅文字跟随主题，不能改远程场景。显式配色仍需核对明暗对比。详情 policy 披露质量上限、来源核对状态与实现局限；未知许可不能声称已核对。Spline 只在用户明确需要 3D 时使用。',
       ].join('\n'),
       effect: 'read',
       highRisk: () => false,
@@ -1010,7 +1011,7 @@ export const HOME_TOOLS = [
         return FX_DEFS.filter((def) => !args.kind || def.kind === args.kind)
           .map((def) => {
             const info = describeFx(def)
-            return `${def.id}｜${def.name}｜${def.kind}｜可用于 ${info.use.join('+')}｜${info.policy.renderer} ${info.policy.cost}点｜默认 ${info.policy.motion}｜窄容器 ${info.policy.compact}\n  ${def.description}\n  来源许可：${info.policy.source?.license ?? 'needs-verification'}；完整策略与参数用 list_effects(id) 查看\n  参数：${Object.keys(def.params).join('、') || '无'}`
+            return `${def.id}｜${def.name}｜${def.kind}｜可用于 ${info.use.join('+')}｜${info.policy.renderer} ${info.policy.cost}点｜默认 ${info.policy.motion}｜窄容器 ${info.policy.compact}\n  ${def.description}\n  来源许可：${info.policy.source?.license ?? 'needs-verification'}；完整策略与配色字段用 list_effects(id) 查看\n  参数：${Object.keys(def.params).join('、') || '无'}；配色 palette / light / dark${!info.theme.colorFields.length ? '（无可配置颜色）' : ''}`
           })
           .join('\n')
       },

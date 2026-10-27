@@ -1,6 +1,7 @@
 import type {CSSProperties} from 'react'
 import {FX_DEFS, FxError, getFx, isBlockFx, normalizeParams} from '../fx/catalog'
 import {FxEffect} from '../fx/Fx'
+import {useFxThemeParams} from '../fx/useFxTheme'
 import {registerComponent, type ComponentProps} from '../lib/registry'
 
 type FxConfig = {
@@ -25,13 +26,13 @@ function typography(p: Record<string, unknown>): CSSProperties {
 
 function FxBlock({config, instance}: ComponentProps<FxConfig>) {
   const def = getFx(config.effect)
+  const {params} = useFxThemeParams(def, config.params)
   if (!def) return <div className="fx-missing"><div>效果暂不可用：{config.effect}</div><FxEffect id={config.effect} text={config.text} effectKey={`block:${instance.id}`} /></div>
-  const params = normalizeParams(def, config.params)
 
   if (def.kind === 'text') {
     return (
       <div className="fx-text" data-effect={def.id} style={{...typography(params), minHeight: config.height || undefined}}>
-        <FxEffect id={def.id} text={config.text} params={params} effectKey={`block:${instance.id}`} />
+        <FxEffect id={def.id} text={config.text} params={config.params} effectKey={`block:${instance.id}`} />
       </div>
     )
   }
@@ -39,7 +40,7 @@ function FxBlock({config, instance}: ComponentProps<FxConfig>) {
   if (def.kind === 'card') {
     return (
       <div className="fx-card" data-effect={def.id} style={{height: config.height || 200}}>
-        <FxEffect id={def.id} text={config.text} params={params} effectKey={`block:${instance.id}`} />
+        <FxEffect id={def.id} text={config.text} params={config.params} effectKey={`block:${instance.id}`} />
       </div>
     )
   }
@@ -49,7 +50,7 @@ function FxBlock({config, instance}: ComponentProps<FxConfig>) {
   return (
     <div className="fx-banner" data-effect={def.id} style={{height: config.height || 280}}>
       <div className="fx-fill">
-        <FxEffect id={def.id} params={params} effectKey={`block:${instance.id}`} />
+        <FxEffect id={def.id} params={config.params} effectKey={`block:${instance.id}`} />
       </div>
       {config.text && (
         <div className="fx-banner-text" style={{color: textColor, fontSize: Number(params.textSize) || undefined}}>

@@ -1,5 +1,7 @@
 'use client';
 
+import { reportFxFailure } from '../runtimeErrors';
+
 import { useEffect, useRef, type CSSProperties } from 'react';
 import './Waves.css';
 
@@ -269,7 +271,12 @@ const link = (gl: WebGL2RenderingContext): Program | null => {
   const vertex = compile(gl, gl.VERTEX_SHADER, VERTEX);
   const fragment = compile(gl, gl.FRAGMENT_SHADER, FRAGMENT);
   const program = gl.createProgram();
-  if (!vertex || !fragment || !program) return null;
+  if (!vertex || !fragment || !program) {
+    if (vertex) gl.deleteShader(vertex);
+    if (fragment) gl.deleteShader(fragment);
+    if (program) gl.deleteProgram(program);
+    return null;
+  }
   gl.attachShader(program, vertex);
   gl.attachShader(program, fragment);
   gl.linkProgram(program);
@@ -357,10 +364,17 @@ const Waves = ({
       depth: false,
       stencil: false
     });
-    if (!container || !canvas || !gl) return undefined;
+    if (!container || !canvas) return undefined;
+    if (!gl) {
+      reportFxFailure(canvas, 'webgl-unavailable');
+      return undefined;
+    }
 
     const program = link(gl);
-    if (!program) return undefined;
+    if (!program) {
+      reportFxFailure(canvas, 'shader-failed');
+      return undefined;
+    }
     const u = program.uniforms;
 
     const vao = gl.createVertexArray();

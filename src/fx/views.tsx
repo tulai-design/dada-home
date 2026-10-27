@@ -16,6 +16,8 @@ export type FxViewProps = {
   p: Record<string, unknown>
   /** 当前是否暗色主题，用来选 lightMode 等 */
   dark: boolean
+  palette: boolean
+  colorOverrides: string[]
 }
 
 type Any = ComponentType<Record<string, unknown>>
@@ -37,23 +39,14 @@ const lines = (text: string) =>
     .map((line) => line.trim())
     .filter(Boolean)
 
-/** #rgb / #rrggbb → [0..1, 0..1, 0..1]，供要求数组颜色的组件使用。 */
-function rgb(hex: unknown, fallback: [number, number, number] = [1, 1, 1]): [number, number, number] {
-  if (typeof hex !== 'string') return fallback
-  const m = hex.trim().match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i)
-  if (!m) return fallback
-  const h = m[1].length === 3 ? [...m[1]].map((c) => c + c).join('') : m[1]
-  return [parseInt(h.slice(0, 2), 16) / 255, parseInt(h.slice(2, 4), 16) / 255, parseInt(h.slice(4, 6), 16) / 255]
-}
-
 /** 画布类组件要真实的字体名，读 CSS 变量取值。 */
 export function fontStack(font: unknown): string {
   const name = font === 'mono' ? '--font-mono' : font === 'sans' ? '--font-sans' : '--font-serif'
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || 'serif'
 }
 
-function view(load: () => Promise<{default: unknown}>, render: (C: Any, props: FxViewProps) => ReactNode): LazyExoticComponent<ComponentType<FxViewProps>> {
-  return lazy(async () => {
+function view(load: () => Promise<{default: unknown}>, render: (C: Any, props: FxViewProps) => ReactNode): () => LazyExoticComponent<ComponentType<FxViewProps>> {
+  return () => lazy(async () => {
     const mod = await load()
     const C = mod.default as unknown as Any
     return {default: (props: FxViewProps) => <>{render(C, props)}</>}
@@ -68,35 +61,36 @@ const light = (dark: boolean) => ({lightMode: !dark})
  * 用户或 AI 明确指定过别的颜色则尊重原样。
  */
 const INK: Record<string, string> = {'#1b1714': '#e8e1d3', '#cfc6b8': '#4b443b'}
-const inkFor = (p: Record<string, unknown>, dark: boolean): Record<string, unknown> => {
+const inkFor = (p: Record<string, unknown>, dark: boolean, overrides: string[]): Record<string, unknown> => {
   if (!dark) return p
   const next: Record<string, unknown> = {...p}
   for (const key of ['color', 'lineColor', 'baseColor']) {
+    if (overrides.includes(key)) continue
     const value = next[key]
     if (typeof value === 'string' && INK[value.toLowerCase()]) next[key] = INK[value.toLowerCase()]
   }
   return next
 }
 
-export const VIEWS: Record<string, LazyExoticComponent<ComponentType<FxViewProps>>> = {
+const VIEWS: Record<string, () => LazyExoticComponent<ComponentType<FxViewProps>>> = {
   // ───── 背景 ─────
   aurora: view(() => import('./vendor/Aurora'), (C, {p, dark}) => <C {...light(dark)} {...bg(p)} />),
   silk: view(() => import('./vendor/Silk'), (C, {p, dark}) => <C {...light(dark)} {...bg(p)} />),
   beams: view(() => import('./vendor/Beams'), (C, {p, dark}) => <C {...light(dark)} {...bg(p)} />),
   galaxy: view(() => import('./vendor/Galaxy'), (C, {p, dark}) => <C {...light(dark)} {...bg(p)} />),
-  iridescence: view(() => import('./vendor/Iridescence'), (C, {p}) => <C {...bg(p)} color={rgb(p.color)} />),
+  iridescence: view(() => import('./vendor/Iridescence'), (C, {p}) => <C {...bg(p)} />),
   'liquid-chrome': view(() => import('./vendor/LiquidChrome'), (C, {p, dark}) => <C {...light(dark)} {...bg(p)} />),
   orb: view(() => import('./vendor/Orb'), (C, {p}) => <C {...bg(p)} />),
   particles: view(() => import('./vendor/Particles'), (C, {p, dark}) => <C {...light(dark)} {...bg(p)} />),
   threads: view(
     () => import('./vendor/Threads'),
-    (C, {p: raw, dark}) => {
-      const p = inkFor(raw, dark)
-      return <C {...bg(p)} color={rgb(p.color)} accentColor={p.accentColor ? rgb(p.accentColor) : undefined} />
+    (C, {p: raw, dark, colorOverrides}) => {
+      const p = inkFor(raw, dark, colorOverrides)
+      return <C {...bg(p)} />
     },
   ),
-  waves: view(() => import('./vendor/Waves'), (C, {p, dark}) => <C {...light(dark)} {...bg(inkFor(p, dark))} />),
-  'dot-grid': view(() => import('./vendor/DotGrid'), (C, {p, dark}) => <C {...bg(inkFor(p, dark))} />),
+  waves: view(() => import('./vendor/Waves'), (C, {p, dark, colorOverrides}) => <C {...light(dark)} {...bg(inkFor(p, dark, colorOverrides))} />),
+  'dot-grid': view(() => import('./vendor/DotGrid'), (C, {p, dark, colorOverrides}) => <C {...bg(inkFor(p, dark, colorOverrides))} />),
 
   // ───── 文字 ─────
   'split-text': view(
@@ -111,7 +105,7 @@ export const VIEWS: Record<string, LazyExoticComponent<ComponentType<FxViewProps
     () => import('./vendor/TextType'),
     (C, {p, text}) => <C {...rest(p)} text={lines(text).length ? lines(text) : [text]} as="div" />,
   ),
-  'rotating-text': view(() => import('./vendor/RotatingText'), (C, {p, text}) => <C {...rest(p)} texts={lines(text)} />),
+  'rotating-text': view(() => import('./vendor/RotatingText'), (C, {p, text, colorOverrides}) => <C {...rest(p)} texts={lines(text)} style={colorOverrides.includes('color') ? {color: p.color} : undefined} />),
   'count-up': view(
     () => import('./vendor/CountUp'),
     (C, {p, text}) => <C {...rest(p)} to={Number.parseFloat(text.replace(/[^0-9.\-]/g, '')) || 0} />,
@@ -148,10 +142,10 @@ export const VIEWS: Record<string, LazyExoticComponent<ComponentType<FxViewProps
   // ───── 卡片 ─────
   'spotlight-card': view(
     () => import('./vendor/SpotlightCard'),
-    (C, {p, text, dark}) => {
+    (C, {p, text, dark, palette}) => {
       const [title, ...body] = lines(text)
       return (
-        <C {...rest(p)} theme={dark ? 'dark' : 'light'} style={{height: '100%'}}>
+        <C {...rest(p)} theme={dark ? 'dark' : 'light'} style={{height: '100%', ...(palette ? {'--spotlight-card-surface': 'var(--bg2)', '--spotlight-card-border': 'var(--border)', '--spotlight-card-shadow': 'none', borderRadius: 'var(--radius)'} : {})}}>
           <CardText title={title} body={body} p={p} />
         </C>
       )
@@ -177,6 +171,11 @@ export const VIEWS: Record<string, LazyExoticComponent<ComponentType<FxViewProps
 
   // ───── 整页叠加层 ─────
   noise: view(() => import('./vendor/Noise'), (C, {p}) => <C {...p} />),
+}
+
+/** A new lazy identity retries React's failed load; native module-cache failures may still require a page refresh. */
+export function createFxView(id: string) {
+  return Object.hasOwn(VIEWS, id) ? VIEWS[id]() : undefined
 }
 
 /** 卡片内的标题 + 正文，沿用文字排版参数。 */

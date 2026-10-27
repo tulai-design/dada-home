@@ -24,6 +24,7 @@ PATH="/Users/xiaomengdao/.nvm/versions/node/v24.11.0/bin:$PATH" /Users/xiaomengd
 | 运行时与容器 | [test-applet-runtime.mjs](../../../scripts/test-applet-runtime.mjs)、[test-app-runtime.mjs](../../../scripts/test-app-runtime.mjs) |
 | 撤销与迁移 | [test-workspace-history.mjs](../../../scripts/test-workspace-history.mjs) |
 | 特效预算与旧配置 | [test-effect-policy.mjs](../../../scripts/test-effect-policy.mjs)；真实渲染入口 [effect-policy-regressions.html](../../../tests/effect-policy-regressions.html) |
+| 特效主题与失败恢复 | [test-effect-theme.mjs](../../../scripts/test-effect-theme.mjs)；真实渲染入口 [effect-theme-regressions.html](../../../tests/effect-theme-regressions.html) |
 | 取数代理 | [proxy.test.mjs](../../../server/proxy.test.mjs) |
 
 新增测试优先观察公开工具/操作结果和运行时消息合同，不把提示词全文快照或实现字符串复述当作行为验证。纯文档或低影响措辞调整使用链接/一致性检查，不为它们制造脆弱测试。

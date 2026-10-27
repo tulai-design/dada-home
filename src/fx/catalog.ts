@@ -648,15 +648,11 @@ export function normalizeParams(def: FxDef, raw: unknown): Record<string, unknow
     if (!(key in source)) continue
     const value = source[key]
     switch (spec.t) {
-      case 'color':
-        if (typeof value === 'string' && (isColor(value) || value === 'transparent')) result[key] = value.trim()
+      case 'color': case 'colors': {
+        const clean = normalizeColor(spec, value)
+        if (clean !== undefined) result[key] = clean
         break
-      case 'colors':
-        if (Array.isArray(value)) {
-          const list = value.filter((item): item is string => typeof item === 'string' && isColor(item)).slice(0, spec.max)
-          if (list.length) result[key] = list
-        }
-        break
+      }
       case 'number':
         if (typeof value === 'number' && Number.isFinite(value)) result[key] = Math.min(spec.max, Math.max(spec.min, value))
         break
@@ -671,12 +667,32 @@ export function normalizeParams(def: FxDef, raw: unknown): Record<string, unknow
         break
     }
   }
+  if (source.palette === 'theme') result.palette = 'theme'
+  for (const mode of ['light', 'dark'] as const) {
+    const branch = source[mode]
+    if (!branch || typeof branch !== 'object' || Array.isArray(branch)) continue
+    const clean: Record<string, unknown> = {}
+    for (const [key, spec] of Object.entries(def.params)) {
+      if (spec.t !== 'color' && spec.t !== 'colors') continue
+      const value = normalizeColor(spec, (branch as Record<string, unknown>)[key])
+      if (value !== undefined) clean[key] = value
+    }
+    // 空或全非法分支不改变旧配色；分支内不注入默认色，也不接受嵌套控制字段。
+    if (Object.keys(clean).length) result[mode] = clean
+  }
   if (def.id === 'spline') {
     const scene = typeof result.scene === 'string' ? result.scene.trim() : ''
     if (scene && !isSplineUrl(scene)) delete result.scene
     else if (scene) result.scene = scene
   }
   return result
+}
+
+function normalizeColor(spec: Extract<FxParam, {t: 'color' | 'colors'}>, value: unknown): string | string[] | undefined {
+  if (spec.t === 'color') return typeof value === 'string' && (isColor(value) || value === 'transparent') ? value.trim() : undefined
+  if (!Array.isArray(value)) return undefined
+  const colors = value.filter((item): item is string => typeof item === 'string' && isColor(item)).slice(0, spec.max)
+  return colors.length ? colors : undefined
 }
 
 /** 页面图层：背景类 / 3D / 叠加层可用，文字和卡片不行。 */
@@ -705,6 +721,7 @@ export function normalizeLayer(raw: unknown): {effect: string; params: Record<st
 
 /** 给 AI 的目录：精简成它能直接读懂的结构。 */
 export function describeFx(def: FxDef) {
+  const colorFields = Object.entries(def.params).filter(([, spec]) => spec.t === 'color' || spec.t === 'colors').map(([key]) => key)
   return {
     id: def.id,
     name: def.name,
@@ -712,6 +729,13 @@ export function describeFx(def: FxDef) {
     use: isLayerFx(def) && isBlockFx(def) ? ['layer', 'block'] : isLayerFx(def) ? ['layer'] : ['block'],
     description: def.description,
     text: def.text,
+    theme: {
+      colorFields,
+      precedence: ['params', 'palette', 'currentMode'],
+      palette: 'params.palette:"theme" 使用宿主语义色；未声明时保留原有固定配色与适配行为。',
+      modes: 'params.light / params.dark 只接受上列颜色字段，分别覆盖当前模式；不接受动画、布局、scene或嵌套控制字段。未提供分支继承普通参数与语义色板。更新组件时每个分支整体替换，null清除该分支；palette:null关闭语义色板。',
+      limitation: def.id === 'noise' ? '颗粒没有可配置颜色，色板不会改变颗粒。' : def.kind === 'scene' ? '仅宿主横幅文字接受配色；远程Spline场景颜色不由宿主控制。' : '显式配色仍需检查明暗对比度，宿主不会自动修正用户指定颜色。',
+    },
     policy: {
       ...getFxCapability(def.id),
       pageLimits: {desktop: FX_BUDGET_LIMITS, compact: FX_COMPACT_LIMITS},
@@ -719,7 +743,7 @@ export function describeFx(def: FxDef) {
       accounting: '图层与特效块共同计量；点数是产品规则，不是性能测量。持续动画数按 loop、trigger、ambient 等实际参数判断。',
       compatibility: '旧配置保留；超预算按图层优先、内容块其次静态显示。减少动画、离屏和隐藏由宿主统一处理。',
     },
-    params: Object.fromEntries(
+    params: {...Object.fromEntries(
       Object.entries(def.params).map(([key, spec]) => {
         const hint =
           spec.t === 'number'
@@ -733,7 +757,7 @@ export function describeFx(def: FxDef) {
                   : spec.t
         return [key, `${spec.label}（${hint}）`]
       }),
-    ),
+    ), palette: '语义色板（可选 "theme"）', light: `浅色颜色补丁（仅 ${colorFields.join('、') || '无可配置颜色'}）`, dark: `深色颜色补丁（仅 ${colorFields.join('、') || '无可配置颜色'}）`},
     defaults: def.defaults,
   }
 }

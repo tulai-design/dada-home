@@ -1,5 +1,7 @@
 'use client';
 
+import { reportFxFailure } from '../runtimeErrors';
+
 import { useEffect, useRef, type HTMLAttributes } from 'react';
 
 import './Threads.css';
@@ -200,7 +202,12 @@ const link = (gl: WebGL2RenderingContext, vertexSource: string, fragmentSource: 
   const vertex = compile(gl, gl.VERTEX_SHADER, vertexSource);
   const fragment = compile(gl, gl.FRAGMENT_SHADER, fragmentSource);
   const program = gl.createProgram();
-  if (!vertex || !fragment || !program) return null;
+  if (!vertex || !fragment || !program) {
+    if (vertex) gl.deleteShader(vertex);
+    if (fragment) gl.deleteShader(fragment);
+    if (program) gl.deleteProgram(program);
+    return null;
+  }
   gl.attachShader(program, vertex);
   gl.attachShader(program, fragment);
   gl.linkProgram(program);
@@ -282,11 +289,20 @@ const Threads = ({
       depth: false,
       stencil: false
     });
-    if (!container || !canvas || !gl) return undefined;
+    if (!container || !canvas) return undefined;
+    if (!gl) {
+      reportFxFailure(canvas, 'webgl-unavailable');
+      return undefined;
+    }
 
     const lineProgram = link(gl, LINE_VERTEX, LINE_FRAGMENT);
     const screenProgram = link(gl, SCREEN_VERTEX, SCREEN_FRAGMENT);
-    if (!lineProgram || !screenProgram) return undefined;
+    if (!lineProgram || !screenProgram) {
+      if (lineProgram) gl.deleteProgram(lineProgram);
+      if (screenProgram) gl.deleteProgram(screenProgram);
+      reportFxFailure(canvas, 'shader-failed');
+      return undefined;
+    }
 
     const lineUniforms = locate(gl, lineProgram, [
       'uTime',

@@ -1,11 +1,13 @@
-import {Component, Suspense, createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore, type ErrorInfo, type ReactNode} from 'react'
+import {Component, Suspense, createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useState, useSyncExternalStore, type ErrorInfo, type ReactNode} from 'react'
 import {createPortal} from 'react-dom'
 import {Button, Popover} from '@lobehub/ui'
 import ClickSpark from './vendor/ClickSpark'
-import {getFx, normalizeParams} from './catalog'
+import {getFx} from './catalog'
 import {getFxCapability, qualityParams} from './capabilities'
 import {FX_COMPACT_WIDTH, planPageEffects} from './policy'
-import {VIEWS} from './views'
+import {createFxView} from './views'
+import {useFxThemeParams} from './useFxTheme'
+import {FX_RUNTIME_ERROR_EVENT} from './runtimeErrors'
 import type {Layer, Page} from '../lib/workspace'
 import './runtime.css'
 
@@ -65,12 +67,16 @@ function useCompact(element: HTMLElement | null) {
 }
 
 type Plan = ReturnType<typeof planPageEffects>
-const FxContext = createContext<{plan: Plan; compact: boolean; report: (key: string, notice?: string) => void} | null>(null)
+type RuntimeNotice = {message: string; retry?: () => void}
+const FxContext = createContext<{plan: Plan; compact: boolean; report: (key: string, notice?: RuntimeNotice) => void} | null>(null)
 
-class Quiet extends Component<{id: string; fallback: ReactNode; children: ReactNode}, {failed: boolean}> {
+class Quiet extends Component<{id: string; fallback: ReactNode; onFailure: () => void; children: ReactNode}, {failed: boolean}> {
   state = {failed: false}
   static getDerivedStateFromError() { return {failed: true} }
-  componentDidCatch(error: Error, info: ErrorInfo) { console.error(`[特效出错] ${this.props.id}`, error, info.componentStack) }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error(`[特效出错] ${this.props.id}`, error, info.componentStack)
+    this.props.onFailure()
+  }
   render() { return this.state.failed ? this.props.fallback : this.props.children }
 }
 
@@ -82,20 +88,44 @@ function StaticEffect({id, text, params}: {id: string; text: string; params: Rec
     const suffix = id === 'count-up' && typeof params.suffix === 'string' ? params.suffix : ''
     // CountUp's animated view also extracts the numeric target before adding adornments.
     const content = id === 'count-up' ? String(Number.parseFloat(text.replace(/[^0-9.\-]/g, '')) || 0) : text
-    return <div className="fx-static-text">{prefix}{content}{suffix}</div>
+    return <div className="fx-static-text" style={{color: typeof params.color === 'string' ? params.color : undefined}}>{prefix}{content}{suffix}</div>
   }
   if (def?.kind === 'card') {
     const [title, ...body] = text.split('\n')
-    return <div className="fx-card-text fx-static-card"><div className="fx-card-title">{title}</div>{body.map((line, index) => <p key={index}>{line}</p>)}</div>
+    return <div className="fx-card-text fx-static-card" style={{color: typeof params.color === 'string' ? params.color : undefined, background: typeof params.background === 'string' ? params.background : undefined}}><div className="fx-card-title">{title}</div>{body.map((line, index) => <p key={index}>{line}</p>)}</div>
   }
-  if (def?.kind === 'background' || def?.kind === 'scene') return <div className="fx-static-backdrop" data-effect={id} />
+  if (def?.kind === 'background' || def?.kind === 'scene') return <div className="fx-static-backdrop" data-effect={id} style={{backgroundColor: typeof params.backgroundColor === 'string' ? params.backgroundColor : undefined}} />
   return null
 }
 
-export function FxEffect({id, text = '', params, effectKey}: {id: string; text?: string; params?: Record<string, unknown>; effectKey?: string}) {
-  const dark = useDark()
+type EffectProps = {id: string; text?: string; params?: Record<string, unknown>; effectKey?: string}
+export function FxEffect(props: EffectProps) {
+  // Configuration edits reset a failed decoration; theme and unrelated business renders do not.
+  return <EffectInstance key={`${props.id}:${JSON.stringify(props.params ?? {})}`} {...props} />
+}
+
+function EffectInstance({id, text = '', params, effectKey}: EffectProps) {
   const context = useContext(FxContext)
+  const [failure, setFailure] = useState<string>()
+  const [attempt, setAttempt] = useState(0)
+  const retry = useCallback(() => { setFailure(undefined); setAttempt((value) => value + 1) }, [])
+  const failLoad = useCallback(() => setFailure('效果加载失败，已显示静态内容'), [])
   const [element, setElement] = useState<HTMLDivElement | null>(null)
+  useLayoutEffect(() => {
+    if (!element) return
+    const fail = (event: Event) => {
+      const code: unknown = (event as CustomEvent<{code?: unknown}>).detail?.code
+      if (code === 'webgl-unavailable') setFailure('当前环境不支持图形效果，已静态显示')
+      if (code === 'shader-failed') setFailure('图形效果初始化失败，已静态显示')
+    }
+    const lost = (event: Event) => { event.preventDefault(); setFailure('图形连接已中断，已静态显示') }
+    element.addEventListener(FX_RUNTIME_ERROR_EVENT, fail)
+    element.addEventListener('webglcontextlost', lost, true)
+    return () => {
+      element.removeEventListener(FX_RUNTIME_ERROR_EVENT, fail)
+      element.removeEventListener('webglcontextlost', lost, true)
+    }
+  }, [element])
   const ownCompact = useCompact(element)
   // A half-width widget can be narrower than its page; enforce both boundaries.
   const compact = Boolean(context?.compact || ownCompact)
@@ -104,6 +134,7 @@ export function FxEffect({id, text = '', params, effectKey}: {id: string; text?:
   const visible = useDocumentVisible()
   const inView = useInView(element)
   const def = getFx(id)
+  const {params: normalized, dark, palette, colorOverrides} = useFxThemeParams(def, params)
   const capability = getFxCapability(id)
   const decision = context?.plan.entries.find((entry) => entry.key === effectKey)
   const pointerOnly = def?.kind === 'card'
@@ -111,17 +142,19 @@ export function FxEffect({id, text = '', params, effectKey}: {id: string; text?:
   const reason = reduced ? '减少动画' : !visible ? '页面隐藏' : !inView ? '离屏暂停' : localReason ?? (decision?.mode === 'static' ? decision.reason : undefined)
   const report = context?.report
   useEffect(() => {
-    if (!effectKey || !report || decision?.mode === 'static') return
-    report(effectKey, localReason ? `${def?.name ?? '未知效果'}：${localReason}` : undefined)
+    if (!effectKey || !report) return
+    const message = decision?.mode === 'static' ? undefined : localReason ?? (!reason ? failure : undefined)
+    report(effectKey, message ? {message: `${def?.name ?? '未知效果'}：${message}`, retry: !reason && failure ? retry : undefined} : undefined)
     return () => report(effectKey)
-  }, [effectKey, report, localReason, def?.name, decision?.mode])
-  const View = VIEWS[id]
-  const normalized = def ? normalizeParams(def, params) : {}
+  }, [effectKey, report, localReason, def?.name, decision?.mode, reason, failure, retry])
+  const View = useMemo(() => createFxView(id), [id, attempt])
   const fallback = <StaticEffect id={id} text={text} params={normalized} />
   const runtimeParams = qualityParams(id, normalized, {compact, coarsePointer: coarse})
+  const failed = !reason && failure
   return (
-    <div ref={setElement} className="fx-runtime" data-kind={def?.kind ?? 'text'} data-fx-id={id} data-fx-state={reason || !View ? 'static' : 'animated'} data-fx-reason={reason}>
-      {reason || !View ? fallback : <Quiet key={id} id={id} fallback={fallback}><Suspense fallback={fallback}><View text={text} p={runtimeParams} dark={dark} /></Suspense></Quiet>}
+    <div ref={setElement} className="fx-runtime" data-kind={def?.kind ?? 'text'} data-fx-id={id} data-fx-state={failed ? 'failed' : reason || !View ? 'static' : 'animated'} data-fx-reason={reason ?? failure} style={{color: typeof normalized.color === 'string' ? normalized.color : undefined}}>
+      {reason || failure || !View ? fallback : <Quiet key={attempt} id={id} fallback={fallback} onFailure={failLoad}><Suspense fallback={fallback}><View text={text} p={runtimeParams} dark={dark} palette={palette} colorOverrides={colorOverrides} /></Suspense></Quiet>}
+      {failed && !effectKey?.startsWith('layer:') && <div className="fx-failure"><span role="status">{failure}</span><Button size="small" type="text" onClick={retry}>重试</Button>{attempt > 0 && <span>仍无法加载时，可刷新页面再试。</span>}</div>}
     </div>
   )
 }
@@ -133,9 +166,9 @@ export function hasBackdrop(layers?: Layer[]): boolean {
 
 export function FxLayers({layers, page, container, children, portal}: {layers?: Layer[]; page?: Page; container?: HTMLElement | null; children: ReactNode; portal?: HTMLElement | null}) {
   const [root, setRoot] = useState<HTMLDivElement | null>(null)
-  const [localNotices, setLocalNotices] = useState<Record<string, string>>({})
-  const report = useCallback((key: string, notice?: string) => setLocalNotices((previous) => {
-    if (previous[key] === notice) return previous
+  const [localNotices, setLocalNotices] = useState<Record<string, RuntimeNotice>>({})
+  const report = useCallback((key: string, notice?: RuntimeNotice) => setLocalNotices((previous) => {
+    if (previous[key]?.message === notice?.message && previous[key]?.retry === notice?.retry) return previous
     const next = {...previous}
     if (notice) next[key] = notice
     else delete next[key]
@@ -152,12 +185,12 @@ export function FxLayers({layers, page, container, children, portal}: {layers?: 
   const behind = defs.filter(({def}) => def!.kind === 'background' || def!.kind === 'scene')
   const above = defs.filter(({def}) => def!.id === 'noise')
   const spark = defs.find(({def}) => def!.id === 'click-spark')
+  const sparkTheme = useFxThemeParams(spark?.def, spark?.layer.params)
   const sparkDecision = plan.entries.find((entry) => entry.key === spark?.key)
   const sparkDisabled = !spark || reduced || coarse || !visible || !inView || sparkDecision?.mode === 'static'
-  const sparkParams = spark ? qualityParams('click-spark', normalizeParams(spark.def!, spark.layer.params), {compact, coarsePointer: coarse}) : {}
+  const sparkParams = spark ? qualityParams('click-spark', sparkTheme.params, {compact, coarsePointer: coarse}) : {}
   const notices = [...new Set([
     ...plan.entries.filter((entry) => entry.mode === 'static').map((entry) => `${getFx(entry.effect)?.name ?? '未知效果'}：${entry.reason}`),
-    ...Object.values(localNotices),
     ...(coarse && spark ? ['触屏已关闭点击火花装饰。'] : []),
     ...(reduced && plan.entries.length ? ['已按系统减少动画偏好显示静态效果。'] : []),
   ])]
@@ -170,8 +203,8 @@ export function FxLayers({layers, page, container, children, portal}: {layers?: 
           {backdrop && (portal ? createPortal(backdrop, portal) : backdrop)}
           {children}
           {above.map(({layer, key}) => <div className="fx-overlay" key={key} aria-hidden="true"><FxEffect id={layer.effect} params={layer.params} effectKey={key} /></div>)}
-          {notices.length > 0 && <div className="fx-policy-trigger"><Popover trigger="click" placement="topRight" content={
-            <div className="fx-policy-notice"><ul>{notices.map((notice, index) => <li key={index}>{notice}</li>)}</ul><p>原配置已保留，可减少特效或扩大页面区域。</p></div>
+          {(notices.length > 0 || Object.keys(localNotices).length > 0) && <div className="fx-policy-trigger"><Popover trigger="click" placement="topRight" content={
+            <div className="fx-policy-notice"><ul>{notices.map((notice, index) => <li key={index}>{notice}</li>)}{Object.entries(localNotices).map(([key, notice]) => <li key={key}>{notice.message}{notice.retry && <Button size="small" type="text" onClick={notice.retry} aria-label={`重试${notice.message.split('：')[0]}`}>重试</Button>}</li>)}</ul><p>原配置已保留。可调整特效或重试，加载仍失败时刷新页面再试。</p></div>
           }><Button type="text" size="small">特效已简化</Button></Popover></div>}
         </ClickSpark>
       </div>

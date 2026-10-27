@@ -3,7 +3,7 @@
   "name": "effect-policy",
   "title": "约束页面特效组合与运行质量",
   "description": "AI可读取特效限制，工作空间写入和渲染执行相同的组合预算及降级规则。",
-  "status": "review",
+  "status": "completed",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -11,11 +11,11 @@
   "creator": "ROYIANS",
   "assignee": "ROYIANS",
   "createdAt": "2026-10-27",
-  "completedAt": null,
+  "completedAt": "2026-10-27",
   "branch": "main",
   "base_branch": "main",
   "worktree_path": null,
-  "commit": null,
+  "commit": "41ce919",
   "pr_url": null,
   "subtasks": [],
   "children": [],
@@ -31,11 +31,11 @@
     "scripts/test-effect-policy.mjs",
     "tests/effect-policy-regressions.tsx"
   ],
-  "notes": "实现及双轴审查通过；代码尚未提交。18项策略回归、全量测试、类型与build通过；17项浏览器断言及生产首页检查完成。",
+  "notes": "已提交41ce919并归档；验收记录保留。",
   "meta": {
     "blocked_by": [
       "10-27-builder-guidance"
     ],
-    "planning_depth": "designed; implemented; verified; awaiting-commit"
+    "planning_depth": "designed; implemented; verified; committed"
   }
 }

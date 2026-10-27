@@ -1,4 +1,4 @@
-.fx-runtime { width: 100%; min-width: 0; max-width: 100%; }
+.fx-runtime { width: 100%; min-width: 0; max-width: 100%; position: relative; }
 .fx-runtime[data-kind='background'], .fx-runtime[data-kind='scene'], .fx-runtime[data-kind='overlay'] { height: 100%; }
 .fx-runtime[data-kind='card'] { height: 100%; }
 .fx-static-text { white-space: pre-wrap; overflow-wrap: anywhere; color: inherit; }
@@ -11,3 +11,8 @@
 .fx-policy-notice ul { padding-left: 18px; margin: 8px 0; }
 .fx-policy-notice p { margin: 8px 0 0; }
 .fx-runtime .fx-card-text { min-width: 0; overflow-wrap: anywhere; }
+.fx-failure { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; color: var(--text2); font: 12px/1.5 var(--font-sans); }
+.fx-runtime[data-kind='background'] > .fx-failure, .fx-runtime[data-kind='scene'] > .fx-failure { position: absolute; bottom: 8px; right: 8px; left: 8px; padding: 8px; background: var(--bg); }
+.fx-runtime[data-kind='card'][data-fx-state='failed'] { display: flex; flex-direction: column; }
+.fx-runtime[data-kind='card'][data-fx-state='failed'] > .fx-static-card { height: auto; flex: 1; min-height: 0; }
+.fx-runtime[data-kind='card'] > .fx-failure { flex: none; padding: 8px; background: var(--bg); }

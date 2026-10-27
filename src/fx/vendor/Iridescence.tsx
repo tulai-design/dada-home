@@ -1,5 +1,7 @@
 'use client';
 
+import { reportFxFailure } from '../runtimeErrors';
+
 import React, { useEffect, useRef } from 'react';
 
 import './Iridescence.css';
@@ -211,16 +213,32 @@ const Iridescence = ({
     const root = rootRef.current;
     const canvas = canvasRef.current;
     const gl = canvas?.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false });
-    if (!root || !canvas || !gl) return undefined;
+    if (!root || !canvas) return undefined;
+    if (!gl) {
+      reportFxFailure(canvas, 'webgl-unavailable');
+      return undefined;
+    }
 
     const vertex = compile(gl, gl.VERTEX_SHADER, VERTEX);
     const fragment = compile(gl, gl.FRAGMENT_SHADER, FRAGMENT);
     const program = gl.createProgram();
-    if (!vertex || !fragment || !program) return undefined;
+    if (!vertex || !fragment || !program) {
+      if (vertex) gl.deleteShader(vertex);
+      if (fragment) gl.deleteShader(fragment);
+      if (program) gl.deleteProgram(program);
+      reportFxFailure(canvas, 'shader-failed');
+      return undefined;
+    }
     gl.attachShader(program, vertex);
     gl.attachShader(program, fragment);
     gl.linkProgram(program);
-    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return undefined;
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      gl.deleteShader(vertex);
+      gl.deleteShader(fragment);
+      gl.deleteProgram(program);
+      reportFxFailure(canvas, 'shader-failed');
+      return undefined;
+    }
     gl.useProgram(program);
 
     const buffer = gl.createBuffer();

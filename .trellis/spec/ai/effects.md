@@ -8,6 +8,12 @@
 
 参数先规整再保存，渲染时再次规整；之后由 qualityParams 对副本应用上限及真实vendor props，不能改写用户配置，也不能把内部props加入用户schema来绕过策略。Threads等没有外部DPR接口的组件如实披露限制，不伪造参数。
 
+## 双主题颜色
+
+normalizeParams保留可选palette:'theme'和light/dark颜色分支。分支只接收当前效果已登记color/colors字段，非法、空分支丢弃，未设的新字段不迁移旧固定色。颜色解析见 [theme.ts](../../../src/fx/theme.ts)：普通参数→语义映射→当前模式分支，返回剥离控制字段的副本。params更新浅合并，light/dark分支整体替换；null清除指定控制字段。
+
+[useFxTheme.ts](../../../src/fx/useFxTheme.ts) 观察根节点data-theme/style/class，读取实际CSS变量并解析为具体颜色，包含同模式主题编辑。snapshot是稳定字符串；外层文字/banner与FxEffect使用同一解析合同。新语义色或当前模式显式覆盖的字段跳过旧inkFor替换；缺省的另一分支仍保持旧适配。Spotlight的语义色模式覆盖其硬编码surface/border，Noise和Spline远程场景不假装受宿主调色。
+
 ## 写入与旧配置
 
 - [ops.ts](../../../src/lib/ops.ts) 的replacePage统一执行 assertFxBudgetChange，新增插件页也检查。新页严格按上限；旧页每一维允许到max(旧值,上限)，普通编辑、排序与减负可继续，不能用另一维的减少交换超限增长。
@@ -22,11 +28,13 @@
 
 ClickSpark始终作为稳定的业务父节点存在；disabled变化只启动/销毁火花引擎，不能卸载业务子树。粗指针禁用火花、光效卡片，质量参数关闭鼠标跟随并把悬停文字改入场。静态文字保留所有行及内容前后缀，卡片保留正文，装饰背景提供主题变量绘制的替代；懒加载与错误隔离同样保留这些内容。
 
-测试用 [test-effect-policy.mjs](../../../scripts/test-effect-policy.mjs) 验证公开目录、写入原子性与旧数据；[effect-policy-regressions.html](../../../tests/effect-policy-regressions.html) 验证真实组件、StrictMode、resize、减少动画与业务状态。浏览器检查不能用源码字符串断言替代。
+11个WebGL实现通过 [runtimeErrors.ts](../../../src/fx/runtimeErrors.ts) 上报实际canvas不可用/确定的shader失败，microtask派发且忽略断开canvas；宿主捕获contextlost后卸载装饰并保留静态内容。组件边界处理加载/render错误，重试创建新的lazy身份；浏览器原生模块失败缓存可能仍需刷新。错误配置变化只重建装饰，主题变化保持业务实例。aria-hidden的图层不放重试操作，操作在页面Popover中；内容块有Lobe重试按钮。不注册全局错误吞掉无关业务异常。
+
+测试用 [test-effect-policy.mjs](../../../scripts/test-effect-policy.mjs) 验证公开目录、写入原子性与旧数据；[effect-policy-regressions.html](../../../tests/effect-policy-regressions.html) 验证真实组件、StrictMode、resize、减少动画与业务状态。主题及恢复用test-effect-theme.mjs与scripts/test-effect-theme-browser.mjs补充回归；浏览器脚本用外部提供的Playwright，不增加生产依赖。浏览器检查不能用源码字符串断言替代。
 
 ## 修改要求与后续边界
 
 - 保持效果失效与正文隔离；关键内容不依赖装饰完成加载。
-- 默认墨色和部分lightMode适配继续保留；统一语义色板、错误详情/重试及自动设计检查属于后续任务。
+- 默认墨色和部分lightMode适配继续保留；语义色板与失败重试已经接入，自动设计检查仍是后续任务。
 - 预算不覆盖任意HTML App / Applet源码内的动画，不声称测量过FPS、耗电或对比度。
 - 来源记录本地引入commit；缺少上游revision/许可凭据标为needs-verification。不要把上游当前条款套到历史副本，也不能沿用旧注释直接断言MIT。

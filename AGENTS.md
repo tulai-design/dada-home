@@ -29,6 +29,7 @@ Managed by Trellis. Edits outside this block are preserved; edits inside may be 
 - 始终使用 `/Users/xiaomengdao/.nvm/versions/node/v24.11.0/bin/pnpm`。不要使用 Codex Runtime 自带的 pnpm；其他机器先确认本机兼容版本。运行 build 时确保子进程的 PATH 同样优先本机 Node/pnpm。
 - 实际可用检查是 `exec tsc --noEmit`、`test`、`build`；本项目没有独立 lint 命令，不得声称已运行 lint。
 - 延续用户要求在 `main` 开发；是否提交、推送或发布遵循当前会话授权，不因技能默认行为自行推送。
+- 用户已约定每轮完成并通过检查后提交本轮代码；除非后续明确要求不提交，否则收尾包含本地提交。推送、发布仍按会话单独授权。
 
 ## Agent skills
 
