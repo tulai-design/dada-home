@@ -35,7 +35,7 @@ const dependencies = {
   './dock': loadCore('dock'), './pageSections': loadCore('pageSections'),
   '../fx/policy': fxPolicy,
   './workspaceStore': {getWorkspace: () => workspace, commit: (next) => {workspace = next; commits += 1}},
-  './market': {ADDONS: []}, './siteTools': {SITE_TOOLS: []}, './searchTools': {SEARCH_TOOLS: []}, './lifeTools': {LIFE_TOOLS: []},
+  './market': {ADDONS: []}, './siteTools': {SITE_TOOLS: []}, './searchTools': {SEARCH_TOOLS: []}, './lifeTools': {LIFE_TOOLS: []}, './homepageDraftTools': {HOMEPAGE_DRAFT_TOOLS: []},
 }
 const {HOME_TOOLS} = compile('src/lib/tools.ts', dependencies)
 const tool = (name) => HOME_TOOLS.find((item) => item.name === name)

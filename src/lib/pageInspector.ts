@@ -25,6 +25,8 @@ export type PageInspectionReport = {
   effects?: Array<{id: string; state: string; reason?: string; selector: string; componentId?: string}>
 }
 export type PageInspectionMetadata = {
+  /** 草稿与正式页面可有相同 ID，限定报告 selector 的测量根。 */
+  draftId?: string
   pageId: string
   pageName: string
   theme: 'light' | 'dark'
@@ -53,6 +55,11 @@ const TOLERANCE = 1
 const ignoredSelector = '.applet-runner, .ap-table-wrap'
 const number = (value: number) => Number.isFinite(value) ? Math.round(value * 100) / 100 : 0
 const cssString = (value: string) => value.replace(/[\0-\x1f\x7f"\\]/g, (character) => character === '\0' ? '\ufffd' : `\\${character.charCodeAt(0).toString(16)} `)
+
+export function pageInspectionSelector(pageId: string, draftId?: string, componentId?: string): string {
+  const root = `${draftId === undefined ? '' : `[data-homepage-draft="${cssString(draftId)}"]`}[data-page-id="${cssString(pageId)}"]`
+  return componentId === undefined ? root : `${root} .widget[data-id="${cssString(componentId)}"]`
+}
 
 /** The registered page is the only traversal boundary. Selectors never include text, input values or arbitrary attributes. */
 export function inspectPageElement(root: HTMLElement | null, metadata: PageInspectionMetadata, options: {settled?: boolean; maxElements?: number} = {}): PageInspectionReport {
@@ -100,14 +107,14 @@ export function inspectPageElement(root: HTMLElement | null, metadata: PageInspe
     report.unknown.push({code: 'layout-unsettled', reason: '等待布局稳定已超时；数值是当前采样，页面更新后需要重新检查。'})
   }
 
-  const pageSelector = `[data-page-id="${cssString(metadata.pageId)}"]`
+  const pageSelector = pageInspectionSelector(metadata.pageId, metadata.draftId)
   const widgetOf = (element: Element) => {
     const widget = element.closest<HTMLElement>('.widget[data-id]')
     return widget && root.contains(widget) ? widget : undefined
   }
   const selectorOf = (element: Element) => {
     const widget = widgetOf(element)
-    const base = widget ? `${pageSelector} .widget[data-id="${cssString(widget.dataset.id ?? '')}"]` : pageSelector
+    const base = widget ? pageInspectionSelector(metadata.pageId, metadata.draftId, widget.dataset.id ?? '') : pageSelector
     const boundary = widget ?? root
     const parts: string[] = []
     for (let current: Element | null = element; current && current !== boundary; current = current.parentElement) {

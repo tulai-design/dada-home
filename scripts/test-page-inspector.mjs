@@ -24,7 +24,7 @@ const tools = compile('src/lib/tools.ts', {
   './dock': compile('src/lib/dock.ts', {'./errors': errors}),
   './pageInspector': inspector,
   './workspaceStore': store,
-  './market': {ADDONS: []}, './siteTools': {SITE_TOOLS: []}, './searchTools': {SEARCH_TOOLS: []}, './lifeTools': {LIFE_TOOLS: []},
+  './market': {ADDONS: []}, './siteTools': {SITE_TOOLS: []}, './searchTools': {SEARCH_TOOLS: []}, './lifeTools': {LIFE_TOOLS: []}, './homepageDraftTools': {HOMEPAGE_DRAFT_TOOLS: []},
 })
 const tool = tools.findTool('inspect_page')
 assert.ok(tool, 'AI 应有公开的 inspect_page 工具')

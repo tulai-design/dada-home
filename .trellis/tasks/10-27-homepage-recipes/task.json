@@ -3,7 +3,7 @@
   "name": "homepage-recipes",
   "title": "首页组合与草稿预览应用",
   "description": "AI可选择验证过的首页组合，在草稿中检查并整体应用或撤销。",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -12,7 +12,7 @@
   "assignee": "ROYIANS",
   "createdAt": "2026-10-27",
   "completedAt": null,
-  "branch": null,
+  "branch": "main",
   "base_branch": "main",
   "worktree_path": null,
   "commit": null,
@@ -28,6 +28,6 @@
       "10-27-page-inspector",
       "10-27-effect-theme-fallback"
     ],
-    "planning_depth": "behavior-defined; design-required-before-start"
+    "planning_depth": "implemented-and-verified"
   }
 }

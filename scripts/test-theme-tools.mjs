@@ -43,7 +43,7 @@ const dependencies = {
   './market': {ADDONS: []},
   '../fx/policy': loadFx('policy'),
   './siteTools': {SITE_TOOLS: []},
-  './lifeTools': {LIFE_TOOLS: []},
+  './lifeTools': {LIFE_TOOLS: []}, './homepageDraftTools': {HOMEPAGE_DRAFT_TOOLS: []},
   './searchTools': {SEARCH_TOOLS: []},
 }
 const module = {exports: {}}

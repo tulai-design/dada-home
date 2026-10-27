@@ -16,6 +16,10 @@
 
 ## 只读页面检查
 
+首页改版的布局草稿使用独立 `homepageDraftTools.ts` 目录/生命周期工具，不能悄悄把所有正式写操作重定向到草稿。`apply_homepage_draft` 标为 highRisk，复用现有审批；用户点击预览中的应用是另一条显式入口。其他草稿写操作只改内存状态；严格校验draftId/expectedRevision和互斥参数，错误通过工具失败路径反馈。
+
+`inspect_homepage_draft` 单独转发 `ToolHost.inspectHomepageDraft`，复用原检查等待和几何算法；报告携带草稿target/revision与layout-only未知项。AI必须确认自己测的是哪份草稿、哪个实际容器和主题，不能把静态占位的外框当成真实业务内容验收。主提示、前端技能、模板工具说明须区分首页草稿与整体模板覆盖。具体生命周期见[首页草稿规范](../frontend/homepage-drafts.md)。
+
 `inspect_page` 通过 `ToolHost.inspectPage` 获取 App 显式注册的当前页面根节点；[pageInspectionHost.ts](../../../src/lib/pageInspectionHost.ts) 等待有界的两帧布局，再由 [pageInspector.ts](../../../src/lib/pageInspector.ts) 采样。`dispatchTool` 逐字段构造上下文，新增宿主能力必须显式转发，不能只扩展类型。工具返回 `JSON.stringify(report)`，避免对象被通用结果转换为 `[object Object]`。
 
 报告带 `schemaVersion`、页面与实际容器尺寸、主题、减少动画、revision、时间与 settled 状态；问题有稳定 id、组件 data-id/type、限定 selector、测量数值与修正方向。检查不导航，不写 workspace/commit/history。已知但未挂载页面返回 `not-mounted`，不存在页面返回 `unknown-page`；工作空间对象与已提交 DOM 不一致时返回 `stale-render`，不能用配置推测渲染结果。取消必须释放 rAF、定时器和监听，等待超时不得无限阻塞工具。

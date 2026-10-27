@@ -7,6 +7,7 @@
 | [目录与职责](directory-structure.md) | 找代码、决定新增文件位置 |
 | [组件与主题](component-guidelines.md) | 宿主 UI、内置组件、页面布局 |
 | [页面分区](page-layouts.md) | 主视觉、内容分区、主次分栏、引用顺序与容器重排 |
+| [首页草稿](homepage-drafts.md) | 首页组合、预览隔离、版本与冲突、单次应用和检查 |
 | [状态与持久化](state-management.md) | 工作空间、应用数据、撤销与迁移 |
 | [Hooks 与生命周期](hook-guidelines.md) | 尺寸、定时器、监听与异步状态 |
 | [输入与类型](type-safety.md) | AI 配置、导入数据、字段协议 |

@@ -39,7 +39,9 @@ const FRONTEND_DESIGN = `# 技能：前端设计（frontend-design）
 
 ## 在搭搭里怎么落地
 - 先走低档位：list_component_types 和 list_effects 能解决的，就别写代码。素材库放得下的标题、背景、卡片光效直接用。
-- 改页面层次先 get_workspace 读取现有组件 ID、sections、effectiveOrder 与 ungrouped，再 list_page_layouts 取受控布局目录。set_page_sections 引用本页已有组件，用 hero 承载主视觉、section 组织1–3列内容、split 安排主次栏；不为改布局新建应用或复制组件。这三种是布局结构，不是 add_component 的类型。
+- 首页整体改版先 get_workspace → list_homepage_recipes → create_homepage_draft。四类组合只安排已有首页内容，不新增/删除组件、不安装功能、不改主题/壁纸/特效或其他页面。用 get_homepage_draft 取当前 draftId/revision，update_homepage_draft 调整分区或切换组合；预览阶段不用正式写工具替代。
+- 草稿是内存中的静态布局预览：不运行应用/实时业务/壁纸/动态效果，不读取私有数据。inspect_homepage_draft 只测当前预览容器与静态外框，报告标明草稿版本和未知范围；修正后重新检查，不能声称应用内部或全部尺寸、两种主题与审美通过。用户确认后 apply_homepage_draft 一次应用可撤销；取消用 discard_homepage_draft，刷新丢弃草稿。旧版本或正式首页冲突先说明，不能偷偷覆盖。
+- 直接修改正式页面的局部分区时，先 get_workspace 读取现有组件 ID、sections、effectiveOrder 与 ungrouped，再 list_page_layouts 取受控布局目录。set_page_sections 引用本页已有组件，用 hero 承载主视觉、section 组织1–3列内容、split 安排主次栏；不为改布局新建应用或复制组件。这三种是布局结构，不是 add_component 的类型。
 - 分区最多8个、hero最多1个；id用1–48位ASCII字母/数字/下划线/短横线，标题可省略且最多80字。一个组件在全页只引用一次；分区有序展开，split先primary后secondary，未分组项最后。分区及槽位决定已分组组件的位置，未分组项沿用原span；实际内容容器小于720px时全部按阅读顺序单列。空分区不显示空标题。先安排真实内容与主操作，再决定是否需要特效，不能用空标题或装饰填满分区。
 - set_page_sections 会整体替换分区，保留仍需要的分区一起传回；null或[]只清除结构，保留当前组件顺序、配置与数据。新增/移动组件时index按有效顺序插在目标组件的槽位内，末尾默认未分组；move先移除旧项再定位。要把新内容并入某区可再次set_page_sections，不必重建页面。
 - 自写交互工具先 use_skill applet，按真实积木目录写 create_applet；不用 HTML/CSS，布局与控件由宿主渲染。先 use_skill design-system 读取主页规范。

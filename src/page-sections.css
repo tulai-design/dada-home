@@ -66,3 +66,9 @@
     margin-top: 0;
   }
 }
+
+/* A clock may sit in a narrow secondary column; keep the same scale in live and draft pages. */
+.page-grid > .widget[data-type='clock'] {container-type: inline-size;}
+.page-grid > .widget[data-type='clock'] .home-clock {
+  font-size: clamp(40px, min(17vh, 30cqi), 176px);
+}

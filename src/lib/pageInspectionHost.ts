@@ -1,7 +1,7 @@
 import {inspectPageElement, unavailablePageInspection, type PageInspectionReport, type PageInspectionRequest} from './pageInspector'
 import type {Workspace} from './workspace'
 
-export type MountedInspectionPage = {root: HTMLElement; pageId: string; workspace: Workspace; revision: string}
+export type MountedInspectionPage = {root: HTMLElement; pageId: string; workspace: Workspace; revision: string; draftId?: string}
 
 /** 等两帧让 React 提交与布局生效；后台页不等待被节流的 rAF，取消和超时都会清理资源。 */
 function waitForLayout(signal?: AbortSignal): Promise<boolean> {
@@ -50,7 +50,7 @@ export function createPageInspectionHost(host: {
     }
     const document = mounted.root.ownerDocument
     return inspectPageElement(mounted.root, {
-      pageId: page.id, pageName: page.name,
+      pageId: page.id, pageName: page.name, draftId: mounted.draftId,
       theme: document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light',
       reducedMotion: document.defaultView?.matchMedia('(prefers-reduced-motion: reduce)').matches ?? false,
       revision: mounted.revision, now: Date.now(),

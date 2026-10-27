@@ -27,6 +27,7 @@ PATH="/Users/xiaomengdao/.nvm/versions/node/v24.11.0/bin:$PATH" /Users/xiaomengd
 | 特效主题与失败恢复 | [test-effect-theme.mjs](../../../scripts/test-effect-theme.mjs)；真实渲染入口 [effect-theme-regressions.html](../../../tests/effect-theme-regressions.html) |
 | 只读页面检查 | [test-page-inspector.mjs](../../../scripts/test-page-inspector.mjs)；真实 DOM 入口 [page-inspector-regressions.html](../../../tests/page-inspector-regressions.html) 与 [浏览器脚本](../../../scripts/test-page-inspector-browser.mjs) |
 | 页面分区与容器布局 | [test-page-sections.mjs](../../../scripts/test-page-sections.mjs)、[test-page-section-tools.mjs](../../../scripts/test-page-section-tools.mjs)；真实 PageView 入口 [page-sections-regressions.html](../../../tests/page-sections-regressions.html) 与 [浏览器脚本](../../../scripts/test-page-sections-browser.mjs) |
+| 首页组合与布局草稿 | [test-homepage-draft.mjs](../../../scripts/test-homepage-draft.mjs)、[test-homepage-draft-tools.mjs](../../../scripts/test-homepage-draft-tools.mjs)；隔离预览入口 [homepage-draft-regressions.html](../../../tests/homepage-draft-regressions.html) 与 [浏览器脚本](../../../scripts/test-homepage-draft-browser.mjs) |
 | 取数代理 | [proxy.test.mjs](../../../server/proxy.test.mjs) |
 
 新增测试优先观察公开工具/操作结果和运行时消息合同，不把提示词全文快照或实现字符串复述当作行为验证。纯文档或低影响措辞调整使用链接/一致性检查，不为它们制造脆弱测试。

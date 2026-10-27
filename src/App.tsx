@@ -18,6 +18,9 @@ import { TopBar } from './components/TopBar'
 import { StatusBar } from './components/StatusBar'
 import { PageSwitcher } from './components/PageSwitcher'
 import { PageView } from './components/PageView'
+import {HomepageDraftPreview} from './components/HomepageDraftPreview'
+import {createHomepageDraft, getHomepageDraft, getHomepageDraftWorkspace, useHomepageDraft} from './lib/homepageDraft'
+import {createHomepageDraftInspectionHost} from './lib/homepageDraftInspection'
 import { FxLayers, hasBackdrop } from './fx/Fx'
 import { Reader } from './components/Reader'
 import { Assistant } from './components/Assistant'
@@ -131,6 +134,11 @@ export default function App() {
   const [settingsRequest, setSettingsRequest] = useState(0)
 
   const { workspace, edit, undo, redo, canUndo, canRedo } = useWorkspace()
+  const homepageDraft = useHomepageDraft()
+  const homepageDraftWorkspace = getHomepageDraftWorkspace()
+  const mountedDraftInspection = useRef<MountedInspectionPage | null>(null)
+  const setDraftInspection = useCallback((mounted: MountedInspectionPage | null) => {mountedDraftInspection.current = mounted}, [])
+  const inspectHomepageDraft = useMemo(() => createHomepageDraftInspectionHost({getMounted: () => mountedDraftInspection.current}), [])
 
   const openApplication = useCallback((ref: string, requestedMode?: ApplicationOpenMode) => {
     try {
@@ -244,7 +252,7 @@ export default function App() {
     if (inspectionRevision.current.workspace !== workspace) {
       inspectionRevision.current = {workspace, value: inspectionRevision.current.value + 1}
     }
-    mountedInspection.current = view === 'page' && currentPage && inspectionRoot.current
+    mountedInspection.current = !homepageDraft && view === 'page' && currentPage && inspectionRoot.current
       ? {root: inspectionRoot.current, pageId: currentPage.id, workspace, revision: String(inspectionRevision.current.value)}
       : null
   })
@@ -373,7 +381,7 @@ export default function App() {
             config: settings.ai,
             userName: settings.name,
             messages: [...history, { role: 'user', content: turnContent(turn) }],
-            host: { openPage: (next: string) => setPendingPage(next), openSettings: (section?: string) => openSettings(section), openApplication, inspectPage },
+            host: { openPage: (next: string) => setPendingPage(next), openSettings: (section?: string) => openSettings(section), openApplication, inspectPage, inspectHomepageDraft },
             onApproval,
             onReasoning: (chunk) => {
               reasoning += chunk
@@ -417,7 +425,7 @@ export default function App() {
         abortRef.current = null
       }
     },
-    [settings.ai, turns, aiConfigured, setTurns, newConv, openSettings, openApplication, inspectPage],
+    [settings.ai, turns, aiConfigured, setTurns, newConv, openSettings, openApplication, inspectPage, inspectHomepageDraft],
   )
 
   /** 用户点了确认卡片上的允许/拒绝。 */
@@ -584,6 +592,10 @@ export default function App() {
       ...applications.map((application) => ({id:`application-${application.id}`,label:application.instance.title || '应用',hint:application.description.slice(0,20),group:application.group || 'AI 应用',icon:AppWindow,run:() => openApplication(application.id)})),
       ...(canUndo ? [{id: 'cmd-undo', label: '撤销上一步', hint: '⌘Z / Ctrl+Z', group: '编辑', icon: Undo, run: () => { undo() }}] : []),
       ...(canRedo ? [{id: 'cmd-redo', label: '重做上一步', hint: '⌘⇧Z / Ctrl+Shift+Z', group: '编辑', icon: Redo, run: () => { redo() }}] : []),
+      {id: 'cmd-homepage-draft', label: '预览首页方案', group: '编辑', icon: LayoutGrid, run: () => {
+        try {if (!getHomepageDraft()) createHomepageDraft({recipeId: 'minimal'})}
+        catch (error) {toast.error({title: error instanceof Error ? error.message : String(error)})}
+      }},
       { id: 'cmd-ai', label: '和搭搭对话', hint: '⌘J', group: '动作', icon: Sparkles, run: () => openAssistant() },
       ...(isInstalled(workspace, 'monitor') ? [{ id: 'cmd-monitor', label: '服务监控', group: '动作', icon: Monitor, run: openMonitor }] : []),
       { id: 'cmd-market', label: '组件市场', group: '动作', icon: LayoutGrid, run: openMarket },
@@ -711,7 +723,7 @@ export default function App() {
             />
           }
         >
-          <div className="canvas" ref={setCanvasElement} data-split={splitActive || undefined}>
+          <div className="canvas" ref={setCanvasElement} data-split={splitActive || undefined} data-homepage-draft-active={homepageDraft ? true : undefined}>
             <TopBar
               status={<StatusBar items={workspace.statusbar} host={host} onConfig={(id,patch) => applications.some((application) => application.id === id) ? onUpdateConfig(id,patch) : onStatusConfig(id,patch)} applications={applications} onApplication={openApplication} workspace={workspace} activeApplicationIds={activeApplicationIds} />}
               theme={workspace.theme.mode}
@@ -723,6 +735,8 @@ export default function App() {
             {view === 'page' && (
             <div
               className="page"
+              inert={homepageDraft ? true : undefined}
+              aria-hidden={homepageDraft ? true : undefined}
               ref={setInspectionRoot}
               data-page-id={currentPage?.id}
               data-paper={paperUrl ? 'on' : 'off'}
@@ -765,7 +779,7 @@ export default function App() {
             </div>
             )}
             {view === 'settings' && (
-              <div className="page sys-view">
+              <div className="page sys-view" inert={homepageDraft ? true : undefined} aria-hidden={homepageDraft ? true : undefined}>
                 <SettingsPage
                   ctx={appCtx}
                   themeMode={workspace.theme.mode}
@@ -778,12 +792,12 @@ export default function App() {
               </div>
             )}
             {view === 'market' && (
-              <div className="page sys-view">
+              <div className="page sys-view" inert={homepageDraft ? true : undefined} aria-hidden={homepageDraft ? true : undefined}>
                 <MarketPage workspace={workspace} edit={edit} onOpenPage={goPage} onOpenMonitor={openMonitor} onOpenApplication={openApplication} onOpenSettings={openSettings} />
               </div>
             )}
             {view === 'monitor' && monitorOn && (
-              <div className="page sys-view">
+              <div className="page sys-view" inert={homepageDraft ? true : undefined} aria-hidden={homepageDraft ? true : undefined}>
                 <MonitorPage
                   configs={monitorConfigs}
                   states={monitorStates}
@@ -798,10 +812,11 @@ export default function App() {
               </div>
             )}
             {view === 'application' && openedApplication && applicationView && (
-              <div className="page sys-view">
+              <div className="page sys-view" inert={homepageDraft ? true : undefined} aria-hidden={homepageDraft ? true : undefined}>
                 <ApplicationHost application={openedApplication} mode="page" workspace={workspace} host={host} onClose={closeApplication} onConfig={onUpdateConfig}/>
               </div>
             )}
+            {homepageDraft && homepageDraftWorkspace && <HomepageDraftPreview draft={homepageDraft} workspace={homepageDraftWorkspace} host={host} onMount={setDraftInspection} inspect={inspectHomepageDraft} />}
           </div>
 
         </AssistantSplitPane>

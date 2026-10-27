@@ -23,6 +23,8 @@ import {SEARCH_TOOLS} from './searchTools'
 import {LIFE_TOOLS} from './lifeTools'
 import {unavailablePageInspection, type PageInspectionReport, type PageInspectionRequest} from './pageInspector'
 import {PAGE_SECTION_CATALOG} from './pageSections'
+import {HOMEPAGE_DRAFT_TOOLS} from './homepageDraftTools'
+import type {HomepageDraftInspectionRequest, HomepageDraftInspectionReport} from './homepageDraftInspection'
 
 /**
  * AI 可调用的工作空间工具。
@@ -43,6 +45,8 @@ export type ToolHost = {
   openApplication?: (id: string, mode?: ApplicationOpenMode) => void
   /** 只检查宿主实际挂载的页面；不导航，也不更改工作空间。 */
   inspectPage?: (request: PageInspectionRequest, signal?: AbortSignal) => Promise<PageInspectionReport>
+  /** 只测草稿的静态布局，保持与正式页面检查分离。 */
+  inspectHomepageDraft?: (request: HomepageDraftInspectionRequest, signal?: AbortSignal) => Promise<HomepageDraftInspectionReport>
 }
 
 export type HomeToolContext = ToolContext<void> & ToolHost
@@ -115,6 +119,7 @@ const describeComponent = (instance: {id: string; type: string; title?: string; 
   `${instance.id}｜${instance.title ?? getDefinition(instance.type as never)?.name ?? instance.type}｜${instance.type}｜${instance.span ?? '默认'}｜${JSON.stringify(instance.config)}`
 
 export const HOME_TOOLS = [
+  ...HOMEPAGE_DRAFT_TOOLS,
   // ───── 读：了解现状 ─────
   define(
     {schema: {parse: obj}, json: {type: 'object', properties: {}}},
@@ -643,7 +648,7 @@ export const HOME_TOOLS = [
     {
       name: 'list_templates',
       title: '查看模板库',
-      description: '列出所有页面模板：用户存下来的，和内置预设。模板是整套页面设计（页面、组件、状态条、版式、主题）的快照。用户想「换一套布局」「回到之前那版」「有没有现成的模板」时先看这个。',
+      description: '列出所有页面模板：用户存下来的，和内置预设。模板是整套页面设计（页面、组件、状态条、版式、主题）的快照。用户要恢复整套已存设计或套用完整模板时使用。只改首页并保留现有内容，先 list_homepage_recipes / create_homepage_draft 预览组合。',
       effect: 'read',
       highRisk: () => false,
       execute: async () => {
