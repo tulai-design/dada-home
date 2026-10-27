@@ -45,7 +45,11 @@ pnpm preview   # 本地预览生产构建
 
 ## AI 助手
 
-在「设置 → 搭搭 AI」填写 OpenAI 兼容服务的接口地址、模型和 API Key。助手通过流式 `chat/completions` 请求工作，支持 Markdown 回复、多轮对话和工具调用；页面搭建与站内操作需要模型支持工具调用。
+在「设置 → 搭搭 AI」填写服务商、接口地址、模型和 API Key。支持 OpenAI Chat Completions 与 Anthropic Messages 两种协议，以及 Markdown 回复、多轮对话和工具调用；页面搭建与站内操作需要模型支持工具调用。
+
+接口协议默认自动选择：AiHubMix 的 Claude 模型、Anthropic 官方服务和以 `/messages` 结尾的地址使用 Messages，其他服务使用 Chat Completions，也可以手动指定。AiHubMix 可填写 `https://aihubmix.com/v1`，选择 `claude-haiku-5-5`；GPT 等模型继续使用 Chat Completions。Messages 直接处理原生工具调用，并在后续工具轮次保留思考签名，避免网关转成 OpenAI 格式时丢失信息。
+
+Claude 的推理强度按模型版本映射：支持自适应思考的新版本使用 `thinking.type: "adaptive"` 和 `output_config.effort`，旧版思考模型使用 token 预算。「默认」不覆盖模型的思考设置。Messages 要求输出上限，未填写时使用 16,384 token；可以在高级设置中调整。
 
 点击左上角搭搭 Logo 可恢复侧边聊天，默认使用抽屉，并记住上次选择的抽屉或分栏。桌面聊天标题栏可切换抽屉、分栏和全屏；分栏把页面放左侧、聊天放右侧，中间分隔线可拖动或用方向键调整，比例保存在本机。切换页面、进入设置、打开应用和阅读文章不会关闭分栏聊天，应用弹层仅覆盖左侧画布。窄屏自动以抽屉显示，恢复宽屏后保留分栏偏好。Dock 和 `⌘J / Ctrl J` 使用「设置 → 搭搭 AI → Dock AI 入口」中的独立偏好。
 

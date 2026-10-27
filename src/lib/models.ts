@@ -1,7 +1,7 @@
 /**
  * AI 服务商预设 + 模型列表拉取。
  *
- * 搭搭只认「兼容 OpenAI 的接口」：GET {baseUrl}/models 拿模型，POST {baseUrl}/chat/completions 对话。
+ * 对话支持 OpenAI Chat Completions 和 Anthropic Messages，模型列表按服务商协议鉴权。
  * 预设只是帮用户少敲几个字，选了「自定义」仍然可以填任意地址。
  */
 
@@ -19,6 +19,8 @@ export type Provider = {
 
 export const PROVIDERS: Provider[] = [
   {id: 'openai', name: 'OpenAI', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini', icon: 'openai'},
+  {id: 'aihubmix', name: 'AiHubMix', baseUrl: 'https://aihubmix.com/v1', model: 'claude-haiku-5-5', icon: 'aihubmix'},
+  {id: 'anthropic', name: 'Anthropic', baseUrl: 'https://api.anthropic.com/v1', model: 'claude-haiku-5-5', icon: 'anthropic'},
   {id: 'deepseek', name: 'DeepSeek', baseUrl: 'https://api.deepseek.com/v1', model: 'deepseek-chat', icon: 'deepseek'},
   {id: 'moonshot', name: 'Moonshot（Kimi）', baseUrl: 'https://api.moonshot.cn/v1', model: '', icon: 'moonshot'},
   {id: 'zhipu', name: '智谱', baseUrl: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-4-flash', icon: 'zhipu'},
@@ -105,12 +107,28 @@ class HttpError extends Error {
  * 拉取模型列表。浏览器直连被 CORS 拦住时，如果配置了同源的开发代理就走代理。
  * 只会走同源代理——密钥绝不交给第三方转发站。
  */
-export async function fetchModels(baseUrl: string, apiKey: string, proxyTemplate: string, signal?: AbortSignal): Promise<string[]> {
+export async function fetchModels(baseUrl: string, apiKey: string, proxyTemplate: string, signal?: AbortSignal, protocol: 'openai' | 'anthropic' = 'openai'): Promise<string[]> {
   const base = trimUrl(baseUrl)
   if (!/^https?:\/\//i.test(base)) throw new Error('接口地址要以 http:// 或 https:// 开头')
-  const url = `${base}/models`
+  let endpoint: URL
+  try {
+    endpoint = new URL(base)
+  } catch {
+    throw new Error('接口地址不完整')
+  }
+  if (endpoint.username || endpoint.password || endpoint.search || endpoint.hash) throw new Error('接口地址不能包含账号、查询参数或锚点')
+  let path = endpoint.pathname.replace(/\/+$/, '').replace(/\/(?:messages|chat\/completions)$/, '')
+  if (protocol === 'anthropic' && !path) path = '/v1'
+  endpoint.pathname = `${path}/models`
+  const url = endpoint.toString()
   const headers: Record<string, string> = {accept: 'application/json'}
-  if (apiKey.trim()) headers.authorization = `Bearer ${apiKey.trim()}`
+  // AiHubMix 的模型目录共用 OpenAI 接口，和本次对话选择的协议无关。
+  const nativeAuth = protocol === 'anthropic' && endpoint.hostname.toLowerCase() !== 'aihubmix.com'
+  if (nativeAuth) {
+    if (apiKey.trim()) headers['x-api-key'] = apiKey.trim()
+    headers['anthropic-version'] = '2023-06-01'
+    if (endpoint.hostname.toLowerCase() === 'api.anthropic.com') headers['anthropic-dangerous-direct-browser-access'] = 'true'
+  } else if (apiKey.trim()) headers.authorization = `Bearer ${apiKey.trim()}`
 
   let json: unknown
   try {
@@ -118,7 +136,8 @@ export async function fetchModels(baseUrl: string, apiKey: string, proxyTemplate
   } catch (err) {
     if (err instanceof HttpError || signal?.aborted) throw err
     // 网络层失败，多半是 CORS：试同源代理
-    if (proxyTemplate.startsWith('/') && proxyTemplate.includes('{url}')) {
+    // 取数代理只转发 Authorization；原生 Anthropic 鉴权直接连接服务商。
+    if (!nativeAuth && proxyTemplate.startsWith('/') && proxyTemplate.includes('{url}')) {
       json = await getJson(proxyTemplate.replace('{url}', encodeURIComponent(url)), headers, signal)
     } else {
       throw new Error('连不上：可能是地址不对，或这个服务不允许网页直接访问。可以手动输入模型名')

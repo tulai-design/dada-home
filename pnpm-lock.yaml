@@ -27,11 +27,11 @@ importers:
         specifier: ^2.0.111
         version: 2.0.111
       '@tulai-design/agent-core':
-        specifier: ^0.1.0
-        version: 0.1.0
+        specifier: ^0.2.0
+        version: 0.2.0
       '@tulai-design/agent-providers':
-        specifier: ^0.1.0
-        version: 0.1.0
+        specifier: ^0.2.0
+        version: 0.2.0
       chinese-days:
         specifier: ^1.5.9
         version: 1.5.9
@@ -1509,12 +1509,12 @@ packages:
     resolution: {integrity: sha512-/67zpWDBLV+oYAEL682s1ktXL0HgqX76f6gaVGkGnVZlBbm1zd0v4Bz8MFF2GGhoX9rvfq3KSQHubFHwa6w6/Q==}
     engines: {node: '>=12'}
 
-  '@tulai-design/agent-core@0.1.0':
-    resolution: {integrity: sha512-Okx27QOlBDHDrxrDIPu1VuYBxmvj1qcKKLIC48kWBYzj/5apR410USTbqlDhPqtyvX+Mqk2CtR9SeVKGrqlXWQ==}
+  '@tulai-design/agent-core@0.2.0':
+    resolution: {integrity: sha512-aC1X+Kr2+mgILojvH6ewAA2C2vEwFIWmvrwKhUW26GKa3d3GL8qu/t0MKL0Cje1J7TDtZp2e90yzem2wcnR9RQ==}
     engines: {node: '>=20'}
 
-  '@tulai-design/agent-providers@0.1.0':
-    resolution: {integrity: sha512-OSoy6em/A/aTdroaL6rOIDU6WihbijTHZvy2e1SWlO7PMRpiNOzAir4+Fz7wuii0GOLDV3Ii/ldxR+OPpuNbQA==}
+  '@tulai-design/agent-providers@0.2.0':
+    resolution: {integrity: sha512-qg72v5xp9liuGIWabIsAexdELbNC3ZShnhT8niVm2EZlD6CZf487SHr9FrcKthp5clYuiAk5BhGtMhKz9P/b6g==}
     engines: {node: '>=20'}
 
   '@types/babel__core@7.20.5':
@@ -4995,11 +4995,11 @@ snapshots:
       magic-string: 0.30.21
       string.prototype.matchall: 4.1.0
 
-  '@tulai-design/agent-core@0.1.0': {}
+  '@tulai-design/agent-core@0.2.0': {}
 
-  '@tulai-design/agent-providers@0.1.0':
+  '@tulai-design/agent-providers@0.2.0':
     dependencies:
-      '@tulai-design/agent-core': 0.1.0
+      '@tulai-design/agent-core': 0.2.0
 
   '@types/babel__core@7.20.5':
     dependencies:

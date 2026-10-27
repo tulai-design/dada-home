@@ -160,7 +160,7 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest,
       icon: Sparkles,
       color: '#ff453a',
       summary: settings.ai.apiKey ? settings.ai.model : '未配置',
-      description: '接入兼容 OpenAI 的模型。密钥只保存在这台浏览器里。',
+      description: '接入 OpenAI 或 Anthropic 兼容服务。密钥只保存在这台浏览器里。',
       render: () => (
         <>
           <AiSettings ai={settings.ai} proxy={settings.proxy} onChange={(ai) => patch({ai})} />

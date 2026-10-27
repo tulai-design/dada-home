@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "vite",
     "pack:ext": "mkdir -p public && rm -f public/dada-bookmarks-extension.zip && cd extension && zip -X -q -r ../public/dada-bookmarks-extension.zip . -x '*.DS_Store'",
-    "test": "node --test server/*.test.mjs && node scripts/test-hot-tools.mjs && node scripts/test-assistant-flows.mjs && node scripts/test-assistant-layout.mjs && node scripts/test-assistant-navigation.mjs && node scripts/test-application-window.mjs && node scripts/test-themes.mjs && node scripts/test-theme-tools.mjs && node scripts/test-appearance.mjs && node scripts/test-applications.mjs && node scripts/test-application-tools.mjs && node scripts/test-workspace-history.mjs && node scripts/test-app-runtime.mjs && node scripts/test-applet-runtime.mjs",
+    "test": "node --test server/*.test.mjs && node scripts/test-ai-protocol.mjs && node scripts/test-models.mjs && node scripts/test-hot-tools.mjs && node scripts/test-assistant-flows.mjs && node scripts/test-assistant-layout.mjs && node scripts/test-assistant-navigation.mjs && node scripts/test-application-window.mjs && node scripts/test-themes.mjs && node scripts/test-theme-tools.mjs && node scripts/test-appearance.mjs && node scripts/test-applications.mjs && node scripts/test-application-tools.mjs && node scripts/test-workspace-history.mjs && node scripts/test-app-runtime.mjs && node scripts/test-applet-runtime.mjs",
     "build": "pnpm pack:ext && tsc --noEmit && vite build",
     "preview": "vite preview"
   },
@@ -19,8 +19,8 @@
     "@phosphor-icons/react": "^2.1.10",
     "@splinetool/react-spline": "^4.1.0",
     "@splinetool/runtime": "^2.0.111",
-    "@tulai-design/agent-core": "^0.1.0",
-    "@tulai-design/agent-providers": "^0.1.0",
+    "@tulai-design/agent-core": "^0.2.0",
+    "@tulai-design/agent-providers": "^0.2.0",
     "chinese-days": "^1.5.9",
     "gsap": "^3.15.0",
     "ical.js": "^2.2.1",

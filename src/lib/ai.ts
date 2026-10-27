@@ -4,8 +4,9 @@ import {
     type AgentPermissionMode,
     type AgentWireToolCall,
 } from '@tulai-design/agent-core'
-import {streamChatCompletions} from '@tulai-design/agent-providers'
+import {streamChatCompletions, streamAnthropicMessages, type AnthropicContentBlock, type StreamChatHandlers, type StreamChatInput} from '@tulai-design/agent-providers'
 import type {AiConfig} from './types'
+import {resolveAiProtocol} from './aiProtocol'
 import {findTool, runTool, toolSchemas, type HomeToolContext, type ToolHost} from './tools'
 import * as ops from './ops'
 import * as registry from './registry'
@@ -18,7 +19,7 @@ import {OPEN_TARGETS} from './defaults'
 /** 会话消息。wire 格式由 provider 定义，这里直接沿用它的形状。 */
 export type ChatMessage =
     | {role: 'system' | 'user'; content: string}
-    | {role: 'assistant'; content: string; tool_calls?: AgentWireToolCall[]}
+    | {role: 'assistant'; content: string; tool_calls?: AgentWireToolCall[]; anthropicContent?: AnthropicContentBlock[]}
     | {role: 'tool'; content: string; tool_call_id: string}
 
 const SYSTEM_PROMPT = [
@@ -96,19 +97,24 @@ function parseExtra(text: string | undefined): Record<string, unknown> {
 /** 设置里的高级参数里，要写进请求体的那部分。没填的一律不发。 */
 export function requestExtras(config: AiConfig): Record<string, unknown> {
     const fixed = FIXED_SAMPLING.test(config.model.trim())
+    const native = resolveAiProtocol(config) === 'anthropic'
+    // Haiku 5.5 使用 adaptive thinking，只接受默认采样值；其他 Claude 开启推理时也不覆盖采样。
+    const nativeFixed = native && (Boolean(config.reasoningEffort) || /claude-haiku-5[.-]5(?:$|-)/i.test(config.model))
     const pick = (key: string, value: number | undefined, skip = false) => (value !== undefined && Number.isFinite(value) && !skip ? {[key]: value} : {})
+    const extras = parseExtra(config.extraBody)
+    for (const key of ['model', 'messages', 'system', 'tools', 'stream']) delete extras[key]
     return {
-        ...parseExtra(config.extraBody),
-        ...pick('temperature', config.temperature, fixed),
-        ...pick('top_p', config.topP, fixed),
-        ...pick('presence_penalty', config.presencePenalty, fixed),
-        ...pick('frequency_penalty', config.frequencyPenalty, fixed),
+        ...extras,
+        ...pick('temperature', config.temperature, fixed || nativeFixed),
+        ...pick('top_p', config.topP, fixed || nativeFixed),
+        ...pick('presence_penalty', config.presencePenalty, fixed || native),
+        ...pick('frequency_penalty', config.frequencyPenalty, fixed || native),
     }
 }
 
 /**
- * provider 只认 maxOutputTokens 和 reasoningEffort；温度、top_p 这些通过包一层 fetch 写进请求体。
- * 请求里已有的字段（model、messages、tools、stream…）优先，额外参数只补充、不覆盖。
+ * Chat Completions 的采样参数通过 fetch 写进请求体；Messages 则使用 provider 的原生 extraBody。
+ * 请求里已有的字段优先，额外参数只补充、不覆盖。
  */
 function fetchWith(config: AiConfig): typeof fetch {
     const extras = requestExtras(config)
@@ -136,6 +142,15 @@ function providerInput(config: AiConfig) {
     }
 }
 
+/** 协议只决定传输；工具权限、执行和会话历史仍共用同一条路径。 */
+function streamConfigured(config: AiConfig, messages: ChatMessage[], tools: StreamChatInput['tools'], handlers: Omit<StreamChatHandlers, 'fetchImpl'>) {
+    const input = {...providerInput(config), messages, ...(tools ? {tools} : {})}
+    if (resolveAiProtocol(config) === 'anthropic') {
+        return streamAnthropicMessages({...input, extraBody: requestExtras(config)}, {...handlers, fetchImpl: browserFetch})
+    }
+    return streamChatCompletions(input, {...handlers, fetchImpl: fetchWith(config)})
+}
+
 /**
  * 取出绑定好全局 this 的 fetch。
  *
@@ -156,13 +171,9 @@ export async function streamText(
     onDelta: (chunk: string) => void,
     signal?: AbortSignal,
 ): Promise<string> {
-    const result = await streamChatCompletions({
-        ...providerInput(config),
-        messages,
-    }, {
+    const result = await streamConfigured(config, messages, undefined, {
         onDelta,
         signal,
-        fetchImpl: fetchWith(config),
     })
     if (!result.ok) {
         if (result.aborted) return ''
@@ -214,15 +225,10 @@ export async function runAgent(options: RunOptions): Promise<string> {
     const tools = toolSchemas()
 
     for (let round = 0; round < maxRounds; round += 1) {
-        const result = await streamChatCompletions({
-            ...providerInput(config),
-            messages,
-            tools,
-        }, {
+        const result = await streamConfigured(config, messages, tools, {
             onDelta: (text) => onDelta(text),
             onReasoning: onReasoning ? (text) => onReasoning(text) : undefined,
             signal,
-            fetchImpl: fetchWith(config),
         })
 
         if (!result.ok) {
@@ -233,7 +239,9 @@ export async function runAgent(options: RunOptions): Promise<string> {
         const calls = result.toolCalls ?? []
         if (!calls.length) return result.content
 
-        messages.push({role: 'assistant', content: result.content, tool_calls: calls})
+        messages.push({role: 'assistant', content: result.content, tool_calls: calls,
+            ...('anthropicContent' in result ? {anthropicContent: result.anthropicContent as AnthropicContentBlock[]} : {}),
+        })
 
         for (const call of calls) {
             const event = await dispatchTool(call, host, permissionMode, options.onApproval, signal)

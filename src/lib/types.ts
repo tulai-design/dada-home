@@ -41,6 +41,8 @@ export type AiConfig = {
   baseUrl: string
   apiKey: string
   model: string
+  /** 留空等同 auto；只对已知服务商自动选择协议。 */
+  protocol?: 'auto' | 'openai' | 'anthropic'
   /** 以下都是高级项：留空就不发给接口，用模型自己的默认值。 */
   temperature?: number
   topP?: number

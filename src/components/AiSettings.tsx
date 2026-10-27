@@ -2,6 +2,7 @@ import {useCallback, useEffect, useMemo, useRef, useState} from 'react'
 import {ActionIcon, Flexbox, InputNumber, Select, Text, TextArea} from '@lobehub/ui'
 import {CaretUp as ChevronUp, ArrowsClockwise as RefreshCw, ArrowCounterClockwise as RotateCcw} from '@phosphor-icons/react'
 import type {AiConfig} from '../lib/types'
+import {resolveAiProtocol} from '../lib/aiProtocol'
 import {CUSTOM_PROVIDER, PROVIDERS, cachedModels, detectProvider, fetchModels} from '../lib/models'
 import {Group, Row, TextRow} from './ios'
 import {ModelIcon, ProviderIcon} from './ModelIcons'
@@ -21,6 +22,7 @@ type Status = {kind: 'idle' | 'loading' | 'ok' | 'error'; text?: string}
  */
 export function AiSettings({ai, proxy, onChange}: Props) {
   const provider = detectProvider(ai.baseUrl)
+  const protocol = resolveAiProtocol(ai)
   const [models, setModels] = useState<string[]>(() => cachedModels(ai.baseUrl))
   const [status, setStatus] = useState<Status>({kind: 'idle'})
   const [search, setSearch] = useState('')
@@ -31,7 +33,7 @@ export function AiSettings({ai, proxy, onChange}: Props) {
     const mine = ++seq.current
     setStatus({kind: 'loading'})
     try {
-      const list = await fetchModels(ai.baseUrl, ai.apiKey, proxy)
+      const list = await fetchModels(ai.baseUrl, ai.apiKey, proxy, undefined, protocol)
       if (mine !== seq.current) return
       setModels(list)
       setStatus({kind: 'ok', text: `已拉取 ${list.length} 个模型`})
@@ -39,7 +41,7 @@ export function AiSettings({ai, proxy, onChange}: Props) {
       if (mine !== seq.current) return
       setStatus({kind: 'error', text: err instanceof Error ? err.message : String(err)})
     }
-  }, [ai.baseUrl, ai.apiKey, proxy])
+  }, [ai.baseUrl, ai.apiKey, proxy, protocol])
 
   // 地址或密钥变了（停手半秒后）自动重新拉；缓存里有的先顶着用
   useEffect(() => {
@@ -69,11 +71,11 @@ export function AiSettings({ai, proxy, onChange}: Props) {
 
   const pickProvider = (id: string) => {
     if (id === CUSTOM_PROVIDER) {
-      onChange({...ai, baseUrl: '', model: ''})
+      onChange({...ai, baseUrl: '', model: '', protocol: 'auto'})
       return
     }
     const next = PROVIDERS.find((p) => p.id === id)
-    if (next) onChange({...ai, baseUrl: next.baseUrl, model: next.model})
+    if (next) onChange({...ai, baseUrl: next.baseUrl, model: next.model, protocol: 'auto'})
   }
 
   const footer =
@@ -89,7 +91,7 @@ export function AiSettings({ai, proxy, onChange}: Props) {
 
   return (
     <>
-      <Group title="服务商">
+      <Group title="服务商" footer={ai.baseUrl.trim() ? `当前使用 ${protocol === 'anthropic' ? 'Anthropic Messages' : 'OpenAI Chat Completions'}` : undefined}>
         <Row label="选择">
           <Select
             className="ios-select ai-select"
@@ -106,13 +108,27 @@ export function AiSettings({ai, proxy, onChange}: Props) {
                   </Flexbox>
                 ),
               })),
-              {value: CUSTOM_PROVIDER, label: <span>自定义（兼容 OpenAI 的接口）</span>},
+              {value: CUSTOM_PROVIDER, label: <span>自定义</span>},
             ]}
             onChange={(v) => pickProvider(String(v))}
           />
         </Row>
         <TextRow label="接口地址" stack value={ai.baseUrl} placeholder="https://api.openai.com/v1" onChange={(v) => onChange({...ai, baseUrl: v})} />
         <TextRow label="密钥" secret value={ai.apiKey} placeholder={provider?.keyless ? '本地模型可以不填' : 'sk-…'} onChange={(v) => onChange({...ai, apiKey: v})} />
+        <Row label="接口协议">
+          <Select
+            className="ios-select ai-select"
+            variant="borderless"
+            value={ai.protocol ?? 'auto'}
+            popupMatchSelectWidth={false}
+            options={[
+              {value: 'auto', label: '自动'},
+              {value: 'openai', label: 'OpenAI Chat Completions'},
+              {value: 'anthropic', label: 'Anthropic Messages'},
+            ]}
+            onChange={(value) => onChange({...ai, protocol: value as AiConfig['protocol']})}
+          />
+        </Row>
       </Group>
       <Group title="模型" footer={footer}>
         <Row label="使用的模型">
@@ -179,7 +195,7 @@ function extraBodyError(text: string | undefined): string | undefined {
   if (!text?.trim()) return undefined
   try {
     const value: unknown = JSON.parse(text)
-    return value && typeof value === 'object' && !Array.isArray(value) ? undefined : '需要是一个 JSON 对象，例如 {"top_k": 40}'
+    return value && typeof value === 'object' && !Array.isArray(value) ? undefined : '需要是一个 JSON 对象'
   } catch {
     return '不是合法的 JSON'
   }
@@ -191,6 +207,7 @@ function extraBodyError(text: string | undefined): string | undefined {
  */
 function AdvancedAi({ai, onChange}: {ai: AiConfig; onChange: (next: AiConfig) => void}) {
   const [open, setOpen] = useState(false)
+  const native = resolveAiProtocol(ai) === 'anthropic'
   const set = (patch: Partial<AiConfig>) => onChange({...ai, ...patch})
   const touched = ADVANCED_KEYS.filter((key) => ai[key] !== undefined && ai[key] !== '').length
   const jsonError = extraBodyError(ai.extraBody)
@@ -204,14 +221,14 @@ function AdvancedAi({ai, onChange}: {ai: AiConfig; onChange: (next: AiConfig) =>
       </Group>
       {open && (
         <>
-          <Group title="采样" footer="留空就是用模型默认值。推理模型（o 系列、gpt-5）只认默认采样，这几项对它们不会发送。">
+          <Group title="采样" footer={native ? '留空使用模型默认值。Claude 推理模式和新版模型会忽略不支持的采样参数。' : '留空就是用模型默认值。推理模型（o 系列、gpt-5）只认默认采样，这几项对它们不会发送。'}>
             <NumberRow label="温度" hint="越低越稳，越高越发散" value={ai.temperature} min={0} max={2} step={0.1} onChange={(v) => set({temperature: v})} />
             <NumberRow label="Top P" hint="核采样，一般和温度二选一调" value={ai.topP} min={0} max={1} step={0.05} onChange={(v) => set({topP: v})} />
-            <NumberRow label="存在惩罚" hint="越高越爱聊新话题" value={ai.presencePenalty} min={-2} max={2} step={0.1} onChange={(v) => set({presencePenalty: v})} />
-            <NumberRow label="频率惩罚" hint="越高越少重复用词" value={ai.frequencyPenalty} min={-2} max={2} step={0.1} onChange={(v) => set({frequencyPenalty: v})} />
+            {!native && <NumberRow label="存在惩罚" hint="越高越爱聊新话题" value={ai.presencePenalty} min={-2} max={2} step={0.1} onChange={(v) => set({presencePenalty: v})} />}
+            {!native && <NumberRow label="频率惩罚" hint="越高越少重复用词" value={ai.frequencyPenalty} min={-2} max={2} step={0.1} onChange={(v) => set({frequencyPenalty: v})} />}
           </Group>
-          <Group title="输出" footer="推理强度只对支持的模型有效（如 o 系列、gpt-5、部分 DeepSeek / Qwen 推理模型），其他模型选「默认」。">
-            <NumberRow label="最长回答" hint="单次回答最多输出多少 token" value={ai.maxTokens} min={64} max={200000} step={256} placeholder="不限" onChange={(v) => set({maxTokens: v})} />
+          <Group title="输出" footer={native ? 'Claude 使用对应版本的思考参数；选择「默认」时不覆盖模型的思考设置。' : '推理强度只对支持的模型有效（如 o 系列、gpt-5、部分 DeepSeek / Qwen 推理模型），其他模型选「默认」。'}>
+            <NumberRow label="最长回答" hint="单次回答最多输出多少 token" value={ai.maxTokens} min={64} max={200000} step={256} placeholder={native ? '16384' : '模型默认'} onChange={(v) => set({maxTokens: v})} />
             <Row label="推理强度">
               <Select
                 className="ios-select"
@@ -228,7 +245,7 @@ function AdvancedAi({ai, onChange}: {ai: AiConfig; onChange: (next: AiConfig) =>
           </Group>
           <Group
             title="额外请求参数"
-            footer={jsonError ? <Text type="danger">{jsonError}</Text> : '合并进每次请求的 JSON，用来传服务商特有的参数。不会覆盖 model、messages、tools、stream。'}
+            footer={jsonError ? <Text type="danger">{jsonError}</Text> : '合并进每次请求的 JSON，用来传当前协议支持的额外参数。不会覆盖 model、messages、system、tools、stream。'}
           >
             <Row stack>
               <TextArea
@@ -236,7 +253,7 @@ function AdvancedAi({ai, onChange}: {ai: AiConfig; onChange: (next: AiConfig) =>
                 variant="borderless"
                 autoSize={{minRows: 2, maxRows: 8}}
                 value={ai.extraBody ?? ''}
-                placeholder='{"top_k": 40}'
+                placeholder={native ? '{"output_config": {"effort": "high"}}' : '{"top_k": 40}'}
                 spellCheck={false}
                 onChange={(event) => set({extraBody: event.target.value || undefined})}
               />
