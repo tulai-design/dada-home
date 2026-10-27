@@ -221,3 +221,40 @@
 
 - 推进10-27-applet-charts，随后10-27-applet-data-table；父任务仍需最终集成验收。
 - 草稿只预览布局；动态背景、实时数据和任意应用内部效果保留未知，不扩大已验收范围。
+
+
+## Session 7: 修复长页面底部遮挡与窄屏外壳布局
+<!-- trellis-session: v=2 fp=126efb7da6ba9ad9 -->
+
+**Date**: 2026-10-27
+**Task**: 修复长页面底部遮挡与窄屏外壳布局
+**Branch**: `main`
+
+### Summary
+
+根据用户截图复现移动长页滚到底仍被Dock挡住，修复两层固定高度包装及761–980px旧外壳断点冲突。
+
+### Main Changes
+
+- FxLayers只对结构化长页贯通自然高度，保留旧单屏及业务父链；原82px Dock留白恢复，末尾链接约有60px净空。
+- 移除max980中body/app/canvas遗留壳层覆盖，保留其余组件响应式规则，统一现有760px手机断点。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `2f78a16` | fix: 修复长页面底部遮挡与窄屏外壳布局 |
+
+### Testing
+
+- [OK] 完整test、tsc、diffcheck与任务/文档检查通过；Standards及Spec初审和CSS增量复查均0发现。
+- [OK] 真实App九宽×双主题、末尾几何/命中、旧首页/市场九宽、522px AI窄栏、草稿三宽、输入DOM存活通过；临时恢复旧包装后同断言实际红灯并命中Dock而非链接。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 回到10-27-applet-charts及后续数据表任务，AI builder父任务仍为7/9。
+- 后续移动滚动验收使用完整App宿主链路和scroll-bottom命中，不能只验PageView或存在滚动条。
