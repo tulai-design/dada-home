@@ -1,4 +1,4 @@
-import {useRef, useState, type ReactNode} from 'react'
+import {useEffect, useRef, useState, type ReactNode} from 'react'
 import {ActionIcon, Button, Modal, Segmented, Text} from '@lobehub/ui'
 import {ArrowsClockwise, Brain, CaretLeft as ChevronLeft, Database, DownloadSimple as Download, Globe, Heart, Info, Layout as LayoutDashboard, Layout as LayoutTemplate, Palette, SidebarSimple as PanelLeft, Browser as PanelTop, ArrowCounterClockwise as RotateCcw, MagnifyingGlass as Search, UploadSimple as Upload, Sparkle as Sparkles, User} from '@phosphor-icons/react'
 import type {Icon as PhosphorIcon} from '@phosphor-icons/react'
@@ -23,6 +23,7 @@ import {TemplateSettings} from './TemplateSettings'
 import {MemorySettings, ProfileForm, SoulSettings} from './PersonaSettings'
 import {usePersona} from '../lib/persona'
 import {ApplicationSettings} from './ApplicationSettings'
+import type {AssistantMode} from '../lib/assistantLayout'
 
 /**
  * 设置页，仿 iOS 设置：左边是分组列表，右边是当前项的详情。
@@ -47,6 +48,7 @@ type Props = {
   themeMode: 'light' | 'dark'
   onThemeMode: (mode: 'light' | 'dark') => void
   section: string
+  openRequest: number
   onSection: (id: string) => void
   onReset: () => void
 }
@@ -66,13 +68,17 @@ async function exportBackup() {
   URL.revokeObjectURL(a.href)
 }
 
-export function SettingsPage({ctx, themeMode, onThemeMode, section, onSection, onReset}: Props) {
+export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest, onSection, onReset}: Props) {
   const {settings, patch} = ctx
   const mobile = useIsMobile()
   const persona = usePersona()
   const syncStatus = useSyncStatus()
   // 手机上一次只显示一栏：直接点进设置先看列表；从别处跳来指定某一项时直接显示那一项
   const [pane, setPane] = useState<'list' | 'detail'>(mobile && section === 'profile' ? 'list' : 'detail')
+  // 外部入口可能连续打开相同 section，使用导航请求而非 section 变化进入详情。
+  useEffect(() => {
+    if (openRequest > 0) setPane('detail')
+  }, [openRequest])
   const [resetOpen, setResetOpen] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const [pendingImport, setPendingImport] = useState<{dump: Record<string, unknown>; summary: BackupSummary; name: string} | null>(null)
@@ -90,7 +96,7 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, onSection, o
   }
   const [searchConfig] = useStored<SearchConfig>(SEARCH_KEY, defaultSearchConfig())
   const searchSummary = providerInfo(searchConfig.provider) ? (searchReady(searchConfig) ? providerInfo(searchConfig.provider)?.name : '未配好') : '未启用'
-  const [assistantMode, setAssistantMode] = useStored<'drawer' | 'full'>('sidebarAi', 'full')
+  const [assistantMode, setAssistantMode] = useStored<AssistantMode>('sidebarAi', 'full')
 
   const general: Section[] = [
     {
@@ -158,16 +164,17 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, onSection, o
       render: () => (
         <>
           <AiSettings ai={settings.ai} proxy={settings.proxy} onChange={(ai) => patch({ai})} />
-          <Group title="对话面板" footer="在首页输入框里发消息，总是先用侧栏打开，让你直接看到回答；面板右上角的图标可以随时切换全屏。">
-            <Row label="从侧栏图标进入时">
+          <Group title="对话面板" footer="分栏仅在桌面显示。">
+            <Row label="Dock AI 入口">
               <Segmented
                 size="small"
-                value={assistantMode}
+                value={mobile && assistantMode === 'split' ? 'drawer' : assistantMode}
                 options={[
-                  {value: 'drawer', label: '侧栏'},
+                  {value: 'drawer', label: '抽屉'},
+                  ...(!mobile ? [{value: 'split', label: '分栏'}] : []),
                   {value: 'full', label: '全屏'},
                 ]}
-                onChange={(v) => setAssistantMode(v as 'drawer' | 'full')}
+                onChange={(v) => setAssistantMode(v as AssistantMode)}
               />
             </Row>
           </Group>
@@ -323,7 +330,7 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, onSection, o
         <main className="ios-detail">
           <div className="ios-detail-inner">
             <header className="ios-detail-head">
-              <ActionIcon className="ios-back" icon={ChevronLeft} title="返回" onClick={() => setPane('list')} />
+              <ActionIcon className="ios-back" icon={ChevronLeft} aria-label="返回设置列表" title="返回" onClick={() => setPane('list')} />
               <Tile icon={current.icon} color={current.color} size={34} />
               <h1>{current.name}</h1>
             </header>

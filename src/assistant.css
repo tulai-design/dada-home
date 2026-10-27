@@ -1,0 +1,75 @@
+.assistant-actions {
+  min-width: 0;
+}
+
+.assistant-mode-switch {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 6px;
+}
+
+.assistant-mode-switch .assistant-mode-button[data-selected='true'] {
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 9%, transparent);
+}
+
+.assistant-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex: none;
+  padding: 14px 20px;
+}
+
+.assistant-panel-head > :first-child {
+  flex-shrink: 0;
+}
+
+.assistant-split {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  color: var(--text);
+  background: var(--bg);
+}
+
+.assistant-split-chat {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: 0 20px 16px;
+}
+
+.assistant-split .chat-root {
+  min-width: 0;
+  min-height: 0;
+}
+
+.assistant-split .chat-empty {
+  padding-inline: 0;
+}
+
+.assistant-split .composer-bar {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.assistant-split .composer-hint {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .assistant-mode-switch {
+    margin-left: 2px;
+  }
+
+  .assistant-panel-head {
+    gap: 4px;
+    padding: 10px 14px;
+  }
+}

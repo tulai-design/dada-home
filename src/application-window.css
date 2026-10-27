@@ -1,0 +1,147 @@
+.application-window-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 80;
+  overflow: hidden;
+  pointer-events: none !important;
+}
+
+.application-floating-window {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  max-height: 100%;
+  overflow: hidden;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 10px 28px -18px color-mix(in srgb, var(--text) 24%, transparent);
+  pointer-events: auto;
+}
+
+.application-floating-titlebar {
+  position: relative;
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr) 80px;
+  align-items: center;
+  flex: none;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--border);
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+.application-floating-titlebar:focus-visible {
+  outline: 1px solid var(--main);
+  outline-offset: -3px;
+}
+.application-floating-window[data-maximized='true'] .application-floating-titlebar { cursor: default; }
+.application-floating-window[data-dragging='true'] .application-floating-titlebar { cursor: grabbing; }
+.application-window-traffic {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.application-window-traffic[hidden] { display: none; }
+.application-traffic-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  color: rgba(35, 27, 20, 0.8);
+  border: 1px solid rgba(35, 27, 20, 0.12);
+  border-radius: 50%;
+  cursor: pointer;
+}
+.application-traffic-button[data-action='close'] { background: #ee6b5f; }
+.application-traffic-button[data-action='minimize'] { background: #e7b84c; }
+.application-traffic-button[data-action='maximize'] { background: #62b96b; }
+.application-traffic-button > svg { opacity: 0; }
+.application-window-traffic:hover .application-traffic-button > svg,
+.application-traffic-button:focus-visible > svg { opacity: 1; }
+.application-traffic-button:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
+.application-floating-title {
+  grid-column: 2;
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.application-floating-body {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 20px 24px;
+}
+.application-floating-body > .application-runtime {
+  max-height: none;
+  overflow: visible;
+  padding: 0;
+}
+.application-floating-window[data-dragging='true'] iframe { pointer-events: none; }
+.application-minimized-window {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  display: flex;
+  align-items: stretch;
+  max-width: calc(100% - 32px);
+  min-height: 36px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px -8px color-mix(in srgb, var(--text) 20%, transparent);
+  pointer-events: auto;
+}
+.application-window-restore,
+.application-minimized-close,
+.application-mobile-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--radius);
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.application-window-restore > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.application-window-restore > svg,
+.application-minimized-close { flex: none; }
+.application-window-restore:hover,
+.application-minimized-close:hover,
+.application-mobile-close:hover { background: var(--bg2); }
+.application-window-layer[data-mobile='true'] .application-floating-window { border: 0; box-shadow: none; }
+.application-window-layer[data-mobile='true'] .application-floating-titlebar {
+  grid-template-columns: 32px minmax(0, 1fr) 32px;
+  min-height: 44px;
+  padding: 0 10px;
+  cursor: default;
+  touch-action: auto;
+}
+.application-mobile-close { grid-column: 3; padding: 6px; }
+.application-window-layer[data-mobile='true'] .application-floating-body { padding: 16px 16px 90px; }
+.application-window-layer[data-mobile='true'] .application-minimized-window { bottom: 90px; }

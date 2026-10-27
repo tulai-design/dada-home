@@ -526,7 +526,7 @@ export const SITE_TOOLS = [
           `联网搜索：${searchLine()}`,
           `「搜索并跳转」${isAlwaysAllowed('open_search') ? '已设为总是允许（不再询问）' : '每次都要用户确认'}`,
           `AI：模型 ${s.ai.model}｜${s.ai.apiKey ? '已填密钥' : '未填密钥'}（接口地址、密钥、模型由用户自己在设置里填，你不能改）`,
-          `侧栏进入 AI 的方式：${readStored<string>('sidebarAi', 'full') === 'full' ? '全屏' : '侧栏'}`,
+          `Dock AI 入口：${({full: '全屏', drawer: '抽屉', split: '分栏'} as Record<string, string>)[readStored<string>('sidebarAi', 'full')] ?? '全屏'}`,
           `已安装的市场组件：${ws.addons.join('、') || '（无）'}`,
         ].join('\n')
       },
@@ -552,7 +552,7 @@ export const SITE_TOOLS = [
           showSeconds: {type: 'boolean', description: '时钟是否显示秒'},
           showFavicons: {type: 'boolean', description: '书签、常用网站是否显示站点图标'},
           searchEngine: {type: 'string', enum: ['ai', ...SEARCH_ENGINES.map((e) => e.id)], description: '首页输入框默认用什么：ai 或某个搜索引擎'},
-          sidebarAi: {type: 'string', enum: ['full', 'drawer'], description: '从侧栏图标打开 AI 时：全屏 full 还是侧栏 drawer'},
+          sidebarAi: {type: 'string', enum: ['full', 'drawer', 'split'], description: 'Dock AI 入口的布局：全屏 full、抽屉 drawer、分栏 split（桌面宽度足够时），默认 full'},
         },
       },
     },
@@ -594,9 +594,9 @@ export const SITE_TOOLS = [
             done.push(`输入框默认=${args.searchEngine}`)
           }
           if (args.sidebarAi) {
-            if (args.sidebarAi !== 'full' && args.sidebarAi !== 'drawer') throw new WorkspaceError('sidebarAi 只能是 full 或 drawer。')
+            if (!['full', 'drawer', 'split'].includes(args.sidebarAi)) throw new WorkspaceError('sidebarAi 只能是 full、drawer 或 split。')
             writeStored('sidebarAi', args.sidebarAi)
-            done.push(`侧栏 AI=${args.sidebarAi === 'full' ? '全屏' : '侧栏'}`)
+            done.push(`Dock AI=${({full: '全屏', drawer: '抽屉', split: '分栏'} as Record<string, string>)[args.sidebarAi]}`)
           }
           if (!done.length) throw new WorkspaceError('没有给出要改的项。')
           if (Object.keys(part).length) patchSettings(part)

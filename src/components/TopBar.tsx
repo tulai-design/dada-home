@@ -12,19 +12,19 @@ export function TopBar({
   theme,
   onTheme,
   onPalette,
-  onHome,
+  onAssistant,
 }: {
   status: ReactNode
   theme: 'dark' | 'light'
   onTheme: () => void
   onPalette: () => void
-  /** 手机上顶栏左边显示 logo，点它回首页 */
-  onHome?: () => void
+  /** 手机上也能通过 logo 恢复助手侧边面板 */
+  onAssistant?: () => void
 }) {
   const small = { blockSize: 28, size: 15, borderRadius: 8 }
   return (
     <div className="topbar">
-      <button type="button" className="topbar-brand" aria-label="回到首页" onClick={onHome}>
+      <button type="button" className="topbar-brand" aria-label="打开搭搭助手" onClick={onAssistant}>
         <img src={`${import.meta.env.BASE_URL}brand/dada-logo.png`} alt="" width={28} height={28} draggable={false} />
         <span>搭搭</span>
       </button>

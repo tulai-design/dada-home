@@ -1552,8 +1552,7 @@ body {
 }
 
 /* ============================================================
-   弹层统一：Lobe 的中性色令牌换成纸张色
-   Modal / Drawer / 下拉 / 提示 / 通知 都读这些令牌，改一处全部跟着变。
+   弹层统一：纸张色、主题圆角与轻阴影
    ============================================================ */
 :root[data-theme] {
   --lobe-color-bg-elevated: var(--bg);
@@ -1566,13 +1565,15 @@ body {
   --lobe-color-text-secondary: var(--text2);
   --lobe-color-text-tertiary: var(--text3);
   --lobe-color-text-quaternary: var(--text4);
-  --lobe-border-radius-sm: 6px;
-  --lobe-border-radius: 10px;
-  --lobe-border-radius-lg: 14px;
-  --lobe-color-bg-mask: rgba(28, 24, 21, 0.3);
-  --lobe-box-shadow: 0 32px 80px -24px rgba(28, 24, 21, 0.34), 0 0 0 1px var(--border);
-  --lobe-box-shadow-secondary: 0 12px 32px -12px rgba(28, 24, 21, 0.26), 0 0 0 1px var(--border);
-  --lobe-box-shadow-tertiary: 0 6px 18px -8px rgba(28, 24, 21, 0.22), 0 0 0 1px var(--border);
+  --lobe-border-radius-xs: var(--radius);
+  --lobe-border-radius-sm: var(--radius);
+  --lobe-border-radius: var(--radius);
+  --lobe-border-radius-lg: var(--radius-lg);
+  --lobe-border-radius-outer: var(--radius-lg);
+  --lobe-color-bg-mask: rgba(28, 24, 21, 0.2);
+  --lobe-box-shadow: 0 8px 24px -16px color-mix(in srgb, var(--text) 18%, transparent);
+  --lobe-box-shadow-secondary: 0 4px 12px -6px color-mix(in srgb, var(--text) 12%, transparent);
+  --lobe-box-shadow-tertiary: 0 2px 8px -4px color-mix(in srgb, var(--text) 10%, transparent);
 }
 :root[data-theme='light'] {
   --lobe-color-fill: rgba(28, 24, 21, 0.12);
@@ -1584,13 +1585,128 @@ body {
 }
 :root[data-theme='dark'] {
   --lobe-color-bg-elevated: var(--bg2);
-  --lobe-color-bg-mask: rgba(0, 0, 0, 0.5);
+  --lobe-color-bg-mask: rgba(0, 0, 0, 0.4);
   --lobe-color-fill: rgba(239, 233, 223, 0.16);
   --lobe-color-fill-secondary: rgba(239, 233, 223, 0.1);
   --lobe-color-fill-tertiary: rgba(239, 233, 223, 0.06);
   --lobe-color-fill-quaternary: rgba(239, 233, 223, 0.03);
   --lobe-color-bg-text-hover: rgba(239, 233, 223, 0.08);
   --lobe-color-bg-text-active: rgba(239, 233, 223, 0.14);
+}
+
+/* Lobe 6 的面板圆角与 Drawer cast shadow 有硬编码，覆盖其稳定 BEM 类。 */
+.lobe-modal {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--lobe-box-shadow);
+}
+.lobe-drawer {
+  border-color: var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: none;
+}
+.lobe-modal__header,
+.lobe-drawer__header {
+  min-width: 0;
+  border-color: var(--border);
+}
+.lobe-modal__header {
+  gap: 12px;
+  padding: 20px 24px 16px;
+}
+.lobe-modal__content {
+  min-width: 0;
+  padding: 0 24px 24px;
+}
+.lobe-modal:not(:has(> .lobe-modal__header)) > .lobe-modal__content {
+  padding-top: 24px;
+}
+.lobe-modal__footer {
+  padding: 0 24px 20px;
+}
+.lobe-drawer__header {
+  padding: 16px 24px;
+}
+.lobe-drawer__body-content {
+  min-width: 0;
+  padding: 20px 24px 24px;
+}
+.lobe-modal__title,
+.lobe-drawer__title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--text);
+}
+.lobe-modal__close,
+.lobe-drawer__close {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius);
+  color: var(--text2);
+  box-shadow: none;
+}
+.lobe-modal__close:hover,
+.lobe-drawer__close:hover {
+  color: var(--text);
+  background: var(--bg2);
+}
+.lobe-modal .lobe-segmented,
+.lobe-drawer .lobe-segmented {
+  border-radius: var(--radius);
+  box-shadow: none;
+}
+.lobe-modal .lobe-segmented__indicator,
+.lobe-drawer .lobe-segmented__indicator,
+.lobe-modal .lobe-segmented__item,
+.lobe-drawer .lobe-segmented__item {
+  border-radius: var(--radius);
+  box-shadow: none;
+}
+/* Split canvas establishes the containing block with position:relative; contain:layout paint. */
+.canvas-overlay-shade {
+  position: absolute;
+  inset: 0;
+  z-index: 999;
+  background: var(--lobe-color-bg-mask);
+}
+.canvas-overlay-drawer {
+  position: absolute;
+  max-width: 100%;
+  max-height: 100%;
+}
+.canvas-overlay-drawer .application-runtime {
+  max-height: none;
+  overflow: visible;
+}
+@media (max-width: 760px) {
+  .lobe-modal__header {
+    padding: 16px 16px 12px;
+  }
+  .lobe-modal__content {
+    padding: 0 16px 16px;
+  }
+  .lobe-modal:not(:has(> .lobe-modal__header)) > .lobe-modal__content {
+    padding-top: 16px;
+  }
+  .lobe-modal__footer {
+    padding: 0 16px 16px;
+  }
+  .lobe-drawer__header {
+    padding: 14px 16px;
+  }
+  .lobe-drawer__body-content {
+    padding: 16px;
+  }
+  .lobe-modal__title,
+  .lobe-drawer__title {
+    font-size: 18px;
+  }
 }
 
 /* ============================================================

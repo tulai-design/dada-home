@@ -1,7 +1,8 @@
 import {useEffect, useLayoutEffect, useRef, useState} from 'react'
 import {ActionIcon, Button, Drawer, Empty, Flexbox, Markdown, Modal, Text} from '@lobehub/ui'
-import {ArrowDown, ClockCounterClockwise as History, ArrowsOut as Maximize2, Chat as MessageSquare, ArrowsIn as Minimize2, Plus, Gear as Settings, Square, Trash as Trash2, X} from '@phosphor-icons/react'
+import {ArrowDown, ClockCounterClockwise as History, ArrowsOut as Maximize2, Chat as MessageSquare, Columns, SidebarSimple, Plus, Gear as Settings, Square, Trash as Trash2, X} from '@phosphor-icons/react'
 import type {AiConfig} from '../lib/types'
+import type {AssistantMode} from '../lib/assistantLayout'
 import {useIsMobile} from '../lib/useMedia'
 import {Mascot} from './About'
 import {elapsed, isActive, type Conv, type Turn} from '../lib/chat'
@@ -9,11 +10,14 @@ import {ThinkingPanel} from './ThinkingPanel'
 import {ToolRow} from './ToolRow'
 import {Composer} from './Composer'
 import {ApprovalCard} from './ApprovalCard'
+import '../assistant.css'
 
 type Props = {
   open: boolean
-  mode: 'drawer' | 'full'
-  onMode: (mode: 'drawer' | 'full') => void
+  mode: AssistantMode
+  onMode: (mode: AssistantMode) => void
+  /** 宿主判断是否有足够宽度同时显示页面和助手。 */
+  canSplit?: boolean
   ai: AiConfig
   turns: Turn[]
   /** 对话记录是否已从 IndexedDB 读完 */
@@ -39,12 +43,20 @@ type Props = {
 const FOLLOW_THRESHOLD = 120
 /** 一次渲染多少轮。 */
 const PAGE = 40
+const MODES = [
+  {value: 'drawer', label: '抽屉', icon: SidebarSimple},
+  {value: 'split', label: '分栏', icon: Columns},
+  {value: 'full', label: '全屏', icon: Maximize2},
+] as const
 
-export function Assistant({open, mode, onMode, ai, turns, ready, convs, convId, onNewConv, onOpenConv, onDeleteConv, busy, seed, articleTitle, onRemoveArticle, onSend, onStop, onClose, onOpenSettings, onApprovalAnswer}: Props) {
+export function Assistant({open, mode, onMode, canSplit = true, ai, turns, ready, convs, convId, onNewConv, onOpenConv, onDeleteConv, busy, seed, articleTitle, onRemoveArticle, onSend, onStop, onClose, onOpenSettings, onApprovalAnswer}: Props) {
   const [input, setInput] = useState('')
   const logRef = useRef<HTMLDivElement>(null)
   const followRef = useRef(true)
   const mobile = useIsMobile()
+  // 保留桌面的分栏偏好，手机仅改变本次呈现，不回写用户设置。
+  const splitAvailable = !mobile && canSplit
+  const displayMode = mode === 'split' && !splitAvailable ? 'drawer' : mode
   const [paused, setPaused] = useState(false)
   // 对话可以无限长：只渲染最近一段，更早的点一下再展开，免得几千轮把界面拖慢
   const [shown, setShown] = useState(PAGE)
@@ -63,13 +75,13 @@ export function Assistant({open, mode, onMode, ai, turns, ready, convs, convId, 
   }, [seed.key, open, seed.text])
 
   useEffect(() => {
-    if (!open || mode !== 'full') return
+    if (!open || displayMode !== 'full') return
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, mode, onClose])
+  }, [open, displayMode, onClose])
 
   // 用户往上滚就暂停跟随；回到底部再恢复。用布局副作用，避免流式时抖动。
   const onScroll = () => {
@@ -98,7 +110,7 @@ export function Assistant({open, mode, onMode, ai, turns, ready, convs, convId, 
     snap()
     const timers = [60, 200, 450].map((ms) => window.setTimeout(snap, ms))
     return () => timers.forEach((id) => window.clearTimeout(id))
-  }, [open, mode, convId, ready])
+  }, [open, displayMode, convId, ready])
 
   // 打开面板时把光标放进输入框（抽屉默认会抢到第一个按钮上）。触屏上不弹键盘。
   useEffect(() => {
@@ -107,7 +119,7 @@ export function Assistant({open, mode, onMode, ai, turns, ready, convs, convId, 
       document.querySelector<HTMLTextAreaElement>('.chat-root .composer-input textarea, .chat-root textarea.composer-input')?.focus({preventScroll: true})
     }, 260)
     return () => window.clearTimeout(timer)
-  }, [open, mode, ready])
+  }, [open, displayMode, ready])
 
   const jumpToBottom = () => {
     const el = logRef.current
@@ -131,12 +143,26 @@ export function Assistant({open, mode, onMode, ai, turns, ready, convs, convId, 
   }
 
   const actions = (
-    <Flexbox direction="horizontal" align="center" gap={4}>
-      <ActionIcon icon={Plus} title={busy ? '回答完再新开对话' : '新对话'} disabled={busy || !turns.length} onClick={onNewConv} />
-      {(mode !== 'full' || mobile) && <ActionIcon icon={History} title="历史对话" onClick={() => setListOpen(true)} />}
-      {turns.length > 0 && <ActionIcon icon={Trash2} title="删除这个对话" disabled={busy} onClick={() => setPendingDelete(convId)} />}
-      <ActionIcon icon={Settings} title="设置" onClick={onOpenSettings} />
-      <ActionIcon icon={mode === 'full' ? Minimize2 : Maximize2} title={mode === 'full' ? '退出全屏' : '全屏'} onClick={() => onMode(mode === 'full' ? 'drawer' : 'full')} />
+    <Flexbox className="assistant-actions" direction="horizontal" align="center" gap={2}>
+      <ActionIcon size="small" icon={Plus} title={busy ? '回答完再新开对话' : '新对话'} disabled={busy || !turns.length} onClick={onNewConv} />
+      {(displayMode !== 'full' || mobile) && <ActionIcon size="small" icon={History} aria-label="历史对话" title="历史对话" onClick={() => setListOpen(true)} />}
+      {turns.length > 0 && <ActionIcon size="small" icon={Trash2} title="删除这个对话" disabled={busy} onClick={() => setPendingDelete(convId)} />}
+      <ActionIcon size="small" icon={Settings} aria-label="助手设置" title="设置" onClick={onOpenSettings} />
+      <div className="assistant-mode-switch" role="group" aria-label="对话布局">
+        {MODES.filter((item) => item.value !== 'split' || splitAvailable).map((item) => (
+          <ActionIcon
+            key={item.value}
+            className="assistant-mode-button"
+            size="small"
+            icon={item.icon}
+            title={item.label}
+            aria-label={`${item.label}模式`}
+            aria-pressed={displayMode === item.value}
+            data-selected={displayMode === item.value}
+            onClick={() => onMode(item.value)}
+          />
+        ))}
+      </div>
     </Flexbox>
   )
 
@@ -232,7 +258,7 @@ export function Assistant({open, mode, onMode, ai, turns, ready, convs, convId, 
   )
 
   // 全屏：占满整个窗口（红框之内），左边是历史标题，右边是对话
-  if (mode === 'full') {
+  if (displayMode === 'full') {
     if (!open) return null
     return (
       <div className="ai-full" role="dialog" aria-label="搭搭 AI">
@@ -249,17 +275,35 @@ export function Assistant({open, mode, onMode, ai, turns, ready, convs, convId, 
           </div>
         </aside>
         <section className="ai-full-main">
-          <header className="ai-full-head">
+          <header className="ai-full-head assistant-panel-head">
             <Text strong>对话</Text>
             <Flexbox direction="horizontal" align="center" gap={4}>
               {actions}
-              <ActionIcon icon={X} title="关闭" onClick={onClose} />
+              <ActionIcon size="small" icon={X} aria-label="关闭助手" title="关闭" onClick={onClose} />
             </Flexbox>
           </header>
           <div className="ai-full-chat">{chat}</div>
         </section>
         {dialogs}
       </div>
+    )
+  }
+
+  // 分栏参与页面布局；没有遮罩、Portal 或焦点限制，左侧页面可以继续操作。
+  if (displayMode === 'split') {
+    if (!open) return null
+    return (
+      <section className="assistant-split" role="complementary" aria-label="搭搭 AI">
+        <header className="assistant-panel-head">
+          <Text strong>搭搭</Text>
+          <Flexbox direction="horizontal" align="center" gap={2}>
+            {actions}
+            <ActionIcon size="small" icon={X} aria-label="关闭助手" title="关闭" onClick={onClose} />
+          </Flexbox>
+        </header>
+        <div className="assistant-split-chat">{chat}</div>
+        {dialogs}
+      </section>
     )
   }
 

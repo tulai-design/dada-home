@@ -119,7 +119,7 @@
 
 `create_applet` / `create_app` 默认安装进组件市场的应用目录，不自动创建页面或固定 Dock。创建时 `pageId` 可选，只有用户需要页面小组件时才提供。一个应用保留同一 ID、源码与私有数据，最多挂载一个页面；`mount_application` 的 `pageId: null` 仅取消挂载。编辑前用 `list_applications` 读取目录记录与源码，分组用 `group`，常用入口用 `dock` / `status` 按需开启，管理配置用 `configure_application`。
 
-默认打开方式由 `openMode` 指定为 `modal`、`drawer` 或 `page`。运行时 App 读 `tada.surface`，Applet 读 `ctx.surface`，共五种形态：
+默认打开方式由 `openMode` 指定为 `modal`、`drawer` 或 `page`，用户在应用设置中选择。桌面 `modal` 由宿主提供交通灯、可拖动标题栏、最小化及最大化／还原；移动端保留标题与关闭按钮。应用内容不要重复绘制这些控件或打开方式选项卡。最小化仅隐藏主窗口，不卸载运行实例，页面和状态栏的同 ID 视图仍暂停；从画布底部入口或组件市场恢复会保留运行状态。运行时 App 读 `tada.surface`，Applet 读 `ctx.surface`，共五种形态：
 
 | surface | 所处容器 | 布局要求 |
 | --- | --- | --- |

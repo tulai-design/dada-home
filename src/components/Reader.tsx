@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useIsMobile } from '../lib/useMedia'
 import { Alert, Button, Drawer, Empty, Flexbox, Markdown, Tag } from '@lobehub/ui'
 import {Check, Copy, ArrowSquareOut as ExternalLink, ChatText as MessageSquareText, Gear as Settings, Sparkle as Sparkles} from '@phosphor-icons/react'
@@ -16,9 +17,10 @@ type Props = {
   onMarkRead: (id: string) => void
   onAskAi: (article: Article) => void
   onOpenSettings: () => void
+  overlayContainer?: HTMLElement | null
 }
 
-export function Reader({ article, ai, onClose, onMarkRead, onAskAi, onOpenSettings }: Props) {
+export function Reader({ article, ai, onClose, onMarkRead, onAskAi, onOpenSettings, overlayContainer }: Props) {
   const mobile = useIsMobile()
   const [summary, setSummary] = useState('')
   const [summarizing, setSummarizing] = useState(false)
@@ -98,7 +100,9 @@ export function Reader({ article, ai, onClose, onMarkRead, onAskAi, onOpenSettin
   }
 
   return (
-    <Drawer open width={mobile ? '100%' : 780} title={article.source} onClose={onClose}>
+    <>
+    {overlayContainer && createPortal(<div className="canvas-overlay-shade" aria-hidden="true"/>, overlayContainer)}
+    <Drawer getContainer={overlayContainer} mask={!overlayContainer} maskClosable={!overlayContainer} classNames={{popup: overlayContainer ? 'canvas-overlay-drawer' : undefined}} open width={mobile ? '100%' : 780} title={article.source} onClose={onClose}>
       <Flexbox direction="vertical" gap={12} className="reader">
         <Tag>{relativeTime(article.date)}</Tag>
         <h1>{article.title}</h1>
@@ -140,5 +144,6 @@ export function Reader({ article, ai, onClose, onMarkRead, onAskAi, onOpenSettin
         )}
       </Flexbox>
     </Drawer>
+    </>
   )
 }

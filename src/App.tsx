@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { A, ActionIcon, Modal, Text, toast } from '@lobehub/ui'
 import {AppWindow, SquaresFour as LayoutGrid, Monitor, Moon, Palette, ArrowClockwise as Redo, ArrowsClockwise as RefreshCw, Rss, Gear as Settings, Sparkle as Sparkles, Sun, ArrowCounterClockwise as Undo} from '@phosphor-icons/react'
 import { pageIcon } from './lib/pageIcons'
-import { FROZEN_PAGE_ID, activeTheme, type ApplicationOpenMode } from './lib/workspace'
+import { activeTheme, type ApplicationOpenMode } from './lib/workspace'
 import {findApplication, listApplications, updateApplication} from './lib/applications'
 import {ApplicationHost} from './components/ApplicationHost'
 import { applyTheme, resolveThemeOverrides, setMode } from './lib/themes'
@@ -21,6 +21,8 @@ import { PageView } from './components/PageView'
 import { FxLayers, hasBackdrop } from './fx/Fx'
 import { Reader } from './components/Reader'
 import { Assistant } from './components/Assistant'
+import { AssistantSplitPane } from './components/AssistantSplitPane'
+import { DEFAULT_ASSISTANT_RATIO, normalizeAssistantMode, type AssistantMode } from './lib/assistantLayout'
 import { CommandPalette } from './components/CommandPalette'
 import { SettingsPage } from './components/SettingsPage'
 import type { AppSettingsContext } from './lib/apps'
@@ -86,46 +88,76 @@ export default function App() {
   const [draftArticle, setDraftArticle] = useState<Article | null>(null)
   const [assistantSeed, setAssistantSeed] = useState({ text: '', key: 0 })
   const [assistantOpen, setAssistantOpen] = useState(false)
-  // 对话面板有两种样子：侧栏（快速看一眼）和全屏。
-  // 从侧栏图标、⌘J 进来用用户的偏好（默认全屏）；在首页输入框发出的消息先用侧栏，直接看到回答。
-  const [assistantMode, setAssistantMode] = useState<'drawer' | 'full'>('drawer')
-  const [sidebarAi] = useStored<'drawer' | 'full'>('sidebarAi', 'full')
+  // Logo 恢复上一次侧边布局；Dock / ⌘J 保留独立的打开偏好。
+  const [assistantMode, setAssistantMode] = useState<AssistantMode>('drawer')
+  const [sidebarAi] = useStored<AssistantMode>('sidebarAi', 'full')
+  const [panelMode, setPanelMode] = useStored<'drawer' | 'split'>('assistantPanelMode', 'drawer')
+  const [assistantRatio, setAssistantRatio] = useStored<number>('assistantSplitRatio', DEFAULT_ASSISTANT_RATIO)
+  const [splitAvailable, setSplitAvailable] = useState(false)
+  const [canvasElement, setCanvasElement] = useState<HTMLDivElement | null>(null)
   const [fxRoot, setFxRoot] = useState<HTMLDivElement | null>(null)
   const assistantOpenRef = useRef(false)
   assistantOpenRef.current = assistantOpen
-  const openAssistant = useCallback(
-    (mode?: 'drawer' | 'full') => {
-      setAssistantMode(mode ?? sidebarAi)
-      setAssistantOpen(true)
-    },
-    [sidebarAi],
-  )
+  const splitActive = assistantOpen && assistantMode === 'split' && splitAvailable
+  const splitActiveRef = useRef(false)
+  splitActiveRef.current = splitActive
+  const changeAssistantMode = useCallback((mode: AssistantMode) => {
+    const next = normalizeAssistantMode(mode)
+    setAssistantMode(next)
+    if (next !== 'full') setPanelMode(next)
+  }, [setPanelMode])
+  const openAssistant = useCallback((mode?: AssistantMode) => {
+    changeAssistantMode(mode ?? normalizeAssistantMode(sidebarAi))
+    setAssistantOpen(true)
+  }, [sidebarAi, changeAssistantMode])
+  const openAssistantPanel = useCallback(() => {
+    openAssistant(panelMode === 'split' ? 'split' : 'drawer')
+  }, [openAssistant, panelMode])
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [switcherOpen, setSwitcherOpen] = useState(false)
   // 当前画布显示什么：普通页面、设置、监控。设置和监控是整页，不再用抽屉
   const [view, setView] = useState<'page' | 'settings' | 'monitor' | 'market' | 'application'>('page')
   const [applicationView, setApplicationView] = useState<{id: string; mode: ApplicationOpenMode} | null>(null)
+  const applicationViewRef = useRef(applicationView)
+  applicationViewRef.current = applicationView
+  const [applicationMinimized, setApplicationMinimized] = useState(false)
+  const applicationMinimizedRef = useRef(false)
+  applicationMinimizedRef.current = applicationMinimized
   const viewRef = useRef(view)
   viewRef.current = view
   const applicationReturnView = useRef<'page' | 'settings' | 'monitor' | 'market'>('market')
   const [section, setSection] = useState('profile')
+  const [settingsRequest, setSettingsRequest] = useState(0)
 
   const { workspace, edit, undo, redo, canUndo, canRedo } = useWorkspace()
 
   const openApplication = useCallback((ref: string, requestedMode?: ApplicationOpenMode) => {
     try {
       const application = findApplication(getWorkspace(), ref)
-      const mode = requestedMode ?? application.openMode
+      const current = applicationViewRef.current
+      const mode = requestedMode ?? (applicationMinimizedRef.current && current?.id === application.id ? current.mode : application.openMode)
       if (viewRef.current !== 'application') applicationReturnView.current = viewRef.current
+      applicationMinimizedRef.current = false
+      setApplicationMinimized(false)
       setApplicationView({id: application.id, mode})
       setView(mode === 'page' ? 'application' : applicationReturnView.current)
       setReader(null)
-      setAssistantOpen(false)
+      if (!splitActiveRef.current) setAssistantOpen(false)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : String(error))
     }
   }, [])
+  const minimizeApplication = useCallback(() => {
+    applicationMinimizedRef.current = true
+    setApplicationMinimized(true)
+  }, [])
+  const restoreApplication = useCallback(() => {
+    applicationMinimizedRef.current = false
+    setApplicationMinimized(false)
+  }, [])
   const closeApplication = useCallback(() => {
+    applicationMinimizedRef.current = false
+    setApplicationMinimized(false)
     setApplicationView(null)
     if (viewRef.current === 'application') setView(applicationReturnView.current)
   }, [])
@@ -169,28 +201,31 @@ export default function App() {
 
   const goPage = useCallback(
     (id: string) => {
-      setApplicationView(null)
+      if (!applicationMinimizedRef.current) setApplicationView(null)
       setPageId(id)
       setView('page')
     },
     [setPageId],
   )
-  /** 打开设置页；section 指定落在哪一项（热榜、ai…）。从对话面板、阅读器里打开时先收起它们。 */
+  /** 系统页替换左侧画布，分栏中的助手继续保留。 */
   const openSettings = useCallback((target?: string) => {
-    setApplicationView(null)
-    setAssistantOpen(false)
+    if (!applicationMinimizedRef.current) setApplicationView(null)
+    if (!splitActiveRef.current) setAssistantOpen(false)
     setReader(null)
-    if (typeof target === 'string' && target) setSection(target)
+    if (typeof target === 'string' && target) {
+      setSection(target)
+      setSettingsRequest((request) => request + 1)
+    }
     setView('settings')
   }, [])
   const openMonitor = useCallback(() => {
-    setApplicationView(null)
-    setAssistantOpen(false)
+    if (!applicationMinimizedRef.current) setApplicationView(null)
+    if (!splitActiveRef.current) setAssistantOpen(false)
     setView('monitor')
   }, [])
   const openMarket = useCallback(() => {
-    setApplicationView(null)
-    setAssistantOpen(false)
+    if (!applicationMinimizedRef.current) setApplicationView(null)
+    if (!splitActiveRef.current) setAssistantOpen(false)
     setView('market')
   }, [])
 
@@ -205,7 +240,7 @@ export default function App() {
     if (!pendingPage) return
     if (workspace.pages.some((page) => page.id === pendingPage)) {
       setPageId(pendingPage)
-      setApplicationView(null)
+      if (!applicationMinimizedRef.current) setApplicationView(null)
       setView('page')
     }
     setPendingPage(null)
@@ -516,7 +551,7 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [workspace.pages, goPage, openSettings, undo, redo])
+  }, [workspace.pages, goPage, openSettings, openAssistant, undo, redo])
 
   const paletteActions = useMemo(
     () => [
@@ -562,7 +597,7 @@ export default function App() {
           run: () => window.open(f.url, '_blank', 'noopener'),
         })),
     ],
-    [workspace.pages, workspace.applications, workspace.theme, workspace.themes, workspace.addons, feeds, edit, goPage, openMonitor, openMarket, openSettings, openApplication, canUndo, canRedo, undo, redo],
+    [workspace.pages, workspace.applications, workspace.theme, workspace.themes, workspace.addons, feeds, edit, goPage, openMonitor, openMarket, openSettings, openApplication, canUndo, canRedo, undo, redo, openAssistant],
   )
 
   const appCtx: AppSettingsContext = useMemo(
@@ -608,7 +643,7 @@ export default function App() {
         <Rail
           pages={workspace.pages}
           applications={applications}
-          applicationId={openedApplication ? openedApplication.id : undefined}
+          applicationId={openedApplication && !applicationMinimized ? openedApplication.id : undefined}
           onApplication={openApplication}
           page={currentPage?.id ?? ''}
           onPage={goPage}
@@ -616,6 +651,7 @@ export default function App() {
           dock={workspace.dock}
           onMore={() => setSwitcherOpen(true)}
           onAssistant={() => (assistantOpen ? setAssistantOpen(false) : openAssistant())}
+          onLogo={openAssistantPanel}
           assistantBusy={busy}
           onMonitor={openMonitor}
           onMarket={openMarket}
@@ -623,99 +659,137 @@ export default function App() {
           onSettings={() => openSettings()}
         />
 
-        <div className="canvas">
-          <TopBar
-            status={<StatusBar items={workspace.statusbar} host={host} onConfig={(id,patch) => applications.some((application) => application.id === id) ? onUpdateConfig(id,patch) : onStatusConfig(id,patch)} applications={applications} onApplication={openApplication} workspace={workspace} activeApplicationIds={activeApplicationIds} />}
-            theme={workspace.theme.mode}
-            onTheme={toggleTheme}
-            onPalette={() => setPaletteOpen((v) => !v)}
-            onHome={() => goPage(FROZEN_PAGE_ID)}
-          />
+        <AssistantSplitPane
+          enabled={assistantOpen && assistantMode === 'split'}
+          ratio={assistantRatio}
+          onRatioChange={setAssistantRatio}
+          onAvailableChange={setSplitAvailable}
+          assistant={
+            <Assistant
+              open={assistantOpen}
+              mode={assistantMode}
+              canSplit={splitAvailable}
+              onMode={changeAssistantMode}
+              ai={settings.ai}
+              turns={turns}
+              ready={chat.ready}
+              convs={chat.convs}
+              convId={chat.convId}
+              onNewConv={() => { clearArticleDraft(); void chat.newConv() }}
+              onOpenConv={(id) => { clearArticleDraft(); void chat.openConv(id) }}
+              onDeleteConv={(id) => { if (id === chat.convId) clearArticleDraft(); void chat.deleteConv(id) }}
+              busy={busy}
+              seed={assistantSeed}
+              articleTitle={draftArticle?.title}
+              onRemoveArticle={() => setDraftArticle(null)}
+              onSend={(text) => {
+                void ask(text, draftArticle ? { fresh: true, article: draftArticle } : undefined)
+                setDraftArticle(null)
+              }}
+              onStop={() => abortRef.current?.abort()}
+              onClose={() => setAssistantOpen(false)}
+              onOpenSettings={() => openSettings('ai')}
+              onApprovalAnswer={answerApproval}
+            />
+          }
+        >
+          <div className="canvas" ref={setCanvasElement} data-split={splitActive || undefined}>
+            <TopBar
+              status={<StatusBar items={workspace.statusbar} host={host} onConfig={(id,patch) => applications.some((application) => application.id === id) ? onUpdateConfig(id,patch) : onStatusConfig(id,patch)} applications={applications} onApplication={openApplication} workspace={workspace} activeApplicationIds={activeApplicationIds} />}
+              theme={workspace.theme.mode}
+              onTheme={toggleTheme}
+              onPalette={() => setPaletteOpen((v) => !v)}
+              onAssistant={openAssistantPanel}
+            />
 
-          {view === 'page' && (
-          <div
-            className="page"
-            data-paper={paperUrl ? 'on' : 'off'}
-            style={paperUrl ? { ['--paper' as string]: `url("${paperUrl}")` } : undefined}
-          >
-            <FxLayers layers={currentPage?.layers} portal={fxRoot}>
-              {currentPage && (
-                <PageView
-                  page={currentPage}
-                  workspace={workspace}
-                  host={host}
-                  onUpdateConfig={onUpdateConfig}
-                  onRemove={onRemoveComponent}
-                  suspendedApplicationId={applicationView?.id}
-                  onResumeApplication={closeApplication}
-                />
+            {view === 'page' && (
+            <div
+              className="page"
+              data-paper={paperUrl ? 'on' : 'off'}
+              style={paperUrl ? { ['--paper' as string]: `url("${paperUrl}")` } : undefined}
+            >
+              <FxLayers layers={currentPage?.layers} portal={fxRoot}>
+                {currentPage && (
+                  <PageView
+                    page={currentPage}
+                    workspace={workspace}
+                    host={host}
+                    onUpdateConfig={onUpdateConfig}
+                    onRemove={onRemoveComponent}
+                    suspendedApplicationId={applicationView?.id}
+                    onResumeApplication={applicationMinimized ? restoreApplication : closeApplication}
+                  />
+                )}
+              </FxLayers>
+              {paper?.mode === 'unsplash' && (
+                <div className="home-paper-bar">
+                  <A href="https://unsplash.com" target="_blank" rel="noreferrer noopener">
+                    Unsplash
+                  </A>
+                  <ActionIcon
+                    icon={RefreshCw}
+                    title="换一张"
+                    onClick={() =>
+                      edit((ws) => ({
+                        ...ws,
+                        pages: ws.pages.map((page) =>
+                          page.id === currentPage.id && page.wallpaper?.mode === 'unsplash'
+                            ? { ...page, wallpaper: { mode: 'unsplash', index: page.wallpaper.index + 1 } }
+                            : page,
+                        ),
+                      }))
+                    }
+                  />
+                </div>
               )}
-            </FxLayers>
-            {paper?.mode === 'unsplash' && (
-              <div className="home-paper-bar">
-                <A href="https://unsplash.com" target="_blank" rel="noreferrer noopener">
-                  Unsplash
-                </A>
-                <ActionIcon
-                  icon={RefreshCw}
-                  title="换一张"
-                  onClick={() =>
-                    edit((ws) => ({
-                      ...ws,
-                      pages: ws.pages.map((page) =>
-                        page.id === currentPage.id && page.wallpaper?.mode === 'unsplash'
-                          ? { ...page, wallpaper: { mode: 'unsplash', index: page.wallpaper.index + 1 } }
-                          : page,
-                      ),
-                    }))
-                  }
+            </div>
+            )}
+            {view === 'settings' && (
+              <div className="page sys-view">
+                <SettingsPage
+                  ctx={appCtx}
+                  themeMode={workspace.theme.mode}
+                  onThemeMode={(mode) => edit((ws) => setMode(ws, mode))}
+                  section={section}
+                  openRequest={settingsRequest}
+                  onSection={setSection}
+                  onReset={() => void resetStorage()}
                 />
               </div>
             )}
+            {view === 'market' && (
+              <div className="page sys-view">
+                <MarketPage workspace={workspace} edit={edit} onOpenPage={goPage} onOpenMonitor={openMonitor} onOpenApplication={openApplication} onOpenSettings={openSettings} />
+              </div>
+            )}
+            {view === 'monitor' && monitorOn && (
+              <div className="page sys-view">
+                <MonitorPage
+                  configs={monitorConfigs}
+                  states={monitorStates}
+                  range={range}
+                  onRange={(r) => {
+                    setRange(r)
+                    void loadMonitors(r)
+                  }}
+                  onRefresh={() => void loadMonitors()}
+                  onSettings={() => openSettings('monitor')}
+                />
+              </div>
+            )}
+            {view === 'application' && openedApplication && applicationView && (
+              <div className="page sys-view">
+                <ApplicationHost application={openedApplication} mode="page" workspace={workspace} host={host} onClose={closeApplication} onConfig={onUpdateConfig}/>
+              </div>
+            )}
           </div>
-          )}
-          {view === 'settings' && (
-            <div className="page sys-view">
-              <SettingsPage
-                ctx={appCtx}
-                themeMode={workspace.theme.mode}
-                onThemeMode={(mode) => edit((ws) => setMode(ws, mode))}
-                section={section}
-                onSection={setSection}
-                onReset={() => void resetStorage()}
-              />
-            </div>
-          )}
-          {view === 'market' && (
-            <div className="page sys-view">
-              <MarketPage workspace={workspace} edit={edit} onOpenPage={goPage} onOpenMonitor={openMonitor} onOpenApplication={openApplication} onOpenSettings={openSettings} />
-            </div>
-          )}
-          {view === 'monitor' && monitorOn && (
-            <div className="page sys-view">
-              <MonitorPage
-                configs={monitorConfigs}
-                states={monitorStates}
-                range={range}
-                onRange={(r) => {
-                  setRange(r)
-                  void loadMonitors(r)
-                }}
-                onRefresh={() => void loadMonitors()}
-                onSettings={() => openSettings('monitor')}
-              />
-            </div>
-          )}
-          {view === 'application' && openedApplication && applicationView && (
-            <div className="page sys-view">
-              <ApplicationHost application={openedApplication} mode="page" workspace={workspace} host={host} onMode={(mode) => openApplication(openedApplication.id, mode)} onClose={closeApplication} onSettings={() => openSettings(`application:${openedApplication.id}`)} onConfig={onUpdateConfig}/>
-            </div>
-          )}
-        </div>
 
-        {applicationView && openedApplication && applicationView.mode !== 'page' && <ApplicationHost application={openedApplication} mode={applicationView.mode} workspace={workspace} host={host} onMode={(mode) => openApplication(openedApplication.id, mode)} onClose={closeApplication} onSettings={() => openSettings(`application:${openedApplication.id}`)} onConfig={onUpdateConfig}/>}
+        </AssistantSplitPane>
+
+        {applicationView && openedApplication && applicationView.mode !== 'page' && <ApplicationHost application={openedApplication} mode={applicationView.mode} canvasContainer={canvasElement} minimized={applicationMinimized} onMinimize={minimizeApplication} onRestore={restoreApplication} overlayContainer={splitActive ? canvasElement : undefined} workspace={workspace} host={host} onClose={closeApplication} onConfig={onUpdateConfig}/>}
 
         <Reader
+          overlayContainer={splitActive ? canvasElement : undefined}
           article={reader}
           ai={settings.ai}
           onClose={() => setReader(null)}
@@ -728,35 +802,9 @@ export default function App() {
             setReader(null)
             setDraftArticle(article)
             setAssistantSeed((prev) => ({ text: '关于这篇文章，我想问：', key: prev.key + 1 }))
-            openAssistant('drawer')
+            openAssistant(splitActiveRef.current ? 'split' : 'drawer')
           }}
           onOpenSettings={() => openSettings('ai')}
-        />
-
-        <Assistant
-          open={assistantOpen}
-          mode={assistantMode}
-          onMode={setAssistantMode}
-          ai={settings.ai}
-          turns={turns}
-          ready={chat.ready}
-          convs={chat.convs}
-          convId={chat.convId}
-          onNewConv={() => { clearArticleDraft(); void chat.newConv() }}
-          onOpenConv={(id) => { clearArticleDraft(); void chat.openConv(id) }}
-          onDeleteConv={(id) => { if (id === chat.convId) clearArticleDraft(); void chat.deleteConv(id) }}
-          busy={busy}
-          seed={assistantSeed}
-          articleTitle={draftArticle?.title}
-          onRemoveArticle={() => setDraftArticle(null)}
-          onSend={(text) => {
-            void ask(text, draftArticle ? { fresh: true, article: draftArticle } : undefined)
-            setDraftArticle(null)
-          }}
-          onStop={() => abortRef.current?.abort()}
-          onClose={() => setAssistantOpen(false)}
-          onOpenSettings={() => openSettings('ai')}
-          onApprovalAnswer={answerApproval}
         />
 
         <Modal

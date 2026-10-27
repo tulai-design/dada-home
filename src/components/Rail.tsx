@@ -36,6 +36,7 @@ export function Rail({
   onPage,
   onMore,
   onAssistant,
+  onLogo,
   onMonitor,
   onMarket,
   onSettings,
@@ -59,6 +60,7 @@ export function Rail({
   /** 打开所有页面和固定应用的切换器 */
   onMore: () => void
   onAssistant: () => void
+  onLogo: () => void
   /** AI 正在工作，入口上显示一个提示点 */
   assistantBusy?: boolean
   onMonitor: () => void
@@ -265,7 +267,7 @@ export function Rail({
       {scoped?.ok && <style data-dock-custom="">{scoped.css}</style>}
       {/* 电脑上 logo 放在窗口左上角，不在 Dock 里面 */}
       {!mobile && (
-        <Button className="dock-logo" type="text" onClick={() => home && onPage(home.id)} aria-label="搭搭">
+        <Button className="dock-logo" type="text" onClick={onLogo} aria-label="打开搭搭助手" title="打开搭搭助手">
           <img className="dock-logo-img" src={`${import.meta.env.BASE_URL}brand/dada-logo.png`} alt="" width={56} height={56} draggable={false} />
         </Button>
       )}
