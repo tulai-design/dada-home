@@ -8,6 +8,14 @@
 
 工具说明、[ai.ts](../../../src/lib/ai.ts) 主提示词、[skills.ts](../../../src/lib/skills.ts) 技能以及组件目录需要保持一致：不得推荐与设计规范相反的默认写法，不把配置检查说成视觉验证。涉及默认外观时读取 `get_appearance` 的统一资料，避免复制一套默认值。
 
+## 只读页面检查
+
+`inspect_page` 通过 `ToolHost.inspectPage` 获取 App 显式注册的当前页面根节点；[pageInspectionHost.ts](../../../src/lib/pageInspectionHost.ts) 等待有界的两帧布局，再由 [pageInspector.ts](../../../src/lib/pageInspector.ts) 采样。`dispatchTool` 逐字段构造上下文，新增宿主能力必须显式转发，不能只扩展类型。工具返回 `JSON.stringify(report)`，避免对象被通用结果转换为 `[object Object]`。
+
+报告带 `schemaVersion`、页面与实际容器尺寸、主题、减少动画、revision、时间与 settled 状态；问题有稳定 id、组件 data-id/type、限定 selector、测量数值与修正方向。检查不导航，不写 workspace/commit/history。已知但未挂载页面返回 `not-mounted`，不存在页面返回 `unknown-page`；工作空间对象与已提交 DOM 不一致时返回 `stale-render`，不能用配置推测渲染结果。取消必须释放 rAF、定时器和监听，等待超时不得无限阻塞工具。
+
+只读取允许的几何与宿主运行标记，不读取 text/value/HTML、任意属性、iframe 文档、Canvas 像素或聊天区域。iframe/Canvas 内部、对比度和审美都明确列为 unknown。无宿主或未测量环境不编造明暗与减少动画值。组件内滚动、表格横滚、隐藏 applet runner 不报错；`ok` 代表采样完成，不能解释成全部视觉通过。背景 portal 不在本轮页面根节点采样范围，effects 只说明已采到的宿主标记。
+
 ## Applet 与 App
 
 普通交互工具优先 Applet。其 UI 是 [catalog.ts](../../../src/lib/applet/catalog.ts) 里的积木树，经 [render.tsx](../../../src/lib/applet/render.tsx) 渲染为宿主控件；新增积木必须接通目录、渲染和可验证的属性行为。安装 npm 包不等于 AI 能使用对应 React 组件。

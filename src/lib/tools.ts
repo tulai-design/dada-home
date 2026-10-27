@@ -21,6 +21,7 @@ import {DOCK_GUIDE, DOCK_PRESETS} from './dock'
 import {SITE_TOOLS} from './siteTools'
 import {SEARCH_TOOLS} from './searchTools'
 import {LIFE_TOOLS} from './lifeTools'
+import {unavailablePageInspection, type PageInspectionReport, type PageInspectionRequest} from './pageInspector'
 
 /**
  * AI 可调用的工作空间工具。
@@ -39,6 +40,8 @@ export type ToolHost = {
   openSettings?: (section?: string) => void
   /** 从应用目录打开，展示位置不改变安装记录。 */
   openApplication?: (id: string, mode?: ApplicationOpenMode) => void
+  /** 只检查宿主实际挂载的页面；不导航，也不更改工作空间。 */
+  inspectPage?: (request: PageInspectionRequest, signal?: AbortSignal) => Promise<PageInspectionReport>
 }
 
 export type HomeToolContext = ToolContext<void> & ToolHost
@@ -157,6 +160,23 @@ export const HOME_TOOLS = [
         const addons = workspace.addons.map((id) => ADDONS.find((a) => a.id === id)?.name ?? id).join('、') || '（无）'
         return `${pages}\n\n特效页面上限：${JSON.stringify({desktop: FX_BUDGET_LIMITS, compact: FX_COMPACT_LIMITS, compactWidth: FX_COMPACT_WIDTH})}；图层与特效块共同计量，小于窄容器阈值的 WebGL/Spline 静态显示。旧页允许各维度不增加超限的编辑；只覆盖注册特效，不计自编应用内部动画。\n已安装的市场组件：${addons}\n状态条：${status}\nDock：${workspace.dock ? `${workspace.dock.preset}${workspace.dock.css ? ' + 自定义 CSS' : ''}` : '默认（拟态液体玻璃）'}，用 get_dock / set_dock\n主题：${activeTheme(workspace).name}（${activeTheme(workspace).id}）｜明暗 ${workspace.theme.mode}｜主题库 ${workspace.themes.length} 个，用 list_themes 查看\n模板库：我的 ${workspace.templates.length} 个 + 内置预设，用 list_templates 查看\nAI 应用：${listApplications(workspace).length} 个，用 list_applications 查看源码、分组、入口与设置；默认从组件市场打开。\n完整外观（默认样式、背景、组件外观及差异）用 get_appearance 查看；恢复默认外观用 reset_appearance，不要用布局或模板操作替代。`
       },
+    },
+  ),
+
+  define(
+    {
+      schema: {parse: (raw) => ({pageId: optStr(obj(raw).pageId)})},
+      json: {type: 'object', properties: {pageId: {type: 'string', description: '可选页面 ID；默认检查当前实际挂载的页面。其他已知页面会返回 not-mounted，不自动切换。'}}},
+    },
+    {
+      name: 'inspect_page',
+      title: '检查当前页面布局',
+      description: '只读测量当前已挂载页面的容器、横向溢出和明显裁切，返回 JSON 中稳定的问题 id、组件 id/type 和测量依据。修改后可再次调用核对。不会导航；未挂载、隐藏、iframe/Canvas 内部、对比度和审美等无法测量内容明确标为 unknown，不能把没有确定问题说成视觉验收通过。effects 仅为页面根节点内的宿主运行标记，不包含背景 portal 或实测帧率。不读取聊天、表单值、截图或私有数据。',
+      effect: 'read',
+      highRisk: () => false,
+      execute: async ({pageId}, context) => JSON.stringify(context?.inspectPage
+        ? await context.inspectPage({pageId}, context.signal)
+        : unavailablePageInspection({pageId, code: 'host-unavailable', reason: '当前宿主没有提供页面检查能力。'})),
     },
   ),
 

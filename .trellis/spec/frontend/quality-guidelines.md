@@ -25,6 +25,7 @@ PATH="/Users/xiaomengdao/.nvm/versions/node/v24.11.0/bin:$PATH" /Users/xiaomengd
 | 撤销与迁移 | [test-workspace-history.mjs](../../../scripts/test-workspace-history.mjs) |
 | 特效预算与旧配置 | [test-effect-policy.mjs](../../../scripts/test-effect-policy.mjs)；真实渲染入口 [effect-policy-regressions.html](../../../tests/effect-policy-regressions.html) |
 | 特效主题与失败恢复 | [test-effect-theme.mjs](../../../scripts/test-effect-theme.mjs)；真实渲染入口 [effect-theme-regressions.html](../../../tests/effect-theme-regressions.html) |
+| 只读页面检查 | [test-page-inspector.mjs](../../../scripts/test-page-inspector.mjs)；真实 DOM 入口 [page-inspector-regressions.html](../../../tests/page-inspector-regressions.html) 与 [浏览器脚本](../../../scripts/test-page-inspector-browser.mjs) |
 | 取数代理 | [proxy.test.mjs](../../../server/proxy.test.mjs) |
 
 新增测试优先观察公开工具/操作结果和运行时消息合同，不把提示词全文快照或实现字符串复述当作行为验证。纯文档或低影响措辞调整使用链接/一致性检查，不为它们制造脆弱测试。
@@ -33,4 +34,8 @@ PATH="/Users/xiaomengdao/.nvm/versions/node/v24.11.0/bin:$PATH" /Users/xiaomengd
 
 布局、主题、交互改动应实际检查相关形态：手机窄屏、桌面、半宽组件/分栏，以及明暗模式；动画改动增加减少动画和失败降级。使用 [tests/](../../../tests/) 中现有回归页面作为入口时，明确检查了哪些页面、尺寸和模式。
 
-当前应用内 AI 没有截图或 DOM 测量反馈。配置正确、打开应用、脚本通过，都不能等同于视觉验收。未执行的检查如实写为未执行。
+当前应用内 AI 可用 `inspect_page` 获取当前挂载页的有限 DOM 测量，但没有截图反馈。真实几何检查仍不能判断 iframe/Canvas 内部、对比度或审美。配置正确、打开应用、脚本通过，都不能等同于视觉验收。未执行的检查如实写为未执行。
+
+检查器回归需包含真实溢出→定位→修复→复查，以及合法局部滚动不误报、隐藏/未挂载页不可测和私密输入不进入报告。浏览器脚本通过调用方提供的 `DADA_PLAYWRIGHT_PATH` 使用测试工具，不增加生产依赖。
+
+判断裁切时，`overflow:auto/scroll` 不是内容可访问的证明；滚动容器本身可能被外层 `hidden/clip` 截断。也不能把祖先容器的整个盒子当作组件范围，否则空白被裁会误归给可见组件。按根到组件的祖先链累计可访问区间，只有实际滚动范围和当前偏移可以扩展可达范围。保留“小组件完全可见不报错、长组件不可达要报告、局部滚动及滚动后不误报”的成对真实 DOM 回归。

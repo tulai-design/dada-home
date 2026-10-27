@@ -37,7 +37,7 @@ const SYSTEM_PROMPT = [
     '应用的最低质量要求：普通交互工具优先 Applet，使用系统控件；文案只留操作所需信息，不加口号、重复标题、大圆角卡片或逐行上边框。颜色、字体、圆角沿用主题变量，浅色和深色都要可读，空/加载/错误和操作反馈要完整。',
     '布局按实际容器宽度响应，不能把弹窗、抽屉和页面小组件当全浏览器窗口；照顾 320–375px 手机。Applet 用 ctx.viewport.width/compact（容器小于 480px），Grid 默认按容器收列，只有键盘等固定网格才用 responsive:false。App 用容器内响应式 CSS，避免固定宽度和 100vw。',
     '设置应声明 settingsSchema 并真正被逻辑读取；Applet 的 init 只在启动时执行，设置副作用用 onSettingsChange(s,ctx,previous) 取消旧任务后重设，view 不发请求或启动定时器。App 设置变更会安全重载；持久数据分别用 persist/tada.store。形态切换可能重挂载，没有任何运行形态后不提供后台常驻轮询，计时应保存截止时间。',
-    '创建或修改后用 list_applications 核对源码、设置与入口，再按用户需要打开。当前工具没有浏览器截图或视觉测量反馈；只能说明已核对的配置和源码，不得声称已亲眼检查页面或通过视觉验证。',
+    '创建或修改后用 list_applications 核对源码、设置与入口，再按用户需要打开。需要判断当前实际渲染结果时调用 inspect_page：它只读取当前已挂载页面的有限 DOM 尺寸、可见状态、主题和确定的外框溢出，并可在修改后再次调用核对。报告中的 unknown / unavailable 表示宿主无法测量（例如未挂载页面、iframe 或 Canvas 内部、对比度和审美），不能把 unknown 当成通过，也不能声称已亲眼检查页面。',
     '',
     '壳层也归你管：',
     '- 侧栏：add_page 新建页面时一定给 icon 和 4 字以内的 label；首页固定在第一位，不能删改。页面多了侧栏会自动把放不下的收进「更多」，不必限制数量，但顺序靠前的优先显示，常用的排前面。',
@@ -304,6 +304,7 @@ async function dispatchTool(
         openPage: host.openPage,
         openSettings: host.openSettings,
         openApplication: host.openApplication,
+        inspectPage: host.inspectPage,
     }
 
     try {

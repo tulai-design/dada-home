@@ -35,6 +35,8 @@
 
 父任务最终做全范围需求审查和组合场景验证；一批通过不等于父任务完成。
 
-## 2026-10-27 第二批进度
+## 2026-10-27 交付进度
 
-工作流与设计指引已提交为 f8e5504。effect-policy已提交41ce919并归档。effect-theme-fallback已实现并通过验收：语义/双模式配色、失败上报与重试，详见子任务verification.md；已提交19b0c78并归档。下一项为page-inspector；父任务保持进行中。
+工作流与设计指引已提交为 f8e5504。effect-policy已提交41ce919并归档。effect-theme-fallback已实现并通过验收：语义/双模式配色、失败上报与重试，详见子任务verification.md；已提交19b0c78并归档。
+
+page-inspector已接通真实页面ref、有限DOM采样、只读inspect_page与模型结果回灌，完成真实溢出→修复→复查路径及四种宽度/双主题浏览器矩阵。验收与提交见该子任务verification.md。下一项为page-sections：主视觉、内容分区和主次分栏，保持旧页面与组件/应用ID兼容；父任务保持进行中。

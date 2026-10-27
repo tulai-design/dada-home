@@ -11,4 +11,4 @@
 | [输入与类型](type-safety.md) | AI 配置、导入数据、字段协议 |
 | [质量检查](quality-guidelines.md) | 测试、构建和浏览器验证 |
 
-修改 AI 工具、Applet 或特效还需读 [AI 规范](../ai/index.md)。页面特效预算已实现，契约见 [特效规范](../ai/effects.md)；自动设计检查仍是规划任务，在实现与验收之前不要宣称已经存在。
+修改 AI 工具、Applet 或特效还需读 [AI 规范](../ai/index.md)。页面特效预算已实现，契约见 [特效规范](../ai/effects.md)；有限 DOM 页面检查通过 `inspect_page` 提供，边界见 [工具规范](../ai/tools-and-apps.md)，不能视为截图或审美验收。

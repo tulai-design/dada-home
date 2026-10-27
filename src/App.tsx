@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { A, ActionIcon, Modal, Text, toast } from '@lobehub/ui'
 import {AppWindow, SquaresFour as LayoutGrid, Monitor, Moon, Palette, ArrowClockwise as Redo, ArrowsClockwise as RefreshCw, Rss, Gear as Settings, Sparkle as Sparkles, Sun, ArrowCounterClockwise as Undo} from '@phosphor-icons/react'
 import { pageIcon } from './lib/pageIcons'
@@ -37,6 +37,7 @@ import { normalizeHost } from './lib/customWidget'
 import type { Article, BookmarkGroup, Feed, Settings as SettingsShape } from './lib/types'
 import type { ComponentHost } from './lib/registry'
 import { getWorkspace, useWorkspace } from './lib/workspaceStore'
+import {createPageInspectionHost, type MountedInspectionPage} from './lib/pageInspectionHost'
 import { grantHost, removeComponent, updateComponent } from './lib/ops'
 import { removeData, useComponentData, SHARED } from './lib/componentData'
 import { wallpaperUrl } from './lib/wallpaper'
@@ -231,6 +232,23 @@ export default function App() {
 
   // 页面可能被删除或改名：存下来的 id 失效时回落到第一页
   const currentPage = workspace.pages.find((page) => page.id === pageId) ?? workspace.pages[0]
+  const inspectionRoot = useRef<HTMLDivElement | null>(null)
+  const mountedInspection = useRef<MountedInspectionPage | null>(null)
+  const inspectionRevision = useRef({workspace, value: 0})
+  const setInspectionRoot = useCallback((root: HTMLDivElement | null) => {
+    inspectionRoot.current = root
+    if (!root) mountedInspection.current = null
+  }, [])
+  // 只记录已提交的 React 树，避免新工作空间与旧 DOM 混为一次检查。
+  useLayoutEffect(() => {
+    if (inspectionRevision.current.workspace !== workspace) {
+      inspectionRevision.current = {workspace, value: inspectionRevision.current.value + 1}
+    }
+    mountedInspection.current = view === 'page' && currentPage && inspectionRoot.current
+      ? {root: inspectionRoot.current, pageId: currentPage.id, workspace, revision: String(inspectionRevision.current.value)}
+      : null
+  })
+  const inspectPage = useMemo(() => createPageInspectionHost({getWorkspace, getMounted: () => mountedInspection.current}), [])
   useEffect(() => {
     if (currentPage && currentPage.id !== pageId) setPageId(currentPage.id)
   }, [currentPage, pageId, setPageId])
@@ -355,7 +373,7 @@ export default function App() {
             config: settings.ai,
             userName: settings.name,
             messages: [...history, { role: 'user', content: turnContent(turn) }],
-            host: { openPage: (next: string) => setPendingPage(next), openSettings: (section?: string) => openSettings(section), openApplication },
+            host: { openPage: (next: string) => setPendingPage(next), openSettings: (section?: string) => openSettings(section), openApplication, inspectPage },
             onApproval,
             onReasoning: (chunk) => {
               reasoning += chunk
@@ -399,7 +417,7 @@ export default function App() {
         abortRef.current = null
       }
     },
-    [settings.ai, turns, aiConfigured, setTurns, newConv, openSettings, openApplication],
+    [settings.ai, turns, aiConfigured, setTurns, newConv, openSettings, openApplication, inspectPage],
   )
 
   /** 用户点了确认卡片上的允许/拒绝。 */
@@ -705,6 +723,8 @@ export default function App() {
             {view === 'page' && (
             <div
               className="page"
+              ref={setInspectionRoot}
+              data-page-id={currentPage?.id}
               data-paper={paperUrl ? 'on' : 'off'}
               style={paperUrl ? { ['--paper' as string]: `url("${paperUrl}")` } : undefined}
             >
