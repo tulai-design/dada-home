@@ -4,5 +4,5 @@
 {"file": ".trellis/spec/frontend/type-safety.md", "reason": "unknown输入和数据规整"}
 {"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "公开行为与真实浏览器验证"}
 {"file": "docs/design-system.md", "reason": "AI运行时设计合同"}
-{"file": ".trellis/tasks/10-27-applet-charts/research/implementation.md", "reason": "实现选型和资料"}
+{"file": ".trellis/tasks/archive/2026-10/10-27-applet-charts/research/implementation.md", "reason": "实现选型和资料"}
 {"file": ".trellis/spec/frontend/applet-charts.md", "reason": "趋势数据、主题、容器与明细边界"}

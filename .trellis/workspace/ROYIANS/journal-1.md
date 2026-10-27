@@ -258,3 +258,38 @@
 
 - 回到10-27-applet-charts及后续数据表任务，AI builder父任务仍为7/9。
 - 后续移动滚动验收使用完整App宿主链路和scroll-bottom命中，不能只验PageView或存在滚动条。
+
+
+## Session 8: Applet 趋势图与真实应用闭环
+<!-- trellis-session: v=2 fp=b0d418ff07174c63 -->
+
+**Date**: 2026-10-28
+**Task**: Applet 趋势图与真实应用闭环
+**Branch**: `main`
+
+### Summary
+
+按用户要求先推送此前提交并确认 CI/镜像成功；交付有界主题趋势图、共享可执行记录示例、容器与可访问明细，完成双轴审查并修复科学计数刻度裁切。
+
+### Main Changes
+
+- 接通 LineChart 目录、runner、UiTree；120点/4系列校验、缺失断线、深浅主题、摘要和数据明细。
+- 共享示例涵盖本地记录、设置、持久化与紧凑状态栏；更新AI指引和长期规范。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `f6d53a4` | feat: 为 Applet 添加可访问的趋势图与记录示例 |
+
+### Testing
+
+- [OK] 完整test、tsc、build通过；协议9/9、SSR6/6；四宽双主题、192/280px精度边界及真实App闭环通过；双轴审查未解决项0。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 推进10-27-applet-data-table：筛选、排序、分页、选择与窄屏详情；之后执行父任务组合验收。

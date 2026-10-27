@@ -71,7 +71,7 @@ SVG是本轮范围足够小的选择，不应同时承诺时间比例轴、任�
 
 ## Related specs
 
-- `.trellis/tasks/10-27-applet-charts/prd.md`：趋势图、空/错误状态、窄屏、数据上限和真实示例验收。
+- `.trellis/tasks/archive/2026-10/10-27-applet-charts/prd.md`：趋势图、空/错误状态、窄屏、数据上限和真实示例验收。
 - `.trellis/spec/frontend/component-guidelines.md`：Lobe控件、宿主token、实际容器适配。
 - `.trellis/spec/frontend/hook-guidelines.md`：尺寸变化不重启业务、监听清理。
 - `.trellis/spec/frontend/quality-guidelines.md`：公开行为与实际浏览器证据。
