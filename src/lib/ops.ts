@@ -2,6 +2,7 @@ import {DEFAULT_DOCK_PRESET, DOCK_PRESETS, isDockPreset, scopeDockCss} from './d
 import {getDefinition, listDefinitions, normalizeConfig} from './registry'
 import {WorkspaceError} from './errors'
 import {normalizeLayer} from '../fx/catalog'
+import {assertFxBudgetChange} from '../fx/policy'
 import {
   DEFAULT_LAYOUT,
   DEFAULT_HOME_LAYERS,
@@ -68,6 +69,7 @@ export function locate(workspace: Workspace, ref: string, pageId?: string): {pag
 }
 
 function replacePage(workspace: Workspace, next: Page): Workspace {
+  assertFxBudgetChange(workspace.pages.find((page) => page.id === next.id), next)
   return {...workspace, pages: workspace.pages.map((page) => (page.id === next.id ? next : page))}
 }
 
@@ -226,7 +228,9 @@ export function installAddon(workspace: Workspace, id: string): {workspace: Work
       const definition = getDefinition(item.type)!
       return {id: instanceId(item.type), type: item.type, config: normalizeConfig(definition, item.config), span: item.span ?? definition.defaultSpan}
     })
-    next = {...next, pages: [...next.pages, {id: spec.id, name: spec.name, label: spec.label, icon: spec.icon, components}]}
+    const page: Page = {id: spec.id, name: spec.name, label: spec.label, icon: spec.icon, components}
+    assertFxBudgetChange(undefined, page)
+    next = {...next, pages: [...next.pages, page]}
   }
   return {workspace: next, addon}
 }

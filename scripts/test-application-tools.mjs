@@ -27,11 +27,13 @@ const catalog = compile('src/lib/applet/catalog.ts')
 const runner = compile('src/lib/applet/runner.ts', {'./catalog': catalog})
 const applications = loadCore('applications')
 const model = loadCore('workspace')
+const fxPolicy = compile('src/fx/policy.ts', {'./capabilities': compile('src/fx/capabilities.ts'), '../lib/errors': loadCore('errors')})
 let workspace, commits, opens
 const dependencies = {
   '@tulai-design/agent-core': {createToolFactory: () => (schema, definition) => ({...definition, parameters: schema.json, parseArguments: schema.schema.parse})},
   './errors': loadCore('errors'), './workspace': model, './registry': registry, './applications': applications,
   './dock': loadCore('dock'),
+  '../fx/policy': fxPolicy,
   './workspaceStore': {getWorkspace: () => workspace, commit: (next) => {workspace = next; commits += 1}},
   './market': {ADDONS: []}, './siteTools': {SITE_TOOLS: []}, './searchTools': {SEARCH_TOOLS: []}, './lifeTools': {LIFE_TOOLS: []},
 }

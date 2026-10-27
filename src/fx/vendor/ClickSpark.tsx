@@ -185,7 +185,7 @@ const ClickSpark = forwardRef<ClickSparkHandle, ClickSparkProps>(
     useEffect(() => {
       const root = rootRef.current;
       const layer = layerRef.current;
-      if (!root || !layer) return;
+      if (!root || !layer || disabled) return;
 
       const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       const bursts: Burst[] = [];
@@ -455,7 +455,7 @@ const ClickSpark = forwardRef<ClickSparkHandle, ClickSparkProps>(
         for (const burst of [...bursts]) remove(burst);
         engineRef.current = null;
       };
-    }, []);
+    }, [disabled]);
 
     useImperativeHandle(
       ref,

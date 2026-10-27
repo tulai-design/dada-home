@@ -708,7 +708,7 @@ export default function App() {
               data-paper={paperUrl ? 'on' : 'off'}
               style={paperUrl ? { ['--paper' as string]: `url("${paperUrl}")` } : undefined}
             >
-              <FxLayers layers={currentPage?.layers} portal={fxRoot}>
+              <FxLayers page={currentPage} container={canvasElement} portal={fxRoot}>
                 {currentPage && (
                   <PageView
                     page={currentPage}

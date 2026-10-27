@@ -3,6 +3,7 @@ import {removeData} from './componentData'
 import * as ops from './ops'
 import {WorkspaceError} from './errors'
 import {FX_DEFS, describeFx, getFx} from '../fx/catalog'
+import {FX_BUDGET_LIMITS, FX_COMPACT_LIMITS, FX_COMPACT_WIDTH, assessPageEffects, planPageEffects} from '../fx/policy'
 import {getDefinition, listDefinitions} from './registry'
 import {getWorkspace, commit} from './workspaceStore'
 import {PAGE_ICON_KEYS} from './pageIcons'
@@ -134,17 +135,27 @@ export const HOME_TOOLS = [
     {
       name: 'get_workspace',
       title: '查看工作空间',
-      description: '查看当前所有页面，以及每页上的组件（id、名称、类型、宽度、配置）。修改前先看清现状；默认外观、当前背景与样式差异用 get_appearance 查看。',
+      description: '查看当前所有页面及组件、图层、特效预算和静态降级摘要。旧配置不会因超预算被删除；修改前先看清现状。默认外观、当前背景与样式差异用 get_appearance 查看。',
       effect: 'read',
       highRisk: () => false,
       execute: async () => {
         const workspace = getWorkspace()
         const pages = workspace.pages
-          .map((page) => `# ${page.id}｜${page.name}｜图标 ${page.icon ?? '默认'}｜${page.components.length} 个组件${page.id === 'home' ? '｜固定项' : ''}\n${page.components.map((c) => `  - ${describeComponent(c)}`).join('\n') || '  （空）'}`)
+          .map((page) => {
+            const desktop = planPageEffects(page, {compact: false})
+            const compact = planPageEffects(page, {compact: true})
+            const effects = desktop.entries.length ? `\n  特效策略：${JSON.stringify({
+              assessment: assessPageEffects(page),
+              desktopStatic: desktop.entries.filter((entry) => entry.mode === 'static'),
+              compactStatic: compact.entries.filter((entry) => entry.mode === 'static'),
+              note: '静态降级保留配置；这是预算规划，实际减少动画/可见性与容器尺寸还会进一步限制，并非视觉验收。',
+            })}` : ''
+            return `# ${page.id}｜${page.name}｜图标 ${page.icon ?? '默认'}｜${page.components.length} 个组件${page.id === 'home' ? '｜固定项' : ''}\n${page.components.map((c) => `  - ${describeComponent(c)}`).join('\n') || '  （空）'}${page.layers?.length ? `\n  图层：${JSON.stringify(page.layers)}` : ''}${effects}`
+          })
           .join('\n')
         const status = workspace.statusbar.map((item) => `${item.type} ${JSON.stringify(item.config)}`).join('；') || '（空）'
         const addons = workspace.addons.map((id) => ADDONS.find((a) => a.id === id)?.name ?? id).join('、') || '（无）'
-        return `${pages}\n\n已安装的市场组件：${addons}\n状态条：${status}\nDock：${workspace.dock ? `${workspace.dock.preset}${workspace.dock.css ? ' + 自定义 CSS' : ''}` : '默认（拟态液体玻璃）'}，用 get_dock / set_dock\n主题：${activeTheme(workspace).name}（${activeTheme(workspace).id}）｜明暗 ${workspace.theme.mode}｜主题库 ${workspace.themes.length} 个，用 list_themes 查看\n模板库：我的 ${workspace.templates.length} 个 + 内置预设，用 list_templates 查看\nAI 应用：${listApplications(workspace).length} 个，用 list_applications 查看源码、分组、入口与设置；默认从组件市场打开。\n完整外观（默认样式、背景、组件外观及差异）用 get_appearance 查看；恢复默认外观用 reset_appearance，不要用布局或模板操作替代。`
+        return `${pages}\n\n特效页面上限：${JSON.stringify({desktop: FX_BUDGET_LIMITS, compact: FX_COMPACT_LIMITS, compactWidth: FX_COMPACT_WIDTH})}；图层与特效块共同计量，小于窄容器阈值的 WebGL/Spline 静态显示。旧页允许各维度不增加超限的编辑；只覆盖注册特效，不计自编应用内部动画。\n已安装的市场组件：${addons}\n状态条：${status}\nDock：${workspace.dock ? `${workspace.dock.preset}${workspace.dock.css ? ' + 自定义 CSS' : ''}` : '默认（拟态液体玻璃）'}，用 get_dock / set_dock\n主题：${activeTheme(workspace).name}（${activeTheme(workspace).id}）｜明暗 ${workspace.theme.mode}｜主题库 ${workspace.themes.length} 个，用 list_themes 查看\n模板库：我的 ${workspace.templates.length} 个 + 内置预设，用 list_templates 查看\nAI 应用：${listApplications(workspace).length} 个，用 list_applications 查看源码、分组、入口与设置；默认从组件市场打开。\n完整外观（默认样式、背景、组件外观及差异）用 get_appearance 查看；恢复默认外观用 reset_appearance，不要用布局或模板操作替代。`
       },
     },
   ),
@@ -984,8 +995,9 @@ export const HOME_TOOLS = [
         '  card        带光效的卡片（聚光、扫光）→ add_component(type:"fx")',
         '  overlay     整页质感层（胶片颗粒、点击火花）→ 只能 set_page_layers',
         '  scene       Spline 3D 场景 → 整页图层或横幅块',
-        '默认建议：一个主要视觉效果即可，不必同时添加动态背景和动态标题；信息密集页面优先静态或低干扰装饰。最多 3 个图层只是数量上限，不是性能保证，内容块中的效果也要一起考虑。',
-        '适配手机、抽屉和 AI 分栏的实际容器宽度；不依赖悬停才能读到内容。只能依据目录明确披露的信息判断浅深色、减少动画与失败处理；未说明的能力视为未知，不声称已核对或统一适配。Spline 只在用户明确需要 3D 时使用。',
+        `默认建议：一个主要视觉效果即可；信息密集页面优先静态装饰。图层与内容块共同计预算：桌面最多 ${FX_BUDGET_LIMITS.totalCost} 点、${FX_BUDGET_LIMITS.gpuCount} 个 GPU 效果、${FX_BUDGET_LIMITS.continuousCount} 个持续动画；最多 3 个图层另行保留。各效果点数见目录，不是性能测量。`,
+        `按手机、抽屉和 AI 分栏的实际容器宽度适配：小于 ${FX_COMPACT_WIDTH}px 时预算 ${FX_COMPACT_LIMITS.totalCost} 点，WebGL/Spline 和光效卡片静态显示；减少动画时全部静态保留内容，隐藏/离屏卸载装饰，粗指针关闭跟随、卡片光效与点击火花。旧超限配置保留并可减负编辑，运行时按图层→内容块顺序分配预算。`,
+        '详情 policy 披露质量上限、来源核对状态与实现局限；尚未统一双主题色板，未知许可不能声称已核对。Spline 只在用户明确需要 3D 时使用。',
       ].join('\n'),
       effect: 'read',
       highRisk: () => false,
@@ -998,7 +1010,7 @@ export const HOME_TOOLS = [
         return FX_DEFS.filter((def) => !args.kind || def.kind === args.kind)
           .map((def) => {
             const info = describeFx(def)
-            return `${def.id}｜${def.name}｜${def.kind}｜可用于 ${info.use.join('+')}\n  ${def.description}\n  参数：${Object.keys(def.params).join('、') || '无'}`
+            return `${def.id}｜${def.name}｜${def.kind}｜可用于 ${info.use.join('+')}｜${info.policy.renderer} ${info.policy.cost}点｜默认 ${info.policy.motion}｜窄容器 ${info.policy.compact}\n  ${def.description}\n  来源许可：${info.policy.source?.license ?? 'needs-verification'}；完整策略与参数用 list_effects(id) 查看\n  参数：${Object.keys(def.params).join('、') || '无'}`
           })
           .join('\n')
       },

@@ -2,6 +2,7 @@ import {WorkspaceError} from './errors'
 import {findPreset, PRESETS} from './presets'
 import {instanceId, DEFAULT_THEME, DEFAULT_THEME_ID, MAX_APPLICATIONS, MAX_STATUS_ITEMS, MAX_TEMPLATES, MAX_THEMES, type Page, type StatusItem, type TemplateEntry, type TemplateSnapshot, type ThemeEntry, type Workspace} from './workspace'
 import {listApplications, readApplications} from './applications'
+import {assertFxBudgetChange} from '../fx/policy'
 
 /**
  * 模板库的纯函数。
@@ -134,6 +135,7 @@ function adoptTheme(workspace: Workspace, theme: ThemeEntry): Workspace {
 export function applyTemplate(workspace: Workspace, ref: string): {workspace: Workspace; name: string; id: string} {
   const hit = lookupTemplate(workspace, ref)
   const base = hit.kind === 'own' ? clone(hit.entry.snapshot) : freshIds(hit.preset.build())
+  for (const page of base.pages) assertFxBudgetChange(undefined, page)
   const id = hit.kind === 'own' ? hit.entry.id : hit.preset.id
   const name = hit.kind === 'own' ? hit.entry.name : hit.preset.name
   const incomingApps = readApplications(base.applications, base.pages)

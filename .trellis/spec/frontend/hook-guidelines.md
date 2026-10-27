@@ -12,3 +12,5 @@ Applet 的 `init`、`onSettingsChange` 与纯 `view` 有不同职责，见 [runn
 - 使用运行时提供的计时器能力并释放旧任务；倒计时持久化截止时间，不能依赖卸载后的后台轮询。
 
 特效中已有离屏、页面可见性和减少动画处理，例如 [Aurora.tsx](../../../src/fx/vendor/Aurora.tsx)、[Waves.tsx](../../../src/fx/vendor/Waves.tsx)。修改特效时检查相关处理仍能触发，不能因重构丢掉资源释放。
+
+特效宿主在减少动画、隐藏和离屏时卸载装饰View，保留静态内容；ClickSpark的disabled变化只清理引擎，不能改变业务子树父节点。详见 [特效合同](../ai/effects.md)。

@@ -13,10 +13,18 @@ function loadCore(name) {
   const source = readFileSync(new URL(`../src/lib/${name}.ts`, import.meta.url), 'utf8')
   const js = ts.transpileModule(source, {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022}}).outputText
   vm.runInNewContext(js, {module, exports: module.exports, require: (id) => {
+    if (id === '../fx/policy') return loadFx('policy')
     const dependency = id.replace(/^\.\//, '')
     assert(coreFiles.has(dependency), `未声明的核心依赖：${id}`)
     return loadCore(dependency)
   }})
+  return module.exports
+}
+function loadFx(name) {
+  const module = {exports: {}}
+  const source = readFileSync(new URL(`../src/fx/${name}.ts`, import.meta.url), 'utf8')
+  const js = ts.transpileModule(source, {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022}}).outputText
+  vm.runInNewContext(js, {module, exports: module.exports, require: (id) => id === '../lib/errors' ? loadCore('errors') : loadFx(id.replace(/^\.\//, ''))})
   return module.exports
 }
 const themes = loadCore('themes')
@@ -33,6 +41,7 @@ const dependencies = {
   './ops': {setTheme: themes.tweakTheme, saveTheme: themes.saveTheme, applyTheme: themes.applyTheme},
   './dock': loadCore('dock'),
   './market': {ADDONS: []},
+  '../fx/policy': loadFx('policy'),
   './siteTools': {SITE_TOOLS: []},
   './lifeTools': {LIFE_TOOLS: []},
   './searchTools': {SEARCH_TOOLS: []},
@@ -215,6 +224,18 @@ await test('reset_appearance 首页范围不改变全局主题、Dock 和其他�
   assert.equal(workspace.pages[0].css, undefined)
   assert.deepEqual(plain(workspace.pages[0].layers), plain(model.DEFAULT_HOME_LAYERS))
   assert.deepEqual(plain(workspace.pages[0].components), before.pages[0].components.map(({look, ...content}) => content))
+})
+await test('reset_appearance 默认背景与保留效果块超限时给出原因，主题和页面均不提交', async () => {
+  await decoratedWorkspace()
+  workspace.pages[0].layers = []
+  workspace.pages[0].components.push({id: 'silk-banner', type: 'fx', config: {effect: 'silk', text: '保留横幅'}})
+  const before = JSON.stringify(workspace)
+  const count = commits
+  for (const input of [{scope: 'home'}, {scope: 'all', mode: 'light'}]) {
+    assert.match(await run('reset_appearance', input), /特效超出预算/)
+    assert.equal(JSON.stringify(workspace), before)
+    assert.equal(commits, count)
+  }
 })
 await test('reset_appearance 严格拒绝非法范围和模式，全局支持显式明暗', async () => {
   await decoratedWorkspace()

@@ -23,15 +23,15 @@ function typography(p: Record<string, unknown>): CSSProperties {
   }
 }
 
-function FxBlock({config}: ComponentProps<FxConfig>) {
+function FxBlock({config, instance}: ComponentProps<FxConfig>) {
   const def = getFx(config.effect)
-  if (!def) return <div className="fx-missing">没有这个效果：{config.effect}</div>
+  if (!def) return <div className="fx-missing"><div>效果暂不可用：{config.effect}</div><FxEffect id={config.effect} text={config.text} effectKey={`block:${instance.id}`} /></div>
   const params = normalizeParams(def, config.params)
 
   if (def.kind === 'text') {
     return (
       <div className="fx-text" data-effect={def.id} style={{...typography(params), minHeight: config.height || undefined}}>
-        <FxEffect id={def.id} text={config.text} params={params} />
+        <FxEffect id={def.id} text={config.text} params={params} effectKey={`block:${instance.id}`} />
       </div>
     )
   }
@@ -39,7 +39,7 @@ function FxBlock({config}: ComponentProps<FxConfig>) {
   if (def.kind === 'card') {
     return (
       <div className="fx-card" data-effect={def.id} style={{height: config.height || 200}}>
-        <FxEffect id={def.id} text={config.text} params={params} />
+        <FxEffect id={def.id} text={config.text} params={params} effectKey={`block:${instance.id}`} />
       </div>
     )
   }
@@ -49,7 +49,7 @@ function FxBlock({config}: ComponentProps<FxConfig>) {
   return (
     <div className="fx-banner" data-effect={def.id} style={{height: config.height || 280}}>
       <div className="fx-fill">
-        <FxEffect id={def.id} params={params} />
+        <FxEffect id={def.id} params={params} effectKey={`block:${instance.id}`} />
       </div>
       {config.text && (
         <div className="fx-banner-text" style={{color: textColor, fontSize: Number(params.textSize) || undefined}}>

@@ -3,6 +3,7 @@ import {WorkspaceError} from './errors'
 import {DEFAULT_STACKS, fontVars} from './fonts'
 import {DEFAULT_THEME_PALETTES, resolveThemeOverrides} from './themes'
 import {DEFAULT_HOME_LAYERS, DEFAULT_THEME, DEFAULT_THEME_ID, FROZEN_PAGE_ID, activeTheme, type Page, type Workspace} from './workspace'
+import {assertFxBudgetChange} from '../fx/policy'
 
 const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T
 const stable = (value: unknown): string => JSON.stringify(value, (_, item: unknown) => item && typeof item === 'object' && !Array.isArray(item) ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item)
@@ -30,6 +31,7 @@ export function defaultAppearance() {
       all: '恢复默认配色、字体、外框、Dock、所有页面的壁纸/图层/页面 CSS 与组件外观；首页恢复默认波纹线。默认保留用户当前明暗，可显式指定 mode。',
       home: '仅恢复首页壁纸、默认波纹线、页面 CSS 和组件外观，不改变全局主题与 Dock。',
       preserved: '页面与组件内容、名称、顺序、宽度、对齐和布局、配置、业务数据、主题库与模板库保留。独立特效组件与 App 内源码属于内容，不能通过外观还原自动改写。',
+      budget: '默认图层与保留的特效内容块共同计预算。若还原会增加超限负荷，整体拒绝且不部分修改；先减少或移动相关特效块后再还原。旧超限设计仍可执行不加重负荷的还原。',
     },
   }
 }
@@ -85,11 +87,13 @@ export function resetAppearance(workspace: Workspace, input: {scope?: string; mo
   const pages = workspace.pages.map((page) => {
     if (scope === 'home' && page.id !== FROZEN_PAGE_ID) return page
     const {wallpaper: _wallpaper, layers: _layers, css: _css, ...rest} = page
-    return {
+    const next: Page = {
       ...rest,
       ...(page.id === FROZEN_PAGE_ID ? {layers: clone(DEFAULT_HOME_LAYERS)} : {}),
       components: page.components.map(({look: _look, ...item}) => item),
     }
+    assertFxBudgetChange(page, next)
+    return next
   })
   if (scope === 'home') return {...workspace, pages}
   const {dock: _dock, ...rest} = workspace

@@ -34,3 +34,7 @@
 按子任务运行现有针对性脚本、`exec tsc --noEmit` 和必要的 `test`/`build`；build 子进程 PATH 也优先本机路径。文档检查任务关系、上下文、Markdown本地链接和workflow phase提取。UI任务增加实际浏览器证据。
 
 父任务最终做全范围需求审查和组合场景验证；一批通过不等于父任务完成。
+
+## 2026-10-27 第二批进度
+
+工作流与设计指引已提交为 f8e5504。effect-policy 已实现并通过验收，当前review待提交，详见子任务verification.md；父任务保持进行中。下一项为effect-theme-fallback，已完成的基础静态正文不重复开发，重点补语义配色与完整失败反馈。

@@ -1,3 +1,4 @@
-{"file": "docs/agents/workflow.md", "reason": "统一工作流、验收与技能映射"}
-{"file": "docs/specs/ai-page-design-quality.md", "reason": "已接受的用户质量目标"}
-{"file": ".trellis/spec/ai/index.md", "reason": "当前能力和实现入口"}
+{"file": ".trellis/spec/ai/effects.md", "reason": "现有效果约束与差距"}
+{"file": ".trellis/spec/ai/tools-and-apps.md", "reason": "工具操作与兼容边界"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "测试及本机pnpm要求"}
+{"file": "docs/design-system.md", "reason": "真实容器与可读性要求"}

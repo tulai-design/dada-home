@@ -7,12 +7,14 @@
  *   2. 校验 —— AI 给的参数不可信，进入工作空间前一律经过 normalizeParams；
  *   3. 渲染 —— views.tsx 按 id 找到对应的真实组件。
  *
- * 素材来自 React Bits（MIT 许可的开源组件，源码在 src/fx/vendor）与 Spline。
+ * 素材包含 React Bits 的本地改编与 Spline；历史副本来源/许可核对状态见 capabilities。
  * 新增一个素材：把组件放进 vendor，在这里登记参数，在 views.tsx 登记渲染。
  */
 
 import {isColor} from '../lib/registry'
 import {WorkspaceError} from '../lib/errors'
+import {getFxCapability} from './capabilities'
+import {FX_BUDGET_LIMITS, FX_COMPACT_LIMITS, FX_COMPACT_WIDTH} from './policy'
 
 /**
  * 素材类别：
@@ -710,6 +712,13 @@ export function describeFx(def: FxDef) {
     use: isLayerFx(def) && isBlockFx(def) ? ['layer', 'block'] : isLayerFx(def) ? ['layer'] : ['block'],
     description: def.description,
     text: def.text,
+    policy: {
+      ...getFxCapability(def.id),
+      pageLimits: {desktop: FX_BUDGET_LIMITS, compact: FX_COMPACT_LIMITS},
+      compactWidth: FX_COMPACT_WIDTH,
+      accounting: '图层与特效块共同计量；点数是产品规则，不是性能测量。持续动画数按 loop、trigger、ambient 等实际参数判断。',
+      compatibility: '旧配置保留；超预算按图层优先、内容块其次静态显示。减少动画、离屏和隐藏由宿主统一处理。',
+    },
     params: Object.fromEntries(
       Object.entries(def.params).map(([key, spec]) => {
         const hint =
