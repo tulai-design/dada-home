@@ -195,11 +195,14 @@ export function FxLayers({layers, page, container, children, portal}: {layers?: 
     ...(reduced && plan.entries.length ? ['已按系统减少动画偏好显示静态效果。'] : []),
   ])]
   const backdrop = behind.length ? <div className="fx-layers" aria-hidden="true">{behind.map(({layer, key}) => <div className="fx-layer" key={key}><FxEffect id={layer.effect} params={layer.params} effectKey={key} /></div>)}</div> : null
+  // Long sectioned pages must contribute their full height to the page's scroll area,
+  // including the trailing space reserved for the mobile Dock.
+  const contentHeight = page?.sections?.length ? {height: 'auto', minHeight: '100%'} : {height: '100%'}
   return (
     <FxContext.Provider value={{plan, compact, report}}>
       {/* Keep this business-content parent stable when spark/policy/media changes. */}
-      <div ref={setRoot} style={{height: '100%', minWidth: 0, position: 'relative'}}>
-        <ClickSpark {...sparkParams} disabled={sparkDisabled}>
+      <div ref={setRoot} className="fx-page-content" style={{...contentHeight, minWidth: 0, position: 'relative'}}>
+        <ClickSpark {...sparkParams} disabled={sparkDisabled} style={contentHeight}>
           {backdrop && (portal ? createPortal(backdrop, portal) : backdrop)}
           {children}
           {above.map(({layer, key}) => <div className="fx-overlay" key={key} aria-hidden="true"><FxEffect id={layer.effect} params={layer.params} effectKey={key} /></div>)}

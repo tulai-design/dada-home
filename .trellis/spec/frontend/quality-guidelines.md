@@ -27,6 +27,7 @@ PATH="/Users/xiaomengdao/.nvm/versions/node/v24.11.0/bin:$PATH" /Users/xiaomengd
 | 特效主题与失败恢复 | [test-effect-theme.mjs](../../../scripts/test-effect-theme.mjs)；真实渲染入口 [effect-theme-regressions.html](../../../tests/effect-theme-regressions.html) |
 | 只读页面检查 | [test-page-inspector.mjs](../../../scripts/test-page-inspector.mjs)；真实 DOM 入口 [page-inspector-regressions.html](../../../tests/page-inspector-regressions.html) 与 [浏览器脚本](../../../scripts/test-page-inspector-browser.mjs) |
 | 页面分区与容器布局 | [test-page-sections.mjs](../../../scripts/test-page-sections.mjs)、[test-page-section-tools.mjs](../../../scripts/test-page-section-tools.mjs)；真实 PageView 入口 [page-sections-regressions.html](../../../tests/page-sections-regressions.html) 与 [浏览器脚本](../../../scripts/test-page-sections-browser.mjs) |
+| 长页与移动Dock可访问性 | [test-page-mobile-scroll-browser.mjs](../../../scripts/test-page-mobile-scroll-browser.mjs)，独立浏览器上下文加载真实App |
 | 首页组合与布局草稿 | [test-homepage-draft.mjs](../../../scripts/test-homepage-draft.mjs)、[test-homepage-draft-tools.mjs](../../../scripts/test-homepage-draft-tools.mjs)；隔离预览入口 [homepage-draft-regressions.html](../../../tests/homepage-draft-regressions.html) 与 [浏览器脚本](../../../scripts/test-homepage-draft-browser.mjs) |
 | 取数代理 | [proxy.test.mjs](../../../server/proxy.test.mjs) |
 
@@ -35,6 +36,8 @@ PATH="/Users/xiaomengdao/.nvm/versions/node/v24.11.0/bin:$PATH" /Users/xiaomengd
 ## 浏览器验证
 
 布局、主题、交互改动应实际检查相关形态：手机窄屏、桌面、半宽组件/分栏，以及明暗模式；动画改动增加减少动画和失败降级。使用 [tests/](../../../tests/) 中现有回归页面作为入口时，明确检查了哪些页面、尺寸和模式。
+
+页面长内容与移动Dock改动必须包含真实App的FxLayers/ClickSpark包装，滚到底后核对最后操作项在Dock上方且可命中。单独PageView夹具不能覆盖祖先定高造成的底部留白失效，不能以overflow:auto或存在滚动条替代此检查。
 
 当前应用内 AI 可用 `inspect_page` 获取当前挂载页的有限 DOM 测量，但没有截图反馈。真实几何检查仍不能判断 iframe/Canvas 内部、对比度或审美。配置正确、打开应用、脚本通过，都不能等同于视觉验收。未执行的检查如实写为未执行。
 
