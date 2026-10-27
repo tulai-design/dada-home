@@ -36,9 +36,13 @@ const RUNNER = String.raw`
   }
   try{Object.defineProperty(navigator,'clipboard',{value:{writeText:(t)=>call('copy',{text:String(t)})},configurable:true})}catch{}
 
-  let def=null,state={},persist=[],handlers=new Map(),hid=0,dirty=false,started=false,dark=false,lastSaved='',count=0,settings={},surface='widget';
+  let def=null,state={},persist=[],handlers=new Map(),hid=0,dirty=false,started=false,dark=false,lastSaved='',count=0,settings={},surface='widget',viewport=Object.freeze({width:0,compact:true}),initRequested=false,lifecycle=Promise.resolve();
   const freeze=(v)=>{if(v&&typeof v==='object'){Object.values(v).forEach(freeze);Object.freeze(v)}return v};
   const context=(m)=>{settings=freeze(m.settings&&typeof m.settings==='object'&&!Array.isArray(m.settings)?m.settings:{});surface=typeof m.surface==='string'?m.surface:'widget'};
+  const settingsKey=(value)=>JSON.stringify(value,(_key,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.fromEntries(Object.keys(v).sort().map(k=>[k,v[k]])):v);
+  const resize=(value)=>{const width=value&&Number.isFinite(value.width)?Math.max(0,Math.round(value.width)):0;viewport=Object.freeze({width,compact:width<480})};
+  /* init and setting hooks share a queue: asynchronous hooks observe each setting version in order. */
+  const enqueue=(fn,where)=>{lifecycle=lifecycle.then(fn).catch(e=>{fail(e,where);schedule()});return lifecycle};
   const timers=new Set();
 
   const isNode=(x)=>x&&typeof x==='object'&&typeof x.$t==='string';
@@ -109,6 +113,7 @@ const RUNNER = String.raw`
     get dark(){return dark},
     get settings(){return settings},
     get surface(){return surface},
+    get viewport(){return viewport},
   };
 
   window.applet=(d)=>{
@@ -119,18 +124,21 @@ const RUNNER = String.raw`
     post({k:'ready'});
   };
 
-  addEventListener('message',async(e)=>{
+  addEventListener('message',(e)=>{
     const m=e.data;
     if(!m||m.applet!==1)return;
     if(m.k==='init'){
-      dark=!!m.dark;
-      context(m);
-      const saved=m.saved&&typeof m.saved==='object'?m.saved:{};
-      for(const k of persist)if(saved[k]!==undefined)state[k]=saved[k];
-      lastSaved=JSON.stringify(pick());
-      try{if(typeof def.init==='function')await def.init(state,ctx)}catch(err){fail(err,'init')}
-      started=true;
-      render();
+      if(initRequested)return;initRequested=true;
+      return enqueue(async()=>{
+        dark=!!m.dark;
+        context(m);resize(m.viewport);
+        const saved=m.saved&&typeof m.saved==='object'?m.saved:{};
+        for(const k of persist)if(saved[k]!==undefined)state[k]=saved[k];
+        lastSaved=JSON.stringify(pick());
+        try{if(typeof def.init==='function')await def.init(state,ctx)}catch(err){fail(err,'init')}
+        started=true;
+        render();
+      },'init');
     }else if(m.k==='event'){
       const fn=handlers.get(m.fn);
       if(fn)run(fn,m.payload);
@@ -140,7 +148,17 @@ const RUNNER = String.raw`
     }else if(m.k==='dark'){
       dark=!!m.dark;schedule();
     }else if(m.k==='context'){
-      context(m);schedule();
+      return enqueue(async()=>{
+        const previous=settings;
+        const previousKey=settingsKey(previous);
+        context(m);
+        if(started&&previousKey!==settingsKey(settings)&&typeof def.onSettingsChange==='function'){
+          try{await def.onSettingsChange(state,ctx,previous)}catch(err){fail(err,'onSettingsChange')}
+        }
+        schedule();
+      },'设置更新');
+    }else if(m.k==='viewport'){
+      resize(m.viewport);schedule();
     }
   });
 

@@ -99,16 +99,18 @@
 
 中文，短，动词开头（「添加」「开始」「换一句」）。不用感叹号，不用「请」。数字和单位之间不留空格以外的东西（「25 分钟」）。
 
-市场与管理列表只保留名称、必要简介和操作。不放口号、重复的入口说明、打开方式或安装提示；分组集中在筛选栏显示。列表不使用大圆角卡片、色块容器或逐行上边框，靠对齐和间距区分项目。
+应用内的文案只保留任务所需信息，不放口号、重复标题和显而易见的操作说明。列表不使用大圆角卡片、色块容器或逐行上边框，靠对齐和间距区分项目。市场与管理列表只保留名称、必要简介和操作；分组集中在筛选栏显示，不重复展示打开方式或安装提示。
 
 ## 8. AI 造的东西：选对档位
 
-有交互的小工具，**首选小程序（`create_applet`）**：逻辑是 AI 写的 JavaScript，界面只能用积木目录里的 Lobe 控件拼，由主页真实渲染。风格、深浅色、无障碍、点击输入都由系统保证，AI 不用也不能写 CSS。写法见技能 `applet`（积木目录由 `src/lib/applet/catalog.ts` 生成，和实现同源）。
+有交互的小工具，**首选小程序（`create_applet`）**：逻辑是 AI 写的 JavaScript，界面只能用积木目录里的 Lobe 控件拼，由主页真实渲染。控件沿用主页风格、深浅色和键盘交互，AI 不用也不能写 CSS；作者仍需给操作提供名称，并设计布局和状态反馈。写法与完整创建参数示例见技能 `applet`（积木目录由 `src/lib/applet/catalog.ts` 生成，和实现同源）。
 
 只有这几类才用沙盒应用（`create_app`，iframe）：游戏、Canvas / WebGL / Three.js、需要完全自定义视觉的东西。它必须**模仿**同一套规范：
 - 颜色、字体只用主页注入的变量（`--bg` `--text` `--text2` `--text3` `--border` `--main`、`--font-serif`、`--font-sans`）；
 - 按钮、输入框、开关自己写时，要有 1px 边线、聚焦环、悬停态，尺寸和 Lobe 的 `middle` 一致（高 32px，字号 14）；
 - 沙盒里没有 `localStorage`，存数据用 `tada.store`；复制用 `tada.copy`；
+- 背景透明，圆角用 `--radius` / `--radius-lg`；内置 `.btn.primary` 为墨色主操作，`.row` 可换行，`.grid` 按容器自动收列，宽表放入 `.table-wrap`；
+- 主题变化会热更新变量和 `tada.dark`，不会重启应用；Canvas 等手绘内容可监听 `window` 的 `tada:themechange` 事件，读取 `event.detail.dark` 重新绘制；
 - 同样遵守第 2、3、4、5、6 节。
 
 声明式组件（`create_widget`）直接使用已有的列表、卡片、数字、插图样式，不另写 CSS。
@@ -117,7 +119,21 @@
 
 `create_applet` / `create_app` 默认安装进组件市场的应用目录，不自动创建页面或固定 Dock。创建时 `pageId` 可选，只有用户需要页面小组件时才提供。一个应用保留同一 ID、源码与私有数据，最多挂载一个页面；`mount_application` 的 `pageId: null` 仅取消挂载。编辑前用 `list_applications` 读取目录记录与源码，分组用 `group`，常用入口用 `dock` / `status` 按需开启，管理配置用 `configure_application`。
 
-默认打开方式由 `openMode` 指定：`modal` 弹窗、`drawer` 抽屉、`page` 全页面；在各容器宽度下都应能正常使用。运行时 App 读 `tada.surface`，Applet 读 `ctx.surface`，值为 `widget`、`modal`、`drawer`、`page` 或 `status`。状态栏默认 `statusMode: "launcher"` 只显示启动按钮；需要真实状态视图时，先在源码处理 `surface === "status"`，只显示单行数字、图标或核心状态，再启用 `status: true, statusMode: "compact"`。主窗口或可见页面小组件运行时，宿主暂停同一应用的紧凑视图并回退启动按钮，防止并发写入持久状态。
+默认打开方式由 `openMode` 指定为 `modal`、`drawer` 或 `page`。运行时 App 读 `tada.surface`，Applet 读 `ctx.surface`，共五种形态：
+
+| surface | 所处容器 | 布局要求 |
+| --- | --- | --- |
+| `widget` | 页面小组件，宽度由页面与 span 决定 | 半宽也能使用，不假定占满屏幕 |
+| `modal` | 弹窗 | 按弹窗内容宽度布局，长内容允许纵向滚动 |
+| `drawer` | 抽屉 | 窄容器优先纵排，手机不横向溢出 |
+| `page` | 应用全页面 | 仍按实际内容容器宽度布局 |
+| `status` | 顶部紧凑视图 | 单行、限高 32px，只留数字、图标或核心状态 |
+
+布局必须依据实际容器宽度，弹窗、抽屉、小组件都不是全浏览器窗口。Applet 的 `ctx.viewport = {width, compact}` 提供可见内容宽度，`compact` 表示容器小于 480px，与 `surface === "status"` 含义不同。`Grid` 测量自身容器并自动减少列数，`minColumnWidth` 默认 180px（可设 80–600）；只有计算器键盘等固定网格才用 `responsive: false`。`Stack` 最大宽度不超过容器，横排默认换行，`wrap: false` 保留强制同行；窄表单可改 `column`。HTML App 使用 iframe 内响应式 CSS，避免固定宽度和 `100vw`，表单和长标签在窄容器换行。
+
+状态栏默认 `statusMode: "launcher"` 只显示启动按钮。需要真实状态视图时，先在源码实现 `surface === "status"` 分支，再启用 `status: true, statusMode: "compact"`。Applet 桌面最大宽 200px、手机 140px；HTML App 桌面宽 160px、手机 130px，两者限高均为 32px。不要把完整窗口的标题、表单、大按钮直接塞入状态栏。
+
+主窗口或可见页面小组件运行时，宿主暂停同一应用的紧凑视图并回退启动按钮，避免并发写入。切换形态可能重新挂载，只有显式持久化的业务数据会保留。关闭主窗口后，若紧凑状态栏仍挂载，则继续运行该形态；所有运行形态卸载后没有后台常驻定时器、轮询或通知。倒计时保存截止时间，重新打开后按当前时间计算。
 
 可配置项使用 `settingsSchema` 声明，`settings` 保存当前值；系统在「设置 → 应用」生成表单，例如：
 
@@ -125,15 +141,19 @@
 {"settingsSchema":{"minutes":{"kind":"number","label":"专注分钟","default":25,"min":1,"max":120}},"settings":{"minutes":30}}
 ```
 
-字段支持 `string`、`number`、`boolean`、`select`；选项字段提供 `options: [{value, label}]`。App 通过只读 `tada.settings` 读取，修改设置后宿主安全重载应用；Applet 通过只读 `ctx.settings` 读取，设置变化更新上下文并重渲，保留 `persist` 状态。设置与业务状态分开，后者仍用 `tada.store` 或 Applet 的 `persist`。打开设置用 `open_settings` 的 `section: "application:<id>"`。卸载使用 `uninstall_application`，移除目录与入口但保留本机私有数据，支持撤销。
+字段支持 `string`、`number`、`boolean`、`select`；选项字段提供 `options: [{value, label}]`。App 通过只读 `tada.settings` 读取，修改设置后宿主安全重载应用，`tada.store` 保留。Applet 通过只读 `ctx.settings` 读取，设置变化更新上下文并重渲，保留 `persist` 状态；`init` 只在启动时执行，`onSettingsChange(s, ctx, previous)` 在初始 `init` 完成后仅针对实际设置变化调用，`previous` 为改变前的只读设置。定时器、数据源等副作用应在此取消旧任务再重新设置，不放入 `view`；尺寸变化只调整布局。
+
+设置与业务状态分开，后者用 `tada.store` 或 Applet 的 `persist`。打开设置用 `open_settings` 的 `section: "application:<id>"`。卸载使用 `uninstall_application`，移除目录与入口但保留本机私有数据，支持撤销。
 
 ## 9. 交付前自检
 
-1. 页面里有没有原生的 button / input / select / range？有就换成 Lobe。
+1. 宿主页面或 Applet 有没有自行拼接原生 button / input / select / range？有就换成 Lobe 或目录中的积木；HTML App 的自定义控件按本规范适配。
 2. 有没有写死的颜色、像素字号、奇怪的间距？
 3. 焦点是什么？是不是最大、最显眼的那个？红色是不是只出现了一处？
-4. 舞台型组件有没有水平垂直居中？半宽和整宽都不溢出吗？
-5. 空、加载、出错、禁用、聚焦都看过吗？
-6. 浅色和深色都看过吗？
+4. 舞台型组件是否按宿主居中？是否按实际开启的形态适配了 320–375px 手机、半宽小组件、弹窗、抽屉和状态栏尺寸？
+5. 空、加载、出错、禁用、聚焦反馈是否完整？
+6. 浅色和深色的变量、对比度是否都已核对？
 7. 只用键盘能不能完成所有操作？
-8. 在浏览器里亲眼看过，而不是只通过了类型检查。
+8. 应用设置是否确实被逻辑使用，修改后相关定时器与数据源是否更新？生成后用 `list_applications` 核对源码、设置、分组、入口，再按用户需要 `open_application`。
+
+代码开发时，有浏览器工具就实际检查各宽度和模式，并说明检查范围。应用内 AI 目前没有浏览器截图或视觉测量反馈，能读取源码和配置；打开应用不等于观察了运行结果，不能声称已完成浏览器视觉验证。

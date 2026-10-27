@@ -3,7 +3,7 @@ import {Button, Flexbox, Tag, Text, toast} from '@lobehub/ui'
 import {ArrowCounterClockwise as RotateCcw, MagicWand as Wand2} from '@phosphor-icons/react'
 import {useDark} from '../fx/Fx'
 import {buildRunnerDoc} from '../lib/applet/runner'
-import {UiTree, type UiNode} from '../lib/applet/render'
+import {UiTree, useContainerWidth, type UiNode} from '../lib/applet/render'
 import {readStored, writeStored} from '../lib/store'
 import {registerComponent, type ComponentHost, type ComponentProps} from '../lib/registry'
 import {bridgeFetch, copyText} from './app'
@@ -52,6 +52,9 @@ async function handleCall(message: Message, host: ComponentHost, storeKey: strin
 
 function Applet({instance, config, host}: ComponentProps<AppletConfig>) {
   const frame = useRef<HTMLIFrameElement>(null)
+  const {ref: container, width} = useContainerWidth()
+  const viewportRef = useRef({width, compact: width < 480})
+  viewportRef.current = {width, compact: width < 480}
   const dark = useDark()
   const darkRef = useRef(dark)
   darkRef.current = dark
@@ -91,7 +94,7 @@ function Applet({instance, config, host}: ComponentProps<AppletConfig>) {
       if (!message || message.applet !== 1) return
       switch (message.k) {
         case 'ready':
-          post({k: 'init', saved: readStored<Record<string, unknown>>(storeKey, {}), dark: darkRef.current, ...contextRef.current})
+          post({k: 'init', saved: readStored<Record<string, unknown>>(storeKey, {}), dark: darkRef.current, ...contextRef.current, viewport: viewportRef.current})
           break
         case 'view':
           setTree(message.tree as UiNode)
@@ -123,11 +126,14 @@ function Applet({instance, config, host}: ComponentProps<AppletConfig>) {
   useEffect(() => {
     post({k: 'context', ...contextRef.current})
   }, [contextKey, post])
+  useEffect(() => {
+    post({k: 'viewport', viewport: viewportRef.current})
+  }, [width, post])
 
   const fire = useCallback((fn: number, payload?: unknown) => post({k: 'event', fn, payload}), [post])
 
   return (
-    <Flexbox className="page-pane applet" gap={12}>
+    <Flexbox ref={container} className="page-pane applet" gap={12} style={{minWidth: 0, maxWidth: '100%'}}>
       {/* 逻辑沙盒：看不见，只跑脚本 */}
       <iframe ref={frame} title={`${instance.title || '小程序'}（逻辑）`} className="applet-runner" sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={srcdoc} aria-hidden tabIndex={-1} />
 
@@ -142,7 +148,7 @@ function Applet({instance, config, host}: ComponentProps<AppletConfig>) {
             </Text>
           </Flexbox>
           <Flexbox horizontal gap={8}>
-            <Button size="small" icon={<Wand2 size={14} />} onClick={() => host.ask(`小程序「${instance.title || instance.id}」（id=${instance.id}）运行出错：${error}\n请先 get_workspace 看一下它的源码，用 update_applet 修好。`)}>
+            <Button size="small" icon={<Wand2 size={14} />} onClick={() => host.ask(`小程序「${instance.title || instance.id}」（id=${instance.id}）运行出错：${error}\n请先 list_applications({ref:"${instance.id}"}) 读取完整源码，再用 update_applet 修好。`)}>
               让搭搭修复
             </Button>
             <Button size="small" type="text" icon={<RotateCcw size={14} />} onClick={() => setRun((n) => n + 1)}>

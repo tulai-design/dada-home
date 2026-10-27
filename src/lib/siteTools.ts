@@ -605,11 +605,11 @@ export const SITE_TOOLS = [
     },
   ),
   define(
-    {schema: {parse: (raw) => ({section: optStr(obj(raw).section)})}, json: {type: 'object', properties: {section: {type: 'string', description: `设置的哪一项：${SECTION_HINT}`}}}},
+    {schema: {parse: (raw) => ({section: optStr(obj(raw).section)})}, json: {type: 'object', properties: {section: {type: 'string', description: `设置的哪一项：${SECTION_HINT}；AI 应用用 application:<id>，id 从 list_applications 获取`}}}},
     {
       name: 'open_settings',
       title: '打开设置',
-      description: '带用户到设置页的某一项。AI 不能代填的东西（接口地址、密钥、监控令牌）就用它把用户带过去。',
+      description: '带用户到设置页的某一项。AI 应用设置使用 section:"application:<id>"，id 从 list_applications 获取。AI 不能代填的东西（接口地址、密钥、监控令牌）就用它把用户带过去。',
       effect: 'read',
       highRisk: () => false,
       execute: async (args, context) => {

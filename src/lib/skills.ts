@@ -30,37 +30,36 @@ const GRILL_ME = `# 技能：拷问（grill-me）
 
 const FRONTEND_DESIGN = `# 技能：前端设计（frontend-design）
 
-目标：为用户做出有个性、能直接用的小组件或小页面，避开千篇一律的「AI 味」。在这里，成品通常是 create_app 写的沙盒应用，也可能是声明式组件、特效素材的组合。
+目标：做出能直接使用、与主页协调的小组件或小页面。普通交互工具首选 create_applet；静态展示用声明式组件或特效素材。只有游戏、Canvas/WebGL 或必须完全自定义视觉时才用 create_app。
 
 ## 先想清楚再写
-- 用途：它解决什么问题，谁、在什么场景用，一眼要看到什么。信息不够就先问一两个关键问题（或用 grill-me 的方式追问），别猜。
-- 方向：挑一个明确的审美方向并贯彻到底，例如 编辑部杂志、克制极简、复古未来、工业实用、柔和纸感、粗野主义。主页默认是「米白纸张、墨色文字、红色点缀」的编辑部气质，新组件默认与它协调；用户想要反差再另说。
-- 记住点：这个组件让人记住的那一个细节是什么（一个巧妙的交互、一个大号数字、一处动效）。
+- 用途：先确定用户要完成的操作与最重要的结果；能从现有数据和需求判断的直接做，只有缺少关键条件时才提问。
+- 方向：默认沿用主页的编辑部风格，纸张底色、墨色文字、克制的强调色。用户明确指定其他风格时再调整。
+- 焦点：突出一个结果或主操作，其余信息让位。文案只保留完成操作所需的名称、标签、单位与错误说明。
 
 ## 在搭搭里怎么落地
 - 先走低档位：list_component_types 和 list_effects 能解决的，就别写代码。素材库放得下的标题、背景、卡片光效直接用。
-- 要自己写时用 create_app（html、css、js 三段）。它在隔离沙盒里运行，读不到主页数据；颜色、字体用主页注入的变量：var(--bg) var(--text) var(--text2) var(--text3) var(--border) var(--main) 以及 var(--font-serif) var(--font-sans) var(--font-mono)。这样自动适配深浅色，也和主页一致。
-- 背景保持透明，别给 body 设固定底色，让纸张底色透出来。
-- 需要特别字体时，沙盒允许从 Google Fonts 引入（css 里 @import url('https://fonts.googleapis.com/...')）。选有性格的字体，成对搭配：一个展示字体加一个正文字体；避开 Arial、Inter、Roboto 这类默认字体。中文内容优先考虑 Noto Serif SC、Noto Sans SC、ZCOOL 系列。
-- 动效：优先纯 CSS；一次编排好的入场（错开的 animation-delay）比到处散落的小动画更有质感。需要库时 import 自 esm.sh（例如 gsap、three）。尊重 prefers-reduced-motion。
-- 数据：window.tada.store 存本组件私有状态，window.tada.fetch 取已授权域名的数据，window.tada.ask 可以把一句话发回搭搭。
+- 自写交互工具先 use_skill applet，按真实积木目录写 create_applet；不用 HTML/CSS，布局与控件由宿主渲染。先 use_skill design-system 读取主页规范。
+- create_app 只用于上述需要自定义视觉的场景，写 html、css、js 三段。它在隔离沙盒里运行，读不到主页数据；颜色、字体用主页变量：var(--bg) var(--text) var(--text2) var(--text3) var(--border) var(--main) 和 var(--font-serif) var(--font-sans) var(--font-mono)，圆角用 var(--radius) / var(--radius-lg)。背景透明，不给 body 设固定底色；浅色、深色都要可读。
+- 自定义字体、CSS 动效仅适用于 app；默认沿用主页字体，不额外引字体或装饰库。必要动效尊重 prefers-reduced-motion。
+- 数据：Applet 用 persist、ctx.fetch、ctx.ask；App 用 tada.store、tada.fetch、tada.ask。网络域名需要用户授权，设置值与业务数据分开保存。
 - 安装和入口：create_app / create_applet 默认安装到组件市场，不自动建页面、不把每个应用放进 Dock。用 group 分组、openMode 选择弹窗/抽屉/全页面；用户确有需要再固定 dock/status 入口或给 pageId 挂页面小组件。入口管理用 configure_application，用户设置用 settingsSchema 定义并在应用读取 tada.settings / ctx.settings；运行形态为 tada.surface / ctx.surface。
-- 顶部状态栏：statusMode 默认 launcher 为启动入口；用户需要实时紧凑形态时，先在源码实现 surface === "status" 的单行窄视图，再配置 status:true,statusMode:"compact"。主窗口或可见小组件运行时宿主自动回退入口，避免同应用并发写状态。完整页面和紧凑状态要分别适配。
+- 五种运行形态是 widget、modal、drawer、page、status。按容器宽度排版，不能把弹窗或小组件当成全浏览器窗口。Applet 用 ctx.viewport.width / ctx.viewport.compact（容器小于 480px）切换布局；Grid 默认按容器收列，只有计算器键盘等需要固定网格时才用 responsive:false。App 按 iframe 宽度写响应式 CSS，避免固定宽度与 100vw 导致横向溢出。
+- 顶部状态栏：statusMode 默认 launcher 为启动入口；用户需要真实紧凑形态时，先在源码实现 surface === "status" 的分支，再配置 status:true,statusMode:"compact"。只留一行数字、图标或核心状态，不放标题、整页表单、大按钮。高度 32px；Applet 桌面最大宽 200px、手机 140px；App 桌面宽 160px、手机 130px。主窗口或可见小组件运行时宿主自动回退入口，避免同应用并发写状态。
+- 设置更新：Applet 的 init 只在启动时执行；设置副作用用 onSettingsChange(s,ctx,previous) 重新设置定时器或数据源，先取消旧任务。App 设置变化会安全重载，tada.store 保留。切换形态也可能重新挂载；定时、请求只在挂载的运行形态中存在，没有任何运行形态后不会后台常驻，计时器应保存截止时间。
 
 ## 审美准则
-- 排版：层级分明，字号反差要大；行距和字距认真调。
-- 色彩：一个主导色加一个锐利的强调色，比平均分配的多色更有力量。用 CSS 变量统一管理。
-- 构图：留白要大方，或者密度要克制得有意图；可以不对称、叠压、打破网格，但对齐要准。
-- 细节：纹理、细线、阴影、噪点、渐变网格这类细节制造氛围，别只用纯色块。
-- 避开：紫色渐变配白底、千篇一律的卡片列表、无意义的圆角阴影堆叠、满屏表情符号。
+- 排版：一处焦点、两级辅助信息，按规范使用字号、间距和对齐。
+- 色彩：沿用主题变量，强调色只突出当前焦点；不用固定的白底黑字锁住深浅色。
+- 列表：靠对齐和间距分组，不给每行加上边框；只在确有必要时分隔大区块。
+- 装饰：不用大圆角卡片、层层边框、渐变和阴影堆叠；不加口号、重复标题、操作说明或满屏表情符号。
 
 ## 交付前自检
-1. 在半宽和整宽两种宽度下都不会溢出（组件宽度由页面决定，别写死像素宽）。
-2. 浅色和深色都清楚可读，对比度够。
-3. 没有写死的底色，没有外部图片（图片只能来自 data:/blob:、images.unsplash.com 和已授权域名）。
-4. 交互有反馈：悬停、按下、空状态、出错状态都想过。
-5. 代码在脑子里走一遍，出错用户只会看到空白，所以关键路径要稳。
-6. 交付后用一两句话说明设计思路和怎么改（颜色在哪、文案在哪），再问用户要不要调整。`
+1. 核对源码适配了实际开启的形态；手机 320–375px、半宽小组件、抽屉和弹窗都按各自容器布局，横向控件必要时换行或纵排。
+2. 核对浅色和深色的变量、对比度、键盘操作、空/加载/错误反馈；图片仅来自 data:/blob:、images.unsplash.com 和已授权域名。
+3. 核对设置确实被逻辑使用，修改后副作用能更新；持久数据、设置、临时 UI 状态各用对应机制。
+4. 创建或更新后用 list_applications 核对源码、分组、设置与入口，再按用户需要 open_application。当前工具能核对配置，没有浏览器截图或视觉测量反馈；不能声称已亲眼检查页面或通过视觉验证。
+5. 用一两句话说明结果、入口和必要限制，不重复介绍界面上已有的标签。`
 
 /** 设计规范的原文放在 docs/design-system.md：人、写代码的 AI、搭搭自己读的是同一份。 */
 import DESIGN_SYSTEM from '../../docs/design-system.md?raw'
@@ -76,7 +75,7 @@ export const SKILLS: Skill[] = [
   {
     id: 'design-system',
     name: '设计规范',
-    when: '只要你要新建或改动任何组件、页面版式、沙盒应用（create_app / create_widget / add_component / 调整布局和样式）之前，必须先读这份。它规定了控件怎么选、颜色间距字号怎么用、舞台型组件如何居中、状态怎么做、交付前怎么自检。',
+    when: '新建或改动任何组件、页面版式、应用（create_applet / create_app / create_widget / add_component / 调整布局和样式）之前，必须先读这份。它规定控件、主题、间距、文案、容器响应式与交付核对要求。',
     body: DESIGN_SYSTEM,
   },
   {
@@ -88,7 +87,7 @@ export const SKILLS: Skill[] = [
   {
     id: 'frontend-design',
     name: '前端设计',
-    when: '用户要做新组件、小工具、小页面、海报式的展示，或想把某块界面做得更好看、更有设计感时（几乎总是配合 create_app 或特效素材）。',
+    when: '用户要做新组件、交互工具、小页面，或调整界面设计时。普通工具首选 create_applet；完整自定义视觉才用 create_app，静态展示先考虑现成组件和特效素材。',
     body: FRONTEND_DESIGN,
   },
 ]

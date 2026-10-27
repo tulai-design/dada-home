@@ -46,6 +46,23 @@ const num = (v: unknown, fallback: number, min = -1e9, max = 1e9): number => {
 const bool = (v: unknown): boolean => v === true
 const pick = <T extends string>(v: unknown, allowed: readonly T[], fallback: T): T => (allowed.includes(v as T) ? (v as T) : fallback)
 
+/** Measure the visible content container, rather than the applet's hidden runner iframe. */
+export function useContainerWidth() {
+  const ref = useRef<HTMLDivElement>(null)
+  const [width, setWidth] = useState(0)
+  useEffect(() => {
+    const element = ref.current
+    if (!element) return
+    const update = (value: number) => setWidth(Math.max(0, Math.round(value)))
+    const style = getComputedStyle(element)
+    update(element.clientWidth - (parseFloat(style.paddingLeft) || 0) - (parseFloat(style.paddingRight) || 0))
+    const observer = new ResizeObserver(([entry]) => update(entry.contentRect.width))
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+  return {ref, width}
+}
+
 type Handler = {$fn: number}
 const isHandler = (v: unknown): v is Handler => !!v && typeof v === 'object' && typeof (v as Handler).$fn === 'number'
 
@@ -109,6 +126,7 @@ function InputField({p, fire}: {p: Record<string, unknown>; fire: (v: unknown, p
     maxLength: num(p.maxLength, 0, 0, 10000) || undefined,
     onValueChange: set,
     onPressEnter: isHandler(p.onEnter) ? () => fire(p.onEnter) : undefined,
+    style: {width: '100%', minWidth: 0, maxWidth: '100%'},
   }
   return p.type === 'password' ? <InputPassword {...common} /> : <Input {...common} />
 }
@@ -122,6 +140,7 @@ function TextAreaField({p, fire}: {p: Record<string, unknown>; fire: (v: unknown
       maxLength={num(p.maxLength, 0, 0, 20000) || undefined}
       autoSize={{minRows: num(p.rows, 3, 2, 12), maxRows: 12}}
       onChange={(event) => set(event.target.value)}
+      style={{width: '100%', minWidth: 0, maxWidth: '100%'}}
     />
   )
 }
@@ -135,7 +154,7 @@ function NumberField({p, fire}: {p: Record<string, unknown>; fire: (v: unknown, 
       max={typeof p.max === 'number' ? p.max : undefined}
       step={num(p.step, 1)}
       onChange={(n) => set(typeof n === 'number' ? n : null)}
-      style={{width: '100%'}}
+      style={{width: '100%', minWidth: 0, maxWidth: '100%'}}
     />
   )
 }
@@ -160,7 +179,7 @@ function ChoiceField({p, fire, kind}: {p: Record<string, unknown>; fire: (v: unk
   const list = options(p.options)
   const [value, set] = useEcho(str(p.value), (v) => fire(p.onChange, v))
   return kind === 'select' ? (
-    <Select value={value || undefined} options={list} placeholder={str(p.placeholder)} onChange={(v) => set(String(v))} style={{width: '100%'}} />
+    <Select value={value || undefined} options={list} placeholder={str(p.placeholder)} onChange={(v) => set(String(v))} style={{width: '100%', minWidth: 0, maxWidth: '100%'}} />
   ) : (
     <Segmented value={value} options={list} block={bool(p.block)} onChange={(v) => set(String(v))} />
   )
@@ -179,7 +198,7 @@ function DateField({p, fire, time}: {p: Record<string, unknown>; fire: (v: unkno
   return (
     <Picker
       locale={datePickerLocaleZhCN}
-      style={{width: '100%'}}
+      style={{width: '100%', minWidth: 0, maxWidth: '100%'}}
       placeholder={str(p.placeholder, time ? '选择时间' : '选择日期')}
       {...(time ? {format: 'HH:mm', needConfirm: false} : {})}
       value={toDate(value, time)}
@@ -192,6 +211,15 @@ function DateField({p, fire, time}: {p: Record<string, unknown>; fire: (v: unkno
 }
 
 /* ───────────── 渲染 ───────────── */
+
+function Grid({p, children}: {p: Record<string, unknown>; children: ReactNode}) {
+  const {ref, width} = useContainerWidth()
+  const requested = Math.floor(num(p.columns, 2, 1, 6))
+  const gap = num(p.gap, 12, 0, 32)
+  const minimum = num(p.minColumnWidth, 180, 80, 600)
+  const columns = p.responsive === false ? requested : Math.max(1, Math.min(requested, Math.floor((width + gap) / (minimum + gap))))
+  return <div ref={ref} className="ap-grid" data-columns={columns} style={{gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gap}}>{children}</div>
+}
 
 function Bars({p}: {p: Record<string, unknown>}) {
   const values = Array.isArray(p.values) ? p.values.slice(0, 60).map((v) => num(v, 0, 0)) : []
@@ -214,9 +242,10 @@ function Bars({p}: {p: Record<string, unknown>}) {
 function Table({p}: {p: Record<string, unknown>}) {
   const columns = Array.isArray(p.columns) ? p.columns.slice(0, 12).map((v) => str(v)) : []
   const rows = Array.isArray(p.rows) ? p.rows.slice(0, 200) : []
+  const columnCount = Math.max(columns.length, ...rows.map((row) => Array.isArray(row) ? Math.min(row.length, 12) : 0))
   return (
     <div className="ap-table-wrap">
-      <table className="ap-table">
+      <table className="ap-table" style={{minWidth: columnCount * 96}}>
         <thead>
           <tr>
             {columns.map((c, i) => (
@@ -250,16 +279,17 @@ export function UiTree({node, fire}: {node: UiNode; fire: Fire}) {
       const row = p.direction === 'row'
       return (
         <Flexbox
+          className="ap-stack"
           horizontal={row}
           gap={num(p.gap, 8, 0, 48)}
           align={ALIGN[pick(p.align, ['start', 'center', 'end', 'stretch'] as const, row ? 'start' : 'stretch')]}
           justify={JUSTIFY[pick(p.justify, ['start', 'center', 'end', 'between'] as const, 'start')]}
-          wrap={bool(p.wrap) ? 'wrap' : undefined}
+          wrap={p.wrap === true || (row && p.wrap !== false) ? 'wrap' : undefined}
           flex={bool(p.grow) ? 1 : undefined}
           padding={typeof p.padding === 'number' ? num(p.padding, 0, 0, 48) : undefined}
           width={typeof p.width === 'number' ? num(p.width, 0, 0, 2000) : undefined}
           height={typeof p.height === 'number' ? num(p.height, 0, 0, 2000) : undefined}
-          style={{minWidth: 0}}
+          style={{minWidth: 0, maxWidth: '100%', boxSizing: 'border-box'}}
         >
           {kids()}
         </Flexbox>
@@ -274,6 +304,7 @@ export function UiTree({node, fire}: {node: UiNode; fire: Fire}) {
           gap={12}
           clickable={isHandler(p.onClick)}
           onClick={isHandler(p.onClick) ? () => send(p.onClick) : undefined}
+          style={{minWidth: 0, maxWidth: '100%'}}
         >
           {title && (
             <Text strong fontSize={14}>
@@ -285,11 +316,7 @@ export function UiTree({node, fire}: {node: UiNode; fire: Fire}) {
       )
     }
     case 'Grid':
-      return (
-        <div className="ap-grid" style={{gridTemplateColumns: `repeat(${num(p.columns, 2, 1, 6)}, minmax(0, 1fr))`, gap: num(p.gap, 12, 0, 32)}}>
-          {kids()}
-        </div>
-      )
+      return <Grid p={p}>{kids()}</Grid>
     case 'Divider':
       return <div className="ap-rule" role="separator" />
     case 'Spacer':
@@ -298,7 +325,7 @@ export function UiTree({node, fire}: {node: UiNode; fire: Fire}) {
     case 'Text': {
       const size = pick(p.size, ['xs', 'sm', 'md', 'lg', 'xl', 'display'] as const, 'md')
       const display = size === 'display'
-      const style: CSSProperties = {color: TONE_COLOR[str(p.tone, 'default')], minWidth: 0}
+      const style: CSSProperties = {color: TONE_COLOR[str(p.tone, 'default')], minWidth: 0, maxWidth: '100%', overflowWrap: 'anywhere'}
       if (bool(p.serif) || display) Object.assign(style, {fontFamily: 'var(--font-serif)', fontVariantNumeric: 'tabular-nums'})
       if (display) Object.assign(style, {lineHeight: 1.05, letterSpacing: '-0.02em'})
       if (bool(p.mono)) style.fontFamily = 'var(--font-mono)'

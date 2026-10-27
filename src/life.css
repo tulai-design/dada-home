@@ -717,6 +717,22 @@
 
 .ap-grid {
   display: grid;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+}
+
+.ap-grid > *,
+.ap-stack > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.applet input,
+.applet textarea,
+.applet select {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .ap-rule {
@@ -768,7 +784,10 @@
 }
 
 .ap-table-wrap {
-  overflow: auto;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
 }
 
 .ap-table {

@@ -1,4 +1,4 @@
-import {useEffect, useMemo, useRef, useState} from 'react'
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react'
 import {Button, Flexbox, Tag, Text} from '@lobehub/ui'
 import {MagicWand as Wand2} from '@phosphor-icons/react'
 import {useDark} from '../fx/Fx'
@@ -35,33 +35,46 @@ const ESM_HOSTS = 'https://esm.sh https://cdn.jsdelivr.net https://unpkg.com'
 /** 把主题里的关键变量快照进应用，让它天然和主页同一套视觉。 */
 const THEME_VARS = [
   '--bg', '--bg2', '--bg3', '--text', '--text2', '--text3', '--text4', '--border', '--main',
-  '--c-green', '--c-blue', '--c-amber', '--c-violet', '--font-sans', '--font-serif', '--font-mono',
+  '--c-red', '--c-green', '--c-blue', '--c-amber', '--c-violet', '--radius', '--radius-lg', '--rule', '--font-sans', '--font-serif', '--font-mono',
 ]
 
-function themeCss(): string {
+function themeVariables(): Record<string, string> {
   const style = getComputedStyle(document.documentElement)
-  return THEME_VARS.map((name) => `${name}:${style.getPropertyValue(name).trim()}`).join(';')
+  return Object.fromEntries(THEME_VARS.map((name) => [name, style.getPropertyValue(name).trim()]))
+}
+
+function themeCss(): string {
+  return Object.entries(themeVariables()).map(([name, value]) => `${name}:${value}`).join(';')
 }
 
 /** 迷你样式套件：应用不写 CSS 也能和主页长得一家人。 */
 const KIT = `
-*{box-sizing:border-box}
+*{box-sizing:border-box;min-width:0}
 html,body{margin:0;height:100%;background:transparent;color:var(--text);font:14px/1.6 var(--font-sans);-webkit-font-smoothing:antialiased}
-body{padding:14px}
+body{padding:16px;overflow-wrap:anywhere}
 h1,h2,h3{font-family:var(--font-serif);font-weight:600;margin:0 0 .4em;line-height:1.2}
 a{color:var(--main);text-decoration:none}
 .kicker{font:500 11px/1 var(--font-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)}
 .muted{color:var(--text2)}
 .mono{font-family:var(--font-mono)}
 .serif{font-family:var(--font-serif)}
-.card{border-top:2px solid var(--text);padding:12px 0}
-.btn{font:inherit;cursor:pointer;border:1px solid var(--text);background:transparent;color:var(--text);padding:6px 14px;border-radius:0;transition:.15s}
+.card{padding:12px 0;border:0;background:transparent}
+.row{display:flex;align-items:center;flex-wrap:wrap;gap:12px}
+.row>*{max-width:100%}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));gap:16px}
+.table-wrap{max-width:100%;overflow:auto;overscroll-behavior-x:contain}
+img,video,canvas,svg{max-width:100%}img,video{height:auto}
+pre{max-width:100%;overflow:auto}
+.btn{font:inherit;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text);padding:6px 14px;border-radius:var(--radius,0);transition:.15s}
 .btn:hover{background:var(--text);color:var(--bg)}
-.btn.primary{background:var(--main);border-color:var(--main);color:#fff}
-input,textarea,select{font:inherit;color:var(--text);background:transparent;border:1px solid var(--border);padding:6px 10px;border-radius:0;outline:none}
-input:focus,textarea:focus{border-color:var(--main)}
+.btn.primary{background:var(--text);border-color:var(--text);color:var(--bg)}
+input,textarea,select{max-width:100%;font:inherit;color:var(--text);background:transparent;border:1px solid var(--border);padding:6px 10px;border-radius:var(--radius,0)}
+:where(button,a,input,textarea,select,[tabindex]):focus-visible{outline:2px solid var(--main);outline-offset:2px}
 input[type=checkbox],input[type=radio],input[type=range]{accent-color:var(--main)}
-button{font:inherit;color:var(--text);cursor:pointer}
+button{max-width:100%;font:inherit;color:var(--text);cursor:pointer}
+:disabled{cursor:not-allowed;opacity:.5}
+@media(max-width:480px){body{padding:12px}.row{gap:8px}.btn,input,select{min-height:40px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 ::selection{background:color-mix(in srgb,var(--main) 25%,transparent)}
 `
 
@@ -70,6 +83,7 @@ const SDK = `
 (()=>{
   const freeze=(v)=>{if(v&&typeof v==='object'){Object.values(v).forEach(freeze);Object.freeze(v)}return v};
   const context=freeze(__APPLICATION_CONTEXT__);
+  const themeNames=__THEME_NAMES__;
   const pending=new Map();let seq=0;
   const call=(op,payload)=>new Promise((resolve,reject)=>{
     const id=++seq;pending.set(id,{resolve,reject});
@@ -78,7 +92,16 @@ const SDK = `
     setTimeout(()=>{if(pending.delete(id))reject(new Error('tada.'+op+' 超时'))},op==='fetch'?300000:15000);
   });
   addEventListener('message',(e)=>{
+    if(e.source!==parent)return;
     const m=e.data;if(!m||m.tada!==1)return;
+    if(m.op==='theme'){
+      const root=document.documentElement;
+      for(const name of themeNames){const value=m.variables&&m.variables[name];if(typeof value==='string')root.style.setProperty(name,value)}
+      root.dataset.theme=m.dark?'dark':'light';
+      root.style.colorScheme=m.dark?'dark':'light';
+      dispatchEvent(new CustomEvent('tada:themechange',{detail:{dark:!!m.dark}}));
+      return;
+    }
     const p=pending.get(m.id);if(!p)return;pending.delete(m.id);
     m.error?p.reject(new Error(m.error)):p.resolve(m.result);
   });
@@ -103,7 +126,7 @@ const SDK = `
     copy:(text)=>call('copy',{text:String(text)}),
     /** 把一句话发给搭搭的 AI 助手 */
     ask:(text)=>call('ask',{text}),
-    dark:document.documentElement.dataset.theme==='dark',
+    get dark(){return document.documentElement.dataset.theme==='dark'},
     get settings(){return context.settings},
     get surface(){return context.surface},
   };
@@ -131,11 +154,12 @@ export function buildSrcdoc(config: AppConfig, grants: string[], dark: boolean):
   ].join('; ')
   // JSON 只能作为数据进入脚本，不能由设置里的 </script> 提前闭合标签。
   const context = JSON.stringify({settings: config.settings ?? {}, surface: config.surface ?? 'widget'}).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029')
-  const sdk = SDK.replace('__APPLICATION_CONTEXT__', () => context)
+  const sdk = SDK.replace('__THEME_NAMES__', () => JSON.stringify(THEME_VARS)).replace('__APPLICATION_CONTEXT__', () => context)
   // 用户代码放在后面：SDK 和样式套件先就位
   return `<!doctype html><html data-theme="${dark ? 'dark' : 'light'}"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="${csp}">
-<style>:root{${themeCss()};color-scheme:${dark ? 'dark' : 'light'}}${KIT}${config.surface === 'status' ? 'html,body{height:100%;overflow:hidden}body{padding:0}' : ''}</style>
+<style>:root{${themeCss()};color-scheme:${dark ? 'dark' : 'light'}}${KIT}${config.surface === 'status' ? 'html,body{height:100%;overflow:hidden}body{padding:0}.btn,input,select{min-height:0}' : ''}</style>
 <style>${config.css}</style>
 <script>${sdk}</script>
 </head><body>${config.html}
@@ -248,9 +272,9 @@ function AppBlock({instance, config, host}: ComponentProps<AppConfig>) {
   const documentRef = useRef<{config: AppConfig; dark: boolean; grants: string[]} | null>(null)
   const previous = documentRef.current
   // 新授权直接供 tada.fetch 使用，保留当前文档与待完成的请求。
-  // 图片、媒体的 CSP 使用文档快照：重新挂载、修改源码或切换主题后才加入新域名；
+  // 图片、媒体的 CSP 使用文档快照：重新挂载或修改源码后才加入新域名；
   // 已写入 CSP 的域名一旦撤销，则立即重建文档以收紧权限。
-  if (!previous || previous.config.html !== config.html || previous.config.css !== config.css || previous.config.js !== config.js || JSON.stringify(previous.config.settings) !== JSON.stringify(config.settings) || previous.config.surface !== config.surface || previous.dark !== dark || previous.grants.some((grant) => !host.networkGrants.includes(grant))) {
+  if (!previous || previous.config.html !== config.html || previous.config.css !== config.css || previous.config.js !== config.js || JSON.stringify(previous.config.settings) !== JSON.stringify(config.settings) || previous.config.surface !== config.surface || previous.grants.some((grant) => !host.networkGrants.includes(grant))) {
     documentRef.current = {config: {...config}, dark, grants: [...host.networkGrants]}
   }
   const appDocument = documentRef.current!
@@ -259,6 +283,17 @@ function AppBlock({instance, config, host}: ComponentProps<AppConfig>) {
     [appDocument],
   )
   useEffect(() => setError(''), [config.html, config.css, config.js])
+
+  // 主题是宿主上下文，不重启用户程序：同一明暗模式下换颜色/字体也同步。
+  const syncTheme = useCallback(() => {
+    frame.current?.contentWindow?.postMessage({tada: 1, op: 'theme', variables: themeVariables(), dark: document.documentElement.dataset.theme === 'dark'}, '*')
+  }, [])
+  useEffect(() => {
+    const observer = new MutationObserver(syncTheme)
+    observer.observe(document.documentElement, {attributes: true, attributeFilter: ['style', 'data-theme']})
+    syncTheme()
+    return () => observer.disconnect()
+  }, [syncTheme])
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
@@ -298,7 +333,7 @@ function AppBlock({instance, config, host}: ComponentProps<AppConfig>) {
             </Text>
           </Flexbox>
           <Flexbox horizontal>
-            <Button size="small" icon={<Wand2 size={14} />} onClick={() => host.ask(`沙盒应用「${instance.title || instance.id}」（id=${instance.id}）运行出错：${error}\n请先 get_workspace 看一下它的源码，用 update_app 修好。`)}>
+            <Button size="small" icon={<Wand2 size={14} />} onClick={() => host.ask(`沙盒应用「${instance.title || instance.id}」（id=${instance.id}）运行出错：${error}\n请先用 list_applications（ref: ${instance.id}）读取源码，再用 update_app 修好。`)}>
               让搭搭修复
             </Button>
           </Flexbox>
@@ -311,6 +346,7 @@ function AppBlock({instance, config, host}: ComponentProps<AppConfig>) {
         sandbox="allow-scripts"
         referrerPolicy="no-referrer"
         srcDoc={srcdoc}
+        onLoad={syncTheme}
         style={{height: config.surface === 'status' ? '100%' : config.height}}
       />
     </>

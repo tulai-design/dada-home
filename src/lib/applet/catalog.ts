@@ -15,15 +15,15 @@ export type CatalogEntry = {
 
 export const CATALOG: CatalogEntry[] = [
   // 布局
-  {name: 'Stack', props: '{direction:"row"|"column"(默认), gap:0-48, align:"start"|"center"|"end"|"stretch", justify:"start"|"center"|"end"|"between", wrap, grow, padding, width, height}, ...children  —— 弹性布局，最常用'},
+  {name: 'Stack', props: '{direction:"row"|"column"(默认), gap:0-48, align:"start"|"center"|"end"|"stretch", justify:"start"|"center"|"end"|"between", wrap:true(row默认)|false, grow, padding, width, height}, ...children  —— 最大宽度不超过容器，横排默认换行；wrap:false 用于必须同行的内容'},
   {name: 'Card', props: '{title?, variant:"outlined"(默认)|"filled"|"borderless", padding:0-32, onClick?}, ...children  —— 一块带边线的区域；有 onClick 时可点'},
-  {name: 'Grid', props: '{columns:1-6, gap:0-32}, ...children  —— 等宽网格'},
+  {name: 'Grid', props: '{columns:1-6, gap:0-32, minColumnWidth:80-600(默认180), responsive:true(默认)|false}, ...children  —— 等宽网格，测量自身容器并自动减少列数；计算器键盘等固定网格才用 responsive:false'},
   {name: 'Divider', props: '{}  —— 一条发丝线'},
   {name: 'Spacer', props: '{}  —— 在 row 里把后面的内容推到右边'},
 
   // 文字与展示
   {name: 'Text', props: '{text?, size:"xs"|"sm"|"md"(默认)|"lg"|"xl"|"display", tone:"default"|"secondary"|"tertiary"|"accent"|"danger"|"success", serif, mono, strong, align:"left"|"center"|"right", ellipsis}, 或直接把字符串当 children  —— display 是 64px 衬线大数字，一个小程序最多用一次'},
-  {name: 'Kicker', props: '{text}  —— 小号大写标签，放在标题上方'},
+  {name: 'Kicker', props: '{text}  —— 必要的辅助短标签；不在标题上方重复加文案'},
   {name: 'Tag', props: '{text, tone:"default"|"red"|"green"|"blue"|"orange"|"purple", icon?}'},
   {name: 'Statistic', props: '{title, value, suffix?}  —— 带标题的数字'},
   {name: 'Progress', props: '{percent:0-100, tone:"default"|"accent"|"success"|"danger"}'},
@@ -64,12 +64,42 @@ export type IconName = (typeof ICON_NAMES)[number]
 /** 沙盒里的运行说明，拼进工具描述和技能。 */
 export function appletGuide(): string {
   const components = CATALOG.map((entry) => `  ui.${entry.name}(${entry.props})`).join('\n')
+  const applicationExample = JSON.stringify({
+    title: '轻计数',
+    description: '记录次数',
+    group: '效率',
+    openMode: 'drawer',
+    dock: false,
+    status: true,
+    statusMode: 'compact',
+    settingsSchema: {
+      label: {kind: 'string', label: '操作名称', default: '计数'},
+      step: {kind: 'number', label: '每次增加', default: 1, min: 1, max: 1000},
+      showCount: {kind: 'boolean', label: '显示计数', default: true},
+      format: {kind: 'select', label: '数字格式', default: 'decimal', options: [{value: 'decimal', label: '十进制'}, {value: 'hex', label: '十六进制'}]},
+    },
+    settings: {label: '记录', step: 2, showCount: true, format: 'decimal'},
+    source: [
+      'applet({',
+      '  state: {count: 0},',
+      "  persist: ['count'],",
+      '  view: (s, ctx) => {',
+      "    const value = ctx.settings.format === 'hex' ? s.count.toString(16) : String(s.count)",
+      "    if (ctx.surface === 'status') return ui.Text({text: ctx.settings.showCount ? value : '—', size: 'sm', mono: true})",
+      '    return ui.Stack({gap: 12}, [',
+      "      ctx.settings.showCount && ui.Text({text: value, size: ctx.viewport.compact ? 'xl' : 'display', serif: true}),",
+      "      ui.Button({label: ctx.settings.label + ' +' + ctx.settings.step, variant: 'primary', onClick: () => {s.count += ctx.settings.step}}),",
+      '    ])',
+      '  },',
+      '})',
+    ].join('\n'),
+  }, null, 2)
   return `# 小程序（applet）
 
 用系统自带的控件（Lobe UI）搭一个有交互的小工具：计算器、密码生成、记账、待办、单位换算、抽签、倒计时、问卷、简易看板……
 逻辑是你写的任意 JavaScript，界面是下面这套积木拼出来的，所以：
-  · 风格和主页完全一致，深浅色自动适配，不用写 CSS；
-  · 点击、输入、拖动都是真控件，不会像 iframe 里那样失灵；
+  · 控件沿用主页风格与深浅色，不用写 CSS；
+  · 点击、输入、拖动由主页控件处理；
   · 逻辑跑在隔离沙盒里，读不到主页数据，网络要用户授权。
 做游戏、Canvas/WebGL/Three.js、需要完全自定义视觉的东西，才用 create_app。
 
@@ -110,18 +140,49 @@ applet({
 - 事件属性（onClick / onChange / onEnter）直接给函数。onChange 的参数是新值。
 - children 可以是数组，false / null / undefined 会被忽略，所以能写 \`cond && Tag({text:'新'})\`；字符串自动变成 Text。
 - 列表项很多时，别一次渲染几百条；上限约 4000 个节点。
-- view 里不要做副作用（请求、定时器）；放进 init 或事件里。
+- view 里不要做副作用（请求、定时器）；放进 init、事件或 onSettingsChange 里。
 - ctx 提供的能力：
     ctx.fetch(url) → Promise<{ok,status,text,json}>，域名必须先被用户授权，未授权会弹出授权请求
     ctx.copy(text) 复制到剪贴板；ctx.open(url) 新标签打开 https 链接；ctx.toast(text, "success"|"error"|"info") 弹提示；ctx.ask(text) 把一句话发给搭搭助手
     ctx.every(ms, fn) 定时执行（返回取消函数）；ctx.after(ms, fn) 延时执行；ctx.render() 在长异步过程中手动刷新；ctx.dark 是否深色
     ctx.settings 只读用户设置；ctx.surface 当前展示形态：widget / modal / drawer / page / status。设置变化会更新上下文并重新渲染，persist 状态保持。
+    ctx.viewport = {width, compact}：实际容器宽度；compact 表示宽度小于 480px，不是 ctx.surface === "status" 的别名。布局变化会重渲染，不应重启业务逻辑。
 - view(s, ctx) 的参数就是 state 和 ctx，也可以不用参数、直接用外面的 s。
 - 可选的 init(s, ctx)：启动时执行一次，可以是 async，用来拉取初始数据、启动定时器。
+- 可选的 onSettingsChange(s, ctx, previous)：init 完成后，仅在设置值实际改变时调用；previous 是改变前的只读设置。init 不会因设置更新而重跑。在此重新设置依赖设置的定时器、请求地址或订阅，先取消旧任务；view 直接读取 ctx.settings 即可。不要将用户设置复制进 persist 后永久使用旧值。
 - 应用默认安装进组件市场，用户可从市场打开、设置、分组和卸载；创建时不必给 pageId。只有用户要页面小组件时才给 pageId，不自动建页面或固定 Dock。
-- create_applet 的 openMode 选择 modal 弹窗、drawer 抽屉、page 全页面；dock/status 按需开启。顶部默认 statusMode:"launcher" 为启动入口；只有 view 明确按 ctx.surface === "status" 返回单行窄内容时，才开启 statusMode:"compact" 运行真实紧凑视图。避免标题和大按钮，只留数字/图标/一项核心状态。主窗口或可见页面小组件运行时，状态栏自动回退入口，防止同一份持久状态被并发改写。
-- 可配置的值通过 settingsSchema 声明，例如 {minutes:{kind:"number",label:"专注分钟",default:25,min:1,max:120}}。系统在设置页自动生成表单；view/init 使用 ctx.settings.minutes，别把设置和 persist 业务数据混在一起。
+- create_applet 的 openMode 选择 modal 弹窗、drawer 抽屉、page 全页面；dock/status 按需开启。顶部默认 statusMode:"launcher" 为启动入口；只有 view 明确按 ctx.surface === "status" 返回单行窄内容时，才开启 statusMode:"compact" 运行真实紧凑视图。避免标题和大按钮，只留数字/图标/一项核心状态。Applet 限高 32px，桌面最大宽 200px、手机 140px；HTML App 对应宽 160px/130px、高 32px。
+- 主窗口或可见页面小组件运行时，状态栏自动回退入口；切换形态可能重新挂载，只保留 persist 声明的状态。关闭主窗口后，如果紧凑状态栏仍挂载则运行该形态；所有运行形态卸载后，请求、定时器不会后台常驻。倒计时保存截止时间，重新打开按当前时间推算；不要承诺后台轮询或准点通知。
+- 可配置的值通过 settingsSchema 声明，系统在设置页自动生成表单，settings 提供当前值；字段支持 string/number/boolean/select，select 提供 options。业务数据用 persist，设置只从 ctx.settings 读。用 open_settings section:"application:<id>" 打开该应用设置。
 - 沙盒里没有 DOM 可操作，也没有 localStorage（用 persist）。可以 import "https://esm.sh/包名" 来用库（dayjs、mathjs 等）做计算。
+
+## 完整的创建参数示例
+
+以下是一次 create_applet 的完整参数：假设用户明确要求把计数显示在状态栏，源码提供 status 分支后启用 compact。普通安装可用 status:false、statusMode:"launcher"，不传 pageId。设置的四种字段都在业务逻辑中读取。
+
+\`\`\`json
+${applicationExample}
+\`\`\`
+
+依赖设置的副作用另用生命周期管理。例如轮询间隔变化时，取消旧定时器再创建新定时器：
+
+\`\`\`js
+let cancel
+function restart(s, ctx) {
+  if (cancel) cancel()
+  cancel = ctx.every(ctx.settings.refreshSeconds * 1000, () => { s.ticks += 1 })
+}
+applet({
+  state: {ticks: 0},
+  init: restart,
+  onSettingsChange: (s, ctx, previous) => {
+    if (previous.refreshSeconds !== ctx.settings.refreshSeconds) restart(s, ctx)
+  },
+  view: (s) => ui.Text({text: String(s.ticks)}),
+})
+\`\`\`
+
+此例需声明 refreshSeconds 为有正数默认值和下限的 number 设置。页面尺寸和展示形态变化只改变布局，不在 view 里重建定时器。
 
 ## 积木（ui.Xxx(props?, ...children)）
 ${components}
@@ -130,9 +191,12 @@ ${components}
 
 ## 设计要求
 - 先定焦点：一个小程序只有一个最大的东西（结果数字、当前任务），其余让位。
-- 结果、数字用 Text 的 serif + size:"display" 或 "xl"；说明用 secondary；标签用 Kicker。
+- 结果、数字用 Text 的 serif + size:"display" 或 "xl"；必要单位、字段标签用辅助文字，不在标题上方重复加 Kicker。
 - 输入在上、结果在下，或左右分栏；不要把所有控件挤成一排。
+- 布局以实际容器为准：320–375px 手机、小组件半宽、modal、drawer、page 都不能横向溢出。Grid 默认收列，Stack 横排默认换行；表单在窄容器可按 ctx.viewport.compact 改为 column。固定网格只给键盘等确需保持行列的控件。
+- 文案只留任务所需的信息，不加口号、重复标题和入口说明；不用大圆角卡片、层层框线或逐行上边框，以对齐、间距分组。
 - 空状态用 Empty，出错用 Text tone:"danger" 并说清怎么办。
 - 表单类的主操作用一个 variant:"primary" 的 Button。
+- 创建或更新后用 list_applications 核对源码、设置、分组与入口；open_application 可打开应用。当前没有浏览器截图、实际溢出或控件尺寸的视觉反馈工具，不能声称已通过浏览器视觉检查。
 `
 }
