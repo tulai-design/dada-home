@@ -145,3 +145,40 @@
 ### Next Steps
 
 - 推进10-27-page-sections，保持旧扁平页面、组件ID及应用身份兼容；父任务保持进行中。
+
+
+## Session 5: 响应式页面分区与 AI 编排工具
+<!-- trellis-session: v=2 fp=4db0ddffd6b261b3 -->
+
+**Date**: 2026-10-27
+**Task**: 响应式页面分区与 AI 编排工具
+**Branch**: `main`
+
+### Summary
+
+交付 hero/section/split 页面分区、AI 目录与写入工具、实际容器重排，保留组件与应用身份；完成数据/工具/浏览器和双轴审查。
+
+### Main Changes
+
+- Page.sections 仅引用原组件；严格写入、宽容迁移、CRUD 清引用、自存/内置模板、外观还原与撤销闭环。
+- PageView 同父级稳定渲染，720px 以下按阅读顺序单列；更新运行时设计规范、术语和可执行规范。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `921584e` | feat: 为 AI 添加响应式页面分区能力 |
+
+### Testing
+
+- [OK] 全量 pnpm test、tsc、build 通过；新数据 9/9、工具 7/7。
+- [OK] Chromium 覆盖 320/375/768/1440 双主题、360px 窄容器、键盘顺序、状态保留、空/长/无标题及溢出修复复查；实际查看截图。
+- [OK] 真实 App 在 649px AI 分栏单列，模拟模型走真实 inspect_page 回灌无问题，刷新保留分区；Standards/Spec 两轴无待修复项。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 推进 10-27-homepage-recipes：四类首页组合与草稿预览、检查、整体应用/取消/撤销。父任务目前完成 6/9，图表和数据表仍待后续。
