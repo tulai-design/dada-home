@@ -1,4 +1,4 @@
-import type {Layer, Page, Workspace} from './workspace'
+import {DEFAULT_HOME_LAYERS, type Layer, type Page, type Workspace} from './workspace'
 import {setLayers} from './ops'
 
 /**
@@ -10,7 +10,7 @@ export type Decor = {id: string; name: string; hint: string; layer: Layer | null
 
 export const DECORS: Decor[] = [
   {id: 'none', name: '无', hint: '干净的纸面', layer: null},
-  {id: 'waves', name: '波纹线', hint: '像等高线，细而安静', layer: {effect: 'waves', params: {opacity: 0.45, fade: 0.55, spacing: 14, amplitude: 34, speed: 0.5}}},
+  {id: 'waves', name: '波纹线', hint: '像等高线，细而安静', layer: DEFAULT_HOME_LAYERS[0]},
   {id: 'threads', name: '丝线', hint: '发丝般缠绕的细线，带一点主色', layer: {effect: 'threads', params: {opacity: 0.7, fade: 0.5, lineCount: 50, speed: 0.6}}},
   {id: 'dots', name: '点阵', hint: '方格纸，鼠标靠近时圆点被推开', layer: {effect: 'dot-grid', params: {opacity: 0.8, fade: 0.55, gap: 24, dotSize: 3}}},
   {id: 'aurora', name: '极光', hint: '柔和流动的色带', layer: {effect: 'aurora', params: {opacity: 0.4, amplitude: 0.8, speed: 0.6}}},

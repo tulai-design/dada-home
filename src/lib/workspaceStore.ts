@@ -162,15 +162,15 @@ function readAddons(raw: unknown, pages: Page[], statusbar: StatusItem[]): strin
  * 主题库与当前主题。旧数据只有 theme.overrides：有改动就收成一个「我的主题」并保持启用，没有就用默认。
  */
 function readThemeState(data: Partial<Workspace>): { themes: ThemeEntry[]; config: ThemeConfig } {
-  const themes = readThemes(data.themes)
   const raw = (data.theme ?? {}) as { active?: unknown; overrides?: unknown; mode?: unknown; base?: unknown }
   const mode: 'light' | 'dark' = raw.mode === 'dark' ? 'dark' : 'light'
   const base: 'light' | 'dark' = raw.base === 'dark' ? 'dark' : raw.base === 'light' ? 'light' : mode
+  const themes = readThemes(data.themes, mode)
   if (!Array.isArray(data.themes) && raw.overrides && typeof raw.overrides === 'object') {
     try {
       const overrides = cleanOverrides(raw.overrides)
       if (Object.keys(overrides).length) {
-        themes.push({ id: 'mine', name: '我的主题', description: '升级前你调过的配色', overrides })
+        themes.push(...readThemes([{ id: 'mine', name: '我的主题', description: '升级前你调过的配色', overrides, mode }], mode).slice(1))
         return { themes, config: { active: 'mine', mode, base } }
       }
     } catch {
@@ -179,7 +179,8 @@ function readThemeState(data: Partial<Workspace>): { themes: ThemeEntry[]; confi
   }
   const active = typeof raw.active === 'string' && themes.some((item) => item.id === raw.active) ? raw.active : DEFAULT_THEME_ID
   const entry = themes.find((item) => item.id === active)
-  return { themes, config: { active, mode: entry?.mode ?? mode, base } }
+  // 初始偏好只在 applyTheme 时采用；刷新必须尊重用户已保存的实际模式。
+  return { themes, config: { active, mode: raw.mode === 'light' || raw.mode === 'dark' ? raw.mode : entry?.mode ?? mode, base } }
 }
 
 /** 状态条：旧数据没有这个字段，用默认；有就逐项校验，失效的组件丢掉。 */

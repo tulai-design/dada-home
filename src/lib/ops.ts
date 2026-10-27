@@ -4,6 +4,7 @@ import {WorkspaceError} from './errors'
 import {normalizeLayer} from '../fx/catalog'
 import {
   DEFAULT_LAYOUT,
+  DEFAULT_HOME_LAYERS,
   DEFAULT_THEME,
   DEFAULT_THEME_ID,
   FROZEN_PAGE_ID,
@@ -457,7 +458,7 @@ export function setLayers(workspace: Workspace, pageId: string, layers: unknown[
 }
 
 /** 改当前主题（明暗、变量）。当前是默认主题时会先另存为新主题，默认主题不会被改坏。 */
-export function setTheme(workspace: Workspace, input: {mode?: string; overrides?: Record<string, unknown> | null; fonts?: unknown}) {
+export function setTheme(workspace: Workspace, input: {mode?: string; overrides?: Record<string, unknown> | null; light?: Record<string, unknown> | null; dark?: Record<string, unknown> | null; fonts?: unknown}) {
   return tweakTheme(workspace, input)
 }
 
@@ -497,7 +498,7 @@ export function defaultWorkspace(): Workspace {
         // 默认不铺照片：纸张底色是这套界面的核心。想要壁纸，对搭搭说一声即可。
         align: 'center',
         // 一层很淡的波纹线做装饰，不抢时钟和搜索框；在设置 › 外观里可换可关
-        layers: [{effect: 'waves', params: {opacity: 0.45, fade: 0.55, spacing: 14, amplitude: 34, speed: 0.5}}],
+        layers: DEFAULT_HOME_LAYERS.map((layer) => ({...layer, params: {...layer.params}})),
         components: [
           // 首页像一个搜索页：时钟（含一行天气）+ 搜索/对话框 + 一排常用网站。
           // 其他功能在组件市场里，装了再说。

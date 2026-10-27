@@ -105,7 +105,7 @@ function adoptTheme(workspace: Workspace, theme: ThemeEntry): Workspace {
   if (theme.id === DEFAULT_THEME_ID || theme.builtin) {
     return {...workspace, theme: {...workspace.theme, active: DEFAULT_THEME_ID, mode: workspace.theme.base}}
   }
-  const same = workspace.themes.find((item) => item.name === theme.name && JSON.stringify(item.overrides) === JSON.stringify(theme.overrides) && JSON.stringify(item.fonts ?? []) === JSON.stringify(theme.fonts ?? []) && item.mode === theme.mode)
+  const same = workspace.themes.find((item) => item.name === theme.name && JSON.stringify(item.overrides) === JSON.stringify(theme.overrides) && JSON.stringify(item.light ?? {}) === JSON.stringify(theme.light ?? {}) && JSON.stringify(item.dark ?? {}) === JSON.stringify(theme.dark ?? {}) && JSON.stringify(item.fonts ?? []) === JSON.stringify(theme.fonts ?? []) && item.mode === theme.mode)
   let themes = workspace.themes
   let entry = same
   if (!entry) {

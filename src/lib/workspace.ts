@@ -15,7 +15,7 @@
 import type {DockStyle} from './dock'
 import type {ThemeFont} from './fonts'
 
-export const WORKSPACE_VERSION = 3
+export const WORKSPACE_VERSION = 4
 
 /** 内置组件类型。新增内置组件要在 registry 里注册，并在这里加一个值。 */
 export type BuiltinType =
@@ -213,6 +213,11 @@ export type Page = {
 /** 首页是固定项：不能删除、不能挪走、始终排第一。 */
 export const FROZEN_PAGE_ID = 'home'
 
+/** 默认首页装饰由初始化、外观说明和还原操作共用，避免各自猜一份。 */
+export const DEFAULT_HOME_LAYERS: Layer[] = [
+  {effect: 'waves', params: {lineColor: '#1b1714', accentColor: '#e5372e', spacing: 14, lineWidth: 0.8, opacity: 0.45, fade: 0.55, amplitude: 34, speed: 0.5}},
+]
+
 /**
  * 状态条（顶栏右侧）里的一项：某个组件的「紧凑形态」。
  * 组件在注册时声明 status 渲染才能放进来；config 沿用该组件自己的配置项。
@@ -244,11 +249,14 @@ export type ThemeEntry = {
   name: string
   /** 一两句话说明这个主题的气质，列表里显示，也让 AI 和用户记得它是什么 */
   description: string
-  /** CSS 变量覆盖，键名不含 `--` 前缀，例如 {main: '#f5223f'} */
+  /** 两种模式共用的变量，主要放主色、尺寸、字体变量等；键名不含 `--`。 */
   overrides: Record<string, string>
+  /** 当前模式的变量覆盖；未配置的值沿用系统对应模式。 */
+  light?: Record<string, string>
+  dark?: Record<string, string>
   /** 从 Google Fonts 引入的字体；带 role 的会接管对应的字体变量（serif / sans / mono） */
   fonts?: ThemeFont[]
-  /** 主题自带明暗时，启用它会同时切到这个明暗；不填则沿用当前 */
+  /** 应用主题时的初始模式偏好；用户仍可切换，重新加载不会覆盖用户选择。 */
   mode?: 'light' | 'dark'
   builtin?: boolean
 }
@@ -256,7 +264,7 @@ export type ThemeEntry = {
 /** 当前使用哪个主题，以及明暗。主题本身存在 Workspace.themes 里。 */
 export type ThemeConfig = {
   active: string
-  /** 实际生效的明暗：主题自带就用主题的，否则用 base */
+  /** 实际生效的明暗；读取已保存工作空间时以此为准。 */
   mode: 'light' | 'dark'
   /** 用户自己选的明暗。切到不指定明暗的主题（比如默认主题）时回到它，这样「还原」才是真的还原。 */
   base: 'light' | 'dark'

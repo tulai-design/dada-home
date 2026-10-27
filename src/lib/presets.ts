@@ -65,9 +65,11 @@ export const PRESETS: Preset[] = [
       const ws = withAddons(defaultWorkspace(), ['desk', 'bookmarks', 'feeds'])
       const themed = saveTheme(ws, {
         name: '深海',
-        description: '深海蓝底、浅灰蓝字、天蓝点缀。',
+        description: '深海蓝夜色与浅海蓝日间配色，天蓝点缀。',
         mode: 'dark',
-        overrides: {bg: '#0d1520', bg2: '#131f2e', bg3: '#1b2c40', text: '#e6edf6', text2: '#a3b2c6', text3: '#6f8199', main: '#4f9dff'},
+        overrides: {},
+        light: {bg: '#edf4fb', bg2: '#e1ecf7', bg3: '#cbdced', text: '#15283c', text2: '#435e79', text3: '#6b8196', text4: '#a4b6c8', border: 'rgba(21,40,60,0.12)', rule: '#15283c', main: '#176cc4'},
+        dark: {bg: '#0d1520', bg2: '#131f2e', bg3: '#1b2c40', text: '#e6edf6', text2: '#a3b2c6', text3: '#6f8199', text4: '#3e526b', border: 'rgba(230,237,246,0.12)', rule: '#e6edf6', main: '#4f9dff'},
         activate: false,
       })
       return snap(ws, themed.theme)

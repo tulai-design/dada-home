@@ -10,6 +10,7 @@ import {ADDONS, isInstalled, typeAvailable} from './market'
 import {NO_EXTENSION_HINT, SYNC_FOLDER, call, detect, importFromBrowser, listBrowser, pushToBrowser} from './browserBookmarks'
 import {addBookmarks, countBookmarks, getBookmarks, removeBookmarks, removeGroup, renameGroup, setBookmarks, updateBookmark} from './bookmarks'
 import {activeTheme} from './workspace'
+import {getAppearance, resetAppearance} from './appearance'
 import {PRESETS} from './presets'
 import {MEMORY_KINDS, addMemory, aiEditSoul, getPersona, removeMemory} from './persona'
 import {isSynced, summarize} from './templates'
@@ -45,6 +46,11 @@ const str = (value: unknown): string => (typeof value === 'string' ? value.trim(
 const optStr = (value: unknown): string | undefined => str(value) || undefined
 const strList = (value: unknown): string[] => (Array.isArray(value) ? value.map(str).filter(Boolean) : [])
 const num = (value: unknown): number | undefined => (typeof value === 'number' && Number.isFinite(value) ? value : undefined)
+const themeVars = (value: unknown, field: string): Record<string, unknown> | null | undefined => {
+  if (value === undefined || value === null) return value
+  if (typeof value !== 'object' || Array.isArray(value)) throw new WorkspaceError(`${field} 必须是 CSS 变量对象或 null`)
+  return value as Record<string, unknown>
+}
 
 /** 让一个操作的错误变成给模型看的文字，而不是抛出去中断整轮对话。 */
 async function guard(run: () => string): Promise<string> {
@@ -101,7 +107,7 @@ export const HOME_TOOLS = [
     {
       name: 'get_workspace',
       title: '查看工作空间',
-      description: '查看当前所有页面，以及每页上的组件（id、名称、类型、宽度、配置）。修改前先看清现状。',
+      description: '查看当前所有页面，以及每页上的组件（id、名称、类型、宽度、配置）。修改前先看清现状；默认外观、当前背景与样式差异用 get_appearance 查看。',
       effect: 'read',
       highRisk: () => false,
       execute: async () => {
@@ -111,8 +117,20 @@ export const HOME_TOOLS = [
           .join('\n')
         const status = workspace.statusbar.map((item) => `${item.type} ${JSON.stringify(item.config)}`).join('；') || '（空）'
         const addons = workspace.addons.map((id) => ADDONS.find((a) => a.id === id)?.name ?? id).join('、') || '（无）'
-        return `${pages}\n\n已安装的市场组件：${addons}\n状态条：${status}\nDock：${workspace.dock ? `${workspace.dock.preset}${workspace.dock.css ? ' + 自定义 CSS' : ''}` : '默认（拟态液体玻璃）'}，用 get_dock / set_dock\n主题：${activeTheme(workspace).name}（${activeTheme(workspace).id}）｜明暗 ${workspace.theme.mode}｜主题库 ${workspace.themes.length} 个，用 list_themes 查看\n模板库：我的 ${workspace.templates.length} 个 + 内置预设，用 list_templates 查看`
+        return `${pages}\n\n已安装的市场组件：${addons}\n状态条：${status}\nDock：${workspace.dock ? `${workspace.dock.preset}${workspace.dock.css ? ' + 自定义 CSS' : ''}` : '默认（拟态液体玻璃）'}，用 get_dock / set_dock\n主题：${activeTheme(workspace).name}（${activeTheme(workspace).id}）｜明暗 ${workspace.theme.mode}｜主题库 ${workspace.themes.length} 个，用 list_themes 查看\n模板库：我的 ${workspace.templates.length} 个 + 内置预设，用 list_templates 查看\n完整外观（默认样式、背景、组件外观及差异）用 get_appearance 查看；恢复默认外观用 reset_appearance，不要用布局或模板操作替代。`
       },
+    },
+  ),
+
+  define(
+    {schema: {parse: obj}, json: {type: 'object', properties: {}}},
+    {
+      name: 'get_appearance',
+      title: '查看完整外观',
+      description: '读取系统默认外观、当前外观及差异：主题两套配色与字体、首页默认背景、Dock、每页壁纸与图层、页面 CSS 和组件外观。embeddedVisuals 列出独立特效组件和自编应用，它们的内容可能影响视觉，还原外观时会保留，需单独查看配置或源码。用户问默认长什么样、为什么还原后仍有背景或要恢复默认外观时先看这个；以返回的默认资料为准，不猜测。只读，不修改页面。',
+      effect: 'read',
+      highRisk: () => false,
+      execute: async () => JSON.stringify(getAppearance(getWorkspace()), null, 2),
     },
   ),
 
@@ -344,15 +362,16 @@ export const HOME_TOOLS = [
       schema: {
         parse: (raw) => {
           const value = obj(raw)
-          const overrides = value.overrides === null ? null : value.overrides && typeof value.overrides === 'object' ? (value.overrides as Record<string, string>) : undefined
-          return {mode: optStr(value.mode), overrides, fonts: value.fonts}
+          return {mode: optStr(value.mode), overrides: themeVars(value.overrides, 'overrides'), light: themeVars(value.light, 'light'), dark: themeVars(value.dark, 'dark'), fonts: value.fonts}
         },
       },
       json: {
         type: 'object',
         properties: {
-          mode: {type: 'string', enum: ['light', 'dark']},
-          overrides: {type: 'object', description: 'CSS 变量覆盖，键不带 `--`，例如 {"main":"#2b6cf6","radius":"8px","frame":"0px"}；传 null 清空（连同字体）'},
+          mode: {type: 'string', enum: ['light', 'dark'], description: '切换当前显示模式，不锁定主题的其他模式'},
+          overrides: {type: ['object', 'null'], description: '共享变量补丁，键不带 `--`，例如 {"main":"#2b6cf6","radius":"8px","frame":"0px"}。旧写法的 bg/text/border 等核心配色仅修改当前模式；推荐显式写 light/dark。传 null 清空全部自定义变量和字体'},
+          light: {type: ['object', 'null'], description: '仅浅色模式的变量补丁，与已有浅色变量合并；bg/bg2/bg3、text/text2/text3/text4、border/rule 等放这里。传 null 清空这一分支，未传保留'},
+          dark: {type: ['object', 'null'], description: '仅深色模式的变量补丁，与已有深色变量合并。传 null 清空这一分支，未传保留'},
           fonts: {type: 'array', description: '从 Google Fonts 引入的字体，一次传整个数组；传 [] 清掉', items: {type: 'object', properties: {family: {type: 'string'}, role: {type: 'string', enum: ['serif', 'sans', 'mono']}}, required: ['family']}},
         },
       },
@@ -361,7 +380,7 @@ export const HOME_TOOLS = [
       name: 'set_theme',
       title: '调整主题',
       description:
-        '微调当前主题：切换明暗、覆盖变量、引入字体，只写要改的。可改的变量（键不带 `--`）：main 主色；bg/bg2/bg3 背景层级；text/text2/text3/text4 文字层级；border、rule 线条；radius、radius-lg 圆角（默认 0，方角）；gutter 页面左右留白；frame 外框粗细（默认 7px，设 0px 就去掉外框，同时去掉外框占的边距）；frame-gap 外框占的边距（只想去掉红框但保留边距时，frame 设 0px 并把 frame-gap 设为 7px）；frame-color 外框颜色（默认跟随 main）；side-width 侧栏宽度。字体：用 fonts 从 Google Fonts 引入，例如 [{"family":"Playfair Display","role":"serif"},{"family":"Noto Sans SC","role":"sans"}]。role 决定它接管哪一类：serif=标题、大数字和正文（默认的衬线），sans=界面控件和小字，mono=数字、标签和顶栏的等宽字。不写 role 只加载不接管（再自己用 font-serif 等变量引用）。family 必须是 Google Fonts 上真实存在的名字，中文内容记得选支持中文的（Noto Serif SC、Noto Sans SC、ZCOOL XiaoWei、LXGW WenKai 等）。最多 4 个，一次传整个数组。当前是默认主题时会自动另存为「自定义 N」再改，默认主题不会被改坏。要整套新风格并起名保存，用 save_theme。',
+        '微调当前主题：mode 切当前明暗；overrides 放共享尺寸、外框或主色；light 和 dark 分别补丁合并两种模式配色，只写要改的。不要用一组固定 bg/text 代替两套适配；如只调深色，传 dark 即可，不影响浅色。修改后用 list_themes 核对两套分支，缺少的配色继承系统基础色。可改的变量（键不带 `--`）：main 主色；bg/bg2/bg3 背景层级；text/text2/text3/text4 文字层级；border、rule 线条；radius、radius-lg 圆角（默认 0，方角）；gutter 页面左右留白；frame 外框粗细（默认 7px，设 0px 就去掉外框，同时去掉外框占的边距）；frame-gap 外框占的边距（只想去掉红框但保留边距时，frame 设 0px 并把 frame-gap 设为 7px）；frame-color 外框颜色（默认跟随 main）；side-width 侧栏宽度。字体：用 fonts 从 Google Fonts 引入，例如 [{"family":"Playfair Display","role":"serif"},{"family":"Noto Sans SC","role":"sans"}]。role 决定它接管哪一类：serif=标题、大数字和正文（默认的衬线），sans=界面控件和小字，mono=数字、标签和顶栏的等宽字。不写 role 只加载不接管（再自己用 font-serif 等变量引用）。family 必须是 Google Fonts 上真实存在的名字，中文内容记得选支持中文的（Noto Serif SC、Noto Sans SC、ZCOOL XiaoWei、LXGW WenKai 等）。最多 4 个，一次传整个数组。当前是默认主题时会自动另存为「自定义 N」再改，默认主题不会被改坏。要整套新风格并起名保存，用 save_theme。',
       effect: 'write',
       highRisk: () => false,
       execute: (args) =>
@@ -380,13 +399,13 @@ export const HOME_TOOLS = [
     {
       name: 'list_themes',
       title: '查看主题库',
-      description: '列出所有存下来的主题（含默认主题）：id、名字、说明、变量、是否正在使用。用户想换主题、回到默认、或你要新做一个之前先看这个。',
+      description: '列出所有主题（含默认主题）：id、名字、说明、共享变量、light/dark 两套覆盖、初始模式与是否正在使用；缺分支会说明继承基础配色。创建前看现状，修改后核对双模式是否完整。',
       effect: 'read',
       highRisk: () => false,
       execute: async () => {
         const workspace = getWorkspace()
         return workspace.themes
-          .map((item) => `${item.id}｜${item.name}｜${item.id === workspace.theme.active ? '使用中' : '未使用'}${item.builtin ? '｜默认（不可改删）' : ''}${item.mode ? `｜自带${item.mode}` : ''}\n  ${item.description || '（无说明）'}\n  变量 ${JSON.stringify(item.overrides)}${item.fonts?.length ? `\n  字体 ${JSON.stringify(item.fonts)}` : ''}`)
+          .map((item) => `${item.id}｜${item.name}｜${item.id === workspace.theme.active ? `使用中（当前 ${workspace.theme.mode}）` : '未使用'}${item.builtin ? '｜默认（不可改删）' : ''}${item.mode ? `｜应用时初始偏好 ${item.mode}（仍可切换）` : ''}\n  ${item.description || '（无说明）'}\n  共享 overrides ${JSON.stringify(item.overrides)}\n  浅色 light ${item.light && Object.keys(item.light).length ? JSON.stringify(item.light) : '未单独覆盖，继承共享变量与系统浅色基础配色'}\n  深色 dark ${item.dark && Object.keys(item.dark).length ? JSON.stringify(item.dark) : '未单独覆盖，继承共享变量与系统深色基础配色'}${item.fonts?.length ? `\n  字体 ${JSON.stringify(item.fonts)}` : ''}`)
           .join('\n')
       },
     },
@@ -396,7 +415,7 @@ export const HOME_TOOLS = [
       schema: {
         parse: (raw) => {
           const value = obj(raw)
-          return {id: optStr(value.id), name: optStr(value.name), description: optStr(value.description), overrides: value.overrides, fonts: value.fonts, mode: optStr(value.mode), activate: value.activate === false ? false : undefined}
+          return {id: optStr(value.id), name: optStr(value.name), description: optStr(value.description), overrides: themeVars(value.overrides, 'overrides'), light: themeVars(value.light, 'light'), dark: themeVars(value.dark, 'dark'), fonts: value.fonts, mode: optStr(value.mode), activate: value.activate === false ? false : undefined}
         },
       },
       json: {
@@ -404,9 +423,11 @@ export const HOME_TOOLS = [
         properties: {
           name: {type: 'string', description: '主题名，20 字以内，例如「深海」「黄昏」'},
           description: {type: 'string', description: '一两句话说明这个主题的气质，之后在列表里看'},
-          overrides: {type: 'object', description: 'CSS 变量覆盖，键不带 `--`：main 主色、bg/bg2/bg3 背景层级、text/text2/text3 文字层级、radius 圆角、frame 外框粗细（0px 去掉外框）等'},
+          overrides: {type: ['object', 'null'], description: '共享变量，键不带 `--`，如 main 主色、radius 圆角、frame 外框粗细（0px 去掉外框）。传入时替换整组共享变量，null 或 {} 清空共享变量，未传保留；bg/text 等核心配色应放进 light/dark'},
+          light: {type: ['object', 'null'], description: '浅色模式的一整套覆盖。新建完整风格应与 dark 一起提供：bg/bg2/bg3、text/text2/text3/text4、border/rule 等。传入时替换整组浅色变量，null 或 {} 清空，未传保留'},
+          dark: {type: ['object', 'null'], description: '深色模式的一整套覆盖。新建完整风格应与 light 一起提供，保证深浅色切换可读。传入时替换整组深色变量，null 或 {} 清空，未传保留'},
           fonts: {type: 'array', description: '从 Google Fonts 引入的字体，例如 [{"family":"Playfair Display","role":"serif"}]；role 为 serif / sans / mono，决定接管哪类字体', items: {type: 'object', properties: {family: {type: 'string'}, role: {type: 'string', enum: ['serif', 'sans', 'mono']}}, required: ['family']}},
-          mode: {type: 'string', enum: ['light', 'dark'], description: '主题自带的明暗；启用时会一并切过去'},
+          mode: {type: 'string', enum: ['light', 'dark'], description: '应用主题时的初始明暗偏好；不锁定模式，用户仍可切换，刷新保留用户选择'},
           id: {type: 'string', description: '要更新的已有主题 id；不填则按名字匹配，匹配不到就新建'},
           activate: {type: 'boolean', description: '存完是否立刻启用，默认启用'},
         },
@@ -416,7 +437,7 @@ export const HOME_TOOLS = [
       name: 'save_theme',
       title: '保存主题',
       description:
-        '把一套配色存进主题库并（默认）启用。用户让你「做一个xx风格的主题」时用这个：起一个好记的名字、写一句说明、给出完整的变量；风格需要时一并配上字体（fonts）和外框（frame）。可改的变量（键不带 `--`）：main 主色；bg/bg2/bg3 背景层级；text/text2/text3/text4 文字层级；border、rule 线条；radius、radius-lg 圆角（默认 0，方角）；gutter 页面左右留白；frame 外框粗细（默认 7px，设 0px 就去掉外框，同时去掉外框占的边距）；frame-gap 外框占的边距（只想去掉红框但保留边距时，frame 设 0px 并把 frame-gap 设为 7px）；frame-color 外框颜色（默认跟随 main）；side-width 侧栏宽度。字体：用 fonts 从 Google Fonts 引入，例如 [{"family":"Playfair Display","role":"serif"},{"family":"Noto Sans SC","role":"sans"}]。role 决定它接管哪一类：serif=标题、大数字和正文（默认的衬线），sans=界面控件和小字，mono=数字、标签和顶栏的等宽字。不写 role 只加载不接管（再自己用 font-serif 等变量引用）。family 必须是 Google Fonts 上真实存在的名字，中文内容记得选支持中文的（Noto Serif SC、Noto Sans SC、ZCOOL XiaoWei、LXGW WenKai 等）。最多 4 个，一次传整个数组。同名或同 id 的会被更新；默认主题不能改。深色类主题记得带 mode:"dark" 并把 bg/text 一起配好。',
+        '把主题存进主题库并（默认）启用。用户让你「做一个xx风格的主题」时：先 list_themes，再起名字、写说明，并分别给 light 和 dark 两套配色；共享主色、尺寸、外框放 overrides，字体放 fonts。mode 只表示应用时的初始偏好，不能替代另一套配色。例：overrides:{main:"#397c95",radius:"8px"},light:{bg:"#f4fafb",text:"#172f38"},dark:{bg:"#10232b",text:"#e5f3f7"}。完整风格应配齐两边背景、文字层级和边线并检查可读性，不把固定 bg/text 写进一组共享覆盖。仅添加字体或外框可以不传配色；更新时允许只替换一套分支，其他分支保持。存完用 list_themes 核对两套覆盖和当前模式。可改的变量（键不带 `--`）：main 主色；bg/bg2/bg3 背景层级；text/text2/text3/text4 文字层级；border、rule 线条；radius、radius-lg 圆角（默认 0，方角）；gutter 页面左右留白；frame 外框粗细（默认 7px，0px 去掉外框与边距）；frame-gap 外框占的边距；frame-color 外框颜色（默认跟随 main）；side-width 侧栏宽度。字体用 fonts，例如 [{"family":"Playfair Display","role":"serif"},{"family":"Noto Sans SC","role":"sans"}]，role 为 serif（标题、大数字和正文）、sans（界面控件和小字）、mono（数字标签和顶栏）；不写 role 只加载。family 必须是 Google Fonts 上真实存在的名字，中文优先选支持中文的字体，最多 4 个，一次传整个数组。同名或同 id 的会被更新；默认主题不能改。',
       effect: 'write',
       highRisk: () => false,
       execute: (args) =>
@@ -435,7 +456,7 @@ export const HOME_TOOLS = [
     {
       name: 'apply_theme',
       title: '切换主题',
-      description: '切换到主题库里的某个主题。「换回默认」「还原」就是 ref:"default"。',
+      description: '只切换主题库里的配色与字体，不清页面背景、壁纸、CSS、组件外观或 Dock。用户只要「切纸张配色」可传 ref:"default"；用户说「还原默认主题／默认外观」时先 get_appearance，再用 reset_appearance scope:"all" 完整恢复外观。',
       effect: 'write',
       highRisk: () => false,
       execute: (args) =>
@@ -443,6 +464,37 @@ export const HOME_TOOLS = [
           const result = ops.applyTheme(getWorkspace(), args.ref)
           commit(result.workspace)
           return `已切换到主题「${result.theme.name}」。`
+        }),
+    },
+  ),
+  define(
+    {
+      schema: {
+        parse: (raw) => {
+          const value = obj(raw)
+          if (value.scope !== undefined && value.scope !== 'all' && value.scope !== 'home') throw new WorkspaceError('scope 只能是 all 或 home')
+          if (value.mode !== undefined && value.mode !== 'light' && value.mode !== 'dark') throw new WorkspaceError('mode 只能是 light 或 dark')
+          return {scope: (value.scope ?? 'all') as 'all' | 'home', mode: value.mode as 'light' | 'dark' | undefined}
+        },
+      },
+      json: {
+        type: 'object',
+        properties: {
+          scope: {type: 'string', enum: ['all', 'home'], description: '默认 all：恢复默认主题、字体、外框、Dock，并清理所有页面的装饰与组件外观；home：只恢复首页背景与首页外观，不切全局主题或 Dock'},
+          mode: {type: 'string', enum: ['light', 'dark'], description: '仅全局还原时可指定明暗；不传则保留当前明暗。仅还原首页时不改变明暗'},
+        },
+      },
+    },
+    {
+      name: 'reset_appearance',
+      title: '恢复默认外观',
+      description: '用户说「还原默认主题」「恢复默认外观」用 scope:"all"：恢复默认纸张主题、字体、7px 外框与玻璃 Dock，清除所有页壁纸、特效图层、页面 CSS 和组件外观覆盖，首页恢复系统默认波浪背景。scope:"home" 仅还原首页装饰和组件外观，不改全局主题、字体、Dock 或明暗。保留页面和组件内容、顺序、宽度、配置、对齐以及业务数据，主题库和模板库也保留；独立特效组件和自编应用作为内容保留，其视觉需另查配置或源码。不要用恢复布局、套用模板或删除组件代替。操作一次提交可撤销；完成后用 get_appearance 核对差异。',
+      effect: 'write',
+      highRisk: () => false,
+      execute: (args) =>
+        guard(() => {
+          commit(resetAppearance(getWorkspace(), args))
+          return args.scope === 'home' ? '已恢复首页默认外观，页面内容与全局主题保持。可撤销，用 get_appearance 查看结果。' : '已恢复默认外观，页面内容、布局与业务数据保持。可撤销，用 get_appearance 查看结果。'
         }),
     },
   ),
