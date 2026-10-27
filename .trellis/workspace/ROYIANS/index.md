@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 5
+- **Total Sessions**: 6
 - **Last Active**: 2026-10-27
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~184 | Active |
+| `journal-1.md` | ~223 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 6 | 2026-10-27 | 首页组合与草稿预览应用 | `8aaa9bb` | `main` |
 | 5 | 2026-10-27 | 响应式页面分区与 AI 编排工具 | `921584e` | `main` |
 | 4 | 2026-10-27 | AI只读页面检查器与真实修复复查 | `fc5c04f` | `main` |
 | 3 | 2026-10-27 | 特效双主题配色与失败恢复完成 | `41ce919`, `19b0c78` | `main` |
