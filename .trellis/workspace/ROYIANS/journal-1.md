@@ -107,3 +107,41 @@
 ### Next Steps
 
 - 推进page-inspector，让应用内AI获得真实页面检查反馈；父任务仍进行中。
+
+
+## Session 4: AI只读页面检查器与真实修复复查
+<!-- trellis-session: v=2 fp=8422badf1e96d3f2 -->
+
+**Date**: 2026-10-27
+**Task**: AI只读页面检查器与真实修复复查
+**Branch**: `main`
+
+### Summary
+
+完成inspect_page、真实挂载页面与只读DOM采样，验证溢出修复、隐私未知边界和实际AI分栏调用，完成双轴审查并归档。
+
+### Main Changes
+
+- 新增页面检查报告、有限几何采样与可定位稳定问题标识，不读正文或私密值、不导航、不写历史。
+- 接通App已提交页面refs、ToolHost、dispatch和模型结果回灌，更新运行时AI技能与设计规范。
+- 修复嵌套滚动对裁切的漏报/误报，保留成对真实DOM回归并写回质量规范。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `fc5c04f` | feat: 为 AI 提供只读页面检查与修复复查能力 |
+
+### Testing
+
+- [OK] 本机pnpm test与build全量通过，tsc通过，无独立lint脚本。
+- [OK] Chromium 320/375/768/1280px双主题8组通过，真实App 1440px分栏报告793px实际容器，workspace未变化。
+- [OK] Standards无发现；Spec P2修复后独立Chromium定向复查通过；diff检查、上下文与本地链接通过。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 推进10-27-page-sections，保持旧扁平页面、组件ID及应用身份兼容；父任务保持进行中。
