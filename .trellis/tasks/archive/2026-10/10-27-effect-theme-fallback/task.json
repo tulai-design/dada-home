@@ -3,7 +3,7 @@
   "name": "effect-theme-fallback",
   "title": "特效双主题配色与静态内容降级",
   "description": "切换主题与特效加载失败时，背景可读、标题和正文不丢失。",
-  "status": "review",
+  "status": "completed",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -11,11 +11,11 @@
   "creator": "ROYIANS",
   "assignee": "ROYIANS",
   "createdAt": "2026-10-27",
-  "completedAt": null,
+  "completedAt": "2026-10-27",
   "branch": "main",
   "base_branch": "main",
   "worktree_path": null,
-  "commit": null,
+  "commit": "19b0c78",
   "pr_url": null,
   "subtasks": [],
   "children": [],
@@ -33,7 +33,7 @@
     "scripts/test-effect-theme.mjs",
     "tests/effect-theme-regressions.tsx"
   ],
-  "notes": "实现、全套检查、31项可重复浏览器回归与双轴复核已通过。",
+  "notes": "功能已提交19b0c78，全部验收和双轴复核通过。",
   "meta": {
     "blocked_by": [
       "10-27-effect-policy"

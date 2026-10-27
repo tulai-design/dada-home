@@ -37,4 +37,4 @@
 
 ## 2026-10-27 第二批进度
 
-工作流与设计指引已提交为 f8e5504。effect-policy已提交41ce919并归档。effect-theme-fallback已实现并通过验收：语义/双模式配色、失败上报与重试，详见子任务verification.md；本轮结束提交归档。下一项为page-inspector；父任务保持进行中。
+工作流与设计指引已提交为 f8e5504。effect-policy已提交41ce919并归档。effect-theme-fallback已实现并通过验收：语义/双模式配色、失败上报与重试，详见子任务verification.md；已提交19b0c78并归档。下一项为page-inspector；父任务保持进行中。

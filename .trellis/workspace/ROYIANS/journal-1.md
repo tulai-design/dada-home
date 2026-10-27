@@ -72,3 +72,38 @@
 ### Next Steps
 
 - 提交effect-policy并归档；接续effect-theme-fallback的双主题语义配色与失败恢复。
+
+
+## Session 3: 特效双主题配色与失败恢复完成
+<!-- trellis-session: v=2 fp=0fd94efcb9423045 -->
+
+**Date**: 2026-10-27
+**Task**: 特效双主题配色与失败恢复完成
+**Branch**: `main`
+
+### Summary
+
+提交上一轮特效策略，完成语义/双模式配色与失败恢复，归档两项任务。用户约定每轮结束验收后本地提交，已写入AGENTS。
+
+### Main Changes
+
+- palette/light/dark颜色合同贯通目录、写入、模板、文字/卡片/背景与静态正文；11个WebGL上报失败，组件/图层可重试并保留业务状态。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `41ce919` | feat: 统一页面特效预算与运行降级策略 |
+| `19b0c78` | feat: 支持特效双主题配色与失败恢复 |
+
+### Testing
+
+- [OK] 完整test/type/build通过；新配色8/8、策略18/18、可重复浏览器31/31，另44条会话断言；Standards与Spec审查均复核通过。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 推进page-inspector，让应用内AI获得真实页面检查反馈；父任务仍进行中。
