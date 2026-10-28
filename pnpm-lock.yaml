@@ -32,6 +32,9 @@ importers:
       '@tulai-design/agent-providers':
         specifier: ^0.2.0
         version: 0.2.0
+      '@tulai-design/sync-sdk':
+        specifier: file:vendor/tulai-design-sync-sdk-0.1.0.tgz
+        version: file:vendor/tulai-design-sync-sdk-0.1.0.tgz
       chinese-days:
         specifier: ^1.5.9
         version: 1.5.9
@@ -955,6 +958,10 @@ packages:
     cpu: [x64]
     os: [linux]
 
+  '@noble/hashes@2.4.0':
+    resolution: {integrity: sha512-X5XaVWZIBCT7HHZGm5I7ZQXDwLG+bGXuSrMQAW+7Zvl87h1kmc1ZB1VSRJcpUfoUrGQp4Fkoxm5kZ+Ms+aW+eA==}
+    engines: {node: '>= 20.19.0'}
+
   '@phosphor-icons/react@2.1.10':
     resolution: {integrity: sha512-vt8Tvq8GLjheAZZYa+YG/pW7HDbov8El/MANW8pOAz4eGxrwhnbfrQZq0Cp4q8zBEu8NIhHdnr+r8thnfRSNYA==}
     engines: {node: '>=10'}
@@ -1516,6 +1523,11 @@ packages:
   '@tulai-design/agent-providers@0.2.0':
     resolution: {integrity: sha512-qg72v5xp9liuGIWabIsAexdELbNC3ZShnhT8niVm2EZlD6CZf487SHr9FrcKthp5clYuiAk5BhGtMhKz9P/b6g==}
     engines: {node: '>=20'}
+
+  '@tulai-design/sync-sdk@file:vendor/tulai-design-sync-sdk-0.1.0.tgz':
+    resolution: {integrity: sha512-YFsy6uRzYolMfFaUrMzNS/mU1GerpVv0SwKb1b8Aifvo2ofrjVSXw6V+4K4bE5+liHihE4p6eL/w0b8r0y3LmQ==, tarball: file:vendor/tulai-design-sync-sdk-0.1.0.tgz}
+    version: 0.1.0
+    engines: {node: '>=24.11.0 <25'}
 
   '@types/babel__core@7.20.5':
     resolution: {integrity: sha512-qoQprZvz5wQFJwMDqeseRXWv3rqMvhgpbXFfVyWhbx9X47POIA6i/+dXefEmZKoAgOaTdaIgNSMqMIU61yRyzA==}
@@ -4535,6 +4547,8 @@ snapshots:
   '@napi-rs/lzma-linux-x64-gnu@1.5.1':
     optional: true
 
+  '@noble/hashes@2.4.0': {}
+
   '@phosphor-icons/react@2.1.10(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
     dependencies:
       react: 19.3.1
@@ -5000,6 +5014,10 @@ snapshots:
   '@tulai-design/agent-providers@0.2.0':
     dependencies:
       '@tulai-design/agent-core': 0.2.0
+
+  '@tulai-design/sync-sdk@file:vendor/tulai-design-sync-sdk-0.1.0.tgz':
+    dependencies:
+      '@noble/hashes': 2.4.0
 
   '@types/babel__core@7.20.5':
     dependencies:

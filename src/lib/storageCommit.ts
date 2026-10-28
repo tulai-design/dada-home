@@ -3,11 +3,13 @@ import {flush as flushChat} from './chat'
 import {flush as flushData} from './componentData'
 import {db, openDb, type DbOperation, type DbSnapshot} from './db'
 import {assertPersistenceHealthy, clearPersistenceError, reportPersistenceError, retryPersistence, withPersistenceExclusive} from './persistence'
+import {applicationSyncStore} from './applicationSyncStore'
 
 const RECOVERY_KEY = 'backup-restore'
-type DataSnapshot = DbSnapshot
+type DataSnapshot = Partial<DbSnapshot>
 type LocalSnapshot = Record<string, string>
-type RestorePoint = {k: typeof RECOVERY_KEY; version: 3; before: {local: LocalSnapshot; data: DataSnapshot | null}}
+type RestorePoint = {k: typeof RECOVERY_KEY; version: 4; before: {local: LocalSnapshot; data: DataSnapshot | null}}
+const DATA_STORES = ['kv', 'apps', 'convs', 'turns', 'toolDetails'] as const
 const object = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value)
 const id = (value: unknown): value is string => typeof value === 'string' && value.length > 0
 const own = (value: object, key: string) => Object.prototype.hasOwnProperty.call(value, key)
@@ -36,14 +38,10 @@ function replaceLocal(local: LocalSnapshot): void {
 }
 
 export function replaceOperations(data: DataSnapshot): DbOperation[] {
-  return [
-    {store: 'kv', type: 'clear'}, {store: 'apps', type: 'clear'}, {store: 'convs', type: 'clear'}, {store: 'turns', type: 'clear'}, {store: 'toolDetails', type: 'clear'},
-    ...data.apps.map(value => ({store: 'apps' as const, type: 'put' as const, value})),
-    ...data.kv.map(value => ({store: 'kv' as const, type: 'put' as const, value})),
-    ...data.convs.map(value => ({store: 'convs' as const, type: 'put' as const, value})),
-    ...data.toolDetails.map(value => ({store: 'toolDetails' as const, type: 'put' as const, value})),
-    ...data.turns.map(value => ({store: 'turns' as const, type: 'put' as const, value})),
-  ]
+  return DATA_STORES.flatMap(store => data[store] === undefined ? [] : [
+    {store, type: 'clear'} as DbOperation,
+    ...data[store]!.map(value => ({store, type: 'put' as const, value})),
+  ])
 }
 
 export async function saveBarrier(): Promise<void> {
@@ -53,7 +51,7 @@ export async function saveBarrier(): Promise<void> {
 }
 
 function checkRestorePoint(raw: unknown): RestorePoint {
-  if (!object(raw) || raw.k !== RECOVERY_KEY || raw.version !== 3 || !object(raw.before) || !object(raw.before.local) || (raw.before.data !== null && !object(raw.before.data))) invalid('恢复日志损坏，已停止启动，请保留本机数据。')
+  if (!object(raw) || raw.k !== RECOVERY_KEY || raw.version !== 4 || !object(raw.before) || !object(raw.before.local) || (raw.before.data !== null && !object(raw.before.data))) invalid('恢复日志损坏，已停止启动，请保留本机数据。')
   const before = raw.before
   const data = before.data as Record<string, unknown>
   // 日志保留的是替换前原样数据，可能含坏配置或旧孤立轮次。
@@ -63,7 +61,9 @@ function checkRestorePoint(raw: unknown): RestorePoint {
     if (!key.startsWith('fp.') || typeof value !== 'string') invalid('恢复日志中的配置无效，已停止启动。')
     local[key] = value
   }
-  if (before.data !== null) for (const store of ['kv', 'apps', 'convs', 'turns', 'toolDetails'] as const) {
+  if (before.data !== null && Object.keys(data).some(store => !DATA_STORES.some(known => known === store))) invalid('恢复日志中的数据表无效，已停止启动。')
+  if (before.data !== null) for (const store of DATA_STORES) {
+    if (!own(data, store)) continue
     const rows = data[store]
     if (!Array.isArray(rows)) invalid('恢复日志中的数据表无效，已停止启动。')
     const seen = new Set<string>()
@@ -73,7 +73,7 @@ function checkRestorePoint(raw: unknown): RestorePoint {
       seen.add(row[key])
     }
   }
-  return {k: RECOVERY_KEY, version: 3, before: {local, data: before.data === null ? null : data as DataSnapshot}}
+  return {k: RECOVERY_KEY, version: 4, before: {local, data: before.data === null ? null : data as DataSnapshot}}
 }
 
 async function withRestoreLock<T>(work: () => Promise<T>): Promise<T> {
@@ -83,7 +83,7 @@ async function withRestoreLock<T>(work: () => Promise<T>): Promise<T> {
 
 async function rollback(point: RestorePoint): Promise<void> {
   // 日志最后删除。任一阶段失败，下一次启动仍可重试同一份旧快照。
-  if (point.before.data !== null) await db.batch(replaceOperations(point.before.data))
+  if (point.before.data !== null) await applicationSyncStore.commitExternal(replaceOperations(point.before.data))
   replaceLocal(point.before.local)
   await db.del('recovery', RECOVERY_KEY)
   clearPersistenceError('backup-restore')
@@ -110,11 +110,18 @@ export async function recoverStorage(): Promise<void> {
 /** 同步与备份共用提交边界；validate 在排空保存队列后的写入门禁内执行。 */
 export async function commitStorage(update: {local: Record<string, string | null>; operations: DbOperation[]; replace?: boolean; validate?: () => void | Promise<void>; onCommitted?: () => void}): Promise<void> {
   await withRestoreLock(() => withPersistenceExclusive(async () => {
+    if (update.operations.some(operation => operation.store === 'apps') && await applicationSyncStore.active()) throw new Error('应用增量同步仍已绑定，请先显式解绑，再恢复备份或应用整包快照。')
     await saveBarrier()
     await update.validate?.()
     if (await db.get('recovery', RECOVERY_KEY) !== undefined) throw new Error('还有未完成的数据恢复，请刷新页面先完成恢复。')
-    const point: RestorePoint = {k: RECOVERY_KEY, version: 3, before: {local: readLocal(), data: update.operations.length ? await db.snapshot() : null}}
-    await db.batch([{store: 'recovery', type: 'put', value: point}, ...update.operations])
+    const affected = new Set(update.operations.map(operation => operation.store))
+    if ([...affected].some(store => !DATA_STORES.some(known => known === store))) throw new Error('恢复提交不能修改本机同步或恢复元数据。')
+    const snapshot = affected.size ? await db.snapshot() : null
+    // 日志仅保存实际触及的业务仓。非apps提交失败不能回退期间未修改的apps，
+    // 也不能因活动增量绑定而让配置/普通组件的回滚永久卡住。
+    const data = snapshot === null ? null : Object.fromEntries(Object.entries(snapshot).filter(([store]) => affected.has(store as keyof DbSnapshot))) as DataSnapshot
+    const point: RestorePoint = {k: RECOVERY_KEY, version: 4, before: {local: readLocal(), data}}
+    await applicationSyncStore.commitExternal([{store: 'recovery', type: 'put', value: point}, ...update.operations])
     try {
       if (update.replace) replaceLocal(update.local as LocalSnapshot)
       else for (const [key, value] of Object.entries(update.local)) {

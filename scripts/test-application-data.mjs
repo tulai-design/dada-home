@@ -6,6 +6,7 @@ import ts from 'typescript'
 // 加载真实仓库/校验/错误状态模块，仅替换 IndexedDB 边界，不接触浏览器用户数据。
 function runtime(db, indexedDB, onStoreChange) {
   const modules = new Map()
+  const generations = db ? (db.applicationGenerations ??= new Map()) : undefined
   function load(path) {
     if (modules.has(path)) return modules.get(path)
     const module = {exports: {}}
@@ -19,10 +20,25 @@ function runtime(db, indexedDB, onStoreChange) {
         return get()
       }}
       if (id === './db' && db) return {db}
+      if (id === './applicationSyncStore' && db) return {applicationSyncStore: {
+        async loadLocal(key) {
+          const row = await db.get('apps', key)
+          const record = row === undefined ? undefined : load('src/lib/applicationDataSchema.ts').validateApplicationDataRecord(row)
+          if (record && record.k !== key) throw new Error('应用存储记录身份不匹配。')
+          return {value: record?.v ?? null, generation: generations.get(key) ?? 0}
+        },
+        async saveLocal(key, value, expected) {
+          if ((generations.get(key) ?? 0) !== expected) throw new Error('应用数据已在其他页面更新，请重新加载后继续；新数据未被覆盖。')
+          if (value === null) await db.del('apps', key)
+          else await db.put('apps', {k: key, v: value})
+          generations.set(key, expected + 1)
+          return expected + 1
+        },
+      }}
       if (id.startsWith('.')) return load(new URL(id + '.ts', 'file:///' + path).pathname.slice(1))
       throw new Error('测试缺少依赖：' + id)
     }
-    vm.runInNewContext(code, {module, exports: module.exports, require, TextEncoder, indexedDB, Error, queueMicrotask}, {filename: path})
+    vm.runInNewContext(code, {module, exports: module.exports, require, TextEncoder, indexedDB, Error, queueMicrotask, structuredClone}, {filename: path})
     return module.exports
   }
   return {
@@ -52,6 +68,13 @@ function backend() {
       if (gate) await gate
       if (this.writeError) throw this.writeError
       rows.set(row.k, structuredClone(row))
+    },
+    async del(store, key) {
+      assert.equal(store, 'apps')
+      const gate = this.writeGate; this.writeGate = null
+      if (gate) await gate
+      if (this.writeError) throw this.writeError
+      rows.delete(key)
     },
   }
 }
@@ -241,6 +264,30 @@ await test('重复相同保存、成功后立即保存和 flush 结束均无悬�
   await app.data.replaceApplicationData(ref(), {count: 2}).then(() => app.data.replaceApplicationData(ref(), {count: 3}))
   await app.data.flushApplicationData()
   assert.equal(db.rows.get('app:same').v.count, 3)
+})
+
+await test('显式删除等待持久确认，后续写入不会被较早删除清掉，空对象仍是记录', async () => {
+  const db = backend(), app = runtime(db)
+  await app.data.replaceApplicationData(ref(), {keep: 1})
+  const gate = deferred(); db.writeGate = gate.promise
+  const deleting = app.data.deleteApplicationData(ref())
+  await tick()
+  const later = app.data.replaceApplicationData(ref(), {newer: 2})
+  gate.resolve(); await Promise.all([deleting, later])
+  assert.deepEqual(clean(db.rows.get('app:same').v), {newer: 2})
+  await app.data.deleteApplicationData(ref())
+  assert.equal(db.rows.has('app:same'), false)
+  await app.data.replaceApplicationData(ref(), {})
+  assert.equal(db.rows.has('app:same'), true)
+})
+
+await test('另一个运行环境已提交新generation时旧缓存写入被拒绝', async () => {
+  const db = backend(), a = runtime(db), b = runtime(db)
+  await Promise.all([a.data.loadApplicationData(ref()), b.data.loadApplicationData(ref())])
+  await a.data.replaceApplicationData(ref(), {newer: 1})
+  await assert.rejects(b.data.replaceApplicationData(ref(), {stale: 2}), /其他页面更新/)
+  assert.deepEqual(clean(db.rows.get('app:same').v), {newer: 1})
+  await assert.rejects(b.data.flushApplicationData(), /其他页面更新/)
 })
 
 await test('真实 DB 模块无 IndexedDB 时明确失败，不回落或报告已保存', async () => {

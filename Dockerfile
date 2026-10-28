@@ -1,11 +1,12 @@
 # syntax=docker/dockerfile:1
 
 # ---- 构建 ----
-FROM node:22-alpine AS build
+FROM node:24.11.0-alpine AS build
 WORKDIR /app
 # pack:ext 要用 zip 打包浏览器扩展
 RUN apk add --no-cache zip && corepack enable
 COPY package.json pnpm-lock.yaml ./
+COPY vendor/ ./vendor/
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile
 COPY . .
 RUN pnpm build

@@ -3,7 +3,7 @@
   "name": "incremental-sync",
   "title": "可选自建增量同步服务",
   "description": "交付单人多设备的可选同步服务与客户端，支持变更游标、幂等写入、冲突保留和离线重试。",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -18,10 +18,12 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [],
+  "children": [
+    "10-28-application-incremental-sync"
+  ],
   "parent": "10-28-storage-sync",
   "relatedFiles": [],
-  "notes": "",
+  "notes": "独立服务/SDK与应用业务数据程序接入已交付，配置/聊天/设置/部署仍待后续。",
   "meta": {
     "planning_depth": "behavior-specified",
     "blocked_by": [

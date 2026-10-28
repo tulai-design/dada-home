@@ -371,7 +371,7 @@ try {
       await page.evaluate(async ({original, target}) => {
         localStorage.setItem('fp.profile', target['fp.profile'])
         localStorage.setItem('fp.partial', '"崩溃后的半成品"')
-        await window.storageQA.database.db.batch([{store: 'recovery', type: 'put', value: {k: 'backup-restore', version: 3, before: original}}, {store: 'kv', type: 'put', value: target.indexedDB.kv[0]}])
+        await window.storageQA.database.db.batch([{store: 'recovery', type: 'put', value: {k: 'backup-restore', version: 4, before: original}}, {store: 'kv', type: 'put', value: target.indexedDB.kv[0]}])
       }, {original, target})
       await page.reload(); await page.waitForFunction(() => window.storageQA)
       await page.evaluate(() => window.storageQA.storage.initStorage())
@@ -477,7 +477,7 @@ try {
     try {
       await page.evaluate(async ({original, target}) => {
         localStorage.setItem('fp.profile', target['fp.profile'])
-        await window.storageQA.database.db.batch([{store: 'recovery', type: 'put', value: {k: 'backup-restore', version: 3, before: original}}, {store: 'kv', type: 'put', value: target.indexedDB.kv[0]}])
+        await window.storageQA.database.db.batch([{store: 'recovery', type: 'put', value: {k: 'backup-restore', version: 4, before: original}}, {store: 'kv', type: 'put', value: target.indexedDB.kv[0]}])
       }, {original, target})
       await page.addInitScript(() => {
         window.__qaNativeSet = Storage.prototype.setItem

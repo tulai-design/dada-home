@@ -17,9 +17,9 @@ const conv = {id:'c1',title:'合成会话',createdAt:1,updatedAt:2}
 const turn = {id:'t1',convId:'c1',prompt:'问题',answer:'回答',reasoning:'思考',tools:[{name:'inspect',title:'读取',ok:true,text:'完整工具正文中文🙂'.repeat(30000)}],error:'',startedAt:1,endedAt:2}
 const stored = chatSchemaModule.exports.splitTurn(turn)
 const makeBackup = (extra={}) => ({app:'dada-backup',version:3,'fp.settings':'{"name":"备份"}',indexedDB:{kv:[{k:'note',v:'备份便签'}],apps:[{k:'app:tool',v:{text:'备份应用'}}],chat:{convs:[conv],turns:[stored.turn],toolDetails:stored.details}},...extra})
-function harness() {
-  const ls = new Map([['fp.settings','{"name":"原配置"}'],['unrelated','keep']])
-  const tables = {apps:new Map([['app:tool',{k:'app:tool',v:{text:'原应用'}}]]),kv:new Map([['note',{k:'note',v:'原便签'}]]),convs:new Map(),turns:new Map(),toolDetails:new Map(),recovery:new Map()}
+function harness({activeBinding=false,existing}={}) {
+  const ls = existing?.ls ?? new Map([['fp.settings','{"name":"原配置"}'],['unrelated','keep']])
+  const tables = existing?.tables ?? {apps:new Map([['app:tool',{k:'app:tool',v:{text:'原应用'}}]]),kv:new Map([['note',{k:'note',v:'原便签'}]]),convs:new Map(),turns:new Map(),toolDetails:new Map(),recovery:new Map()}
   const log=[];const failures={batch:false,set:false,rollback:false};let reloads=0;let exclusive=false;let flushData=async()=>{};let flushChat=async()=>{};let flushApps=async()=>{};let retry=async()=>{}
   const navigator={locks:{request:async(_name,_options,work)=>work()}}
   const storage = {
@@ -44,6 +44,7 @@ function harness() {
   const module={exports:{}}
   const errors=new Map()
   const mocks={
+    './applicationSyncStore':{applicationSyncStore:{active:async()=>activeBinding ? {epoch:'active'} : undefined,async commitExternal(operations){if(activeBinding && operations.some(operation=>operation.store==='apps'))throw new Error('先显式解绑');await db.batch(operations)}}},
     './db':{db,openDb:async()=>({})},
     './chat':{initChat:async()=>log.push('initChat'),flush:async()=>{log.push('flushChat');await flushChat()},clearChat:async()=>{},exportChat:async()=>({convs:[...tables.convs.values()],turns:[...tables.turns.values()]})},
     './componentData':{initComponentData:async()=>log.push('initData'),flush:async()=>{log.push('flushData');await flushData()},dropPendingData(){}},
@@ -228,7 +229,7 @@ await test('救援导出保留坏旧配置，恢复日志也能原样回退坏�
   const dump=await h.api.exportBackupSnapshot()
   assert.equal(dump['fp.data.old'],'{broken')
   assert.throws(()=>h.api.parseBackup(JSON.stringify(dump)),/旧业务存储/)
-  h.tables.recovery.set('backup-restore',{k:'backup-restore',version:3,before:{local:{'fp.data.old':'{broken'},data:{kv:[{k:'old',v:7}],apps:[{k:'app:raw',v:{text:'中'.repeat(3*1024*1024)}}],convs:[],turns:[{id:'orphan',convId:'removed'}],toolDetails:[{id:'raw-broken-body',text:'原坏正文'}]}}})
+  h.tables.recovery.set('backup-restore',{k:'backup-restore',version:4,before:{local:{'fp.data.old':'{broken'},data:{kv:[{k:'old',v:7}],apps:[{k:'app:raw',v:{text:'中'.repeat(3*1024*1024)}}],convs:[],turns:[{id:'orphan',convId:'removed'}],toolDetails:[{id:'raw-broken-body',text:'原坏正文'}]}}})
   await h.api.initStorage()
   assert.equal(h.tables.apps.get('app:raw').v.text.length,3*1024*1024);assert.equal(h.ls.get('fp.data.old'),'{broken');assert.equal(h.tables.turns.get('orphan').convId,'removed')
   assert.equal(h.tables.recovery.size,0)
@@ -250,9 +251,28 @@ await test('仅配置提交的quota回退不读取或清空业务表',async()=>{
 await test('仅配置中断日志重新启动只恢复配置，保留期间的业务表',async()=>{
   const h=harness();h.ls.set('fp.settings','{"name":"中断"}')
   h.tables.kv.set('new',{k:'new',v:'业务继续保留'})
-  h.tables.recovery.set('backup-restore',{k:'backup-restore',version:3,before:{local:{'fp.settings':'{"name":"原配置"}'},data:null}})
+  h.tables.recovery.set('backup-restore',{k:'backup-restore',version:4,before:{local:{'fp.settings':'{"name":"原配置"}'},data:null}})
   await h.api.recoverStorage()
   assert.equal(h.ls.get('fp.settings'),'{"name":"原配置"}');assert.equal(h.tables.kv.get('new').v,'业务继续保留')
   assert.equal(h.tables.recovery.size,0);assert.equal(h.log.includes('batch'),false)
+})
+await test('应用增量绑定不阻挡普通组件提交的quota回滚，应用数据不被触碰',async()=>{
+  const h=harness({activeBinding:true});h.failures.set=true
+  await assert.rejects(h.commit.commitStorage({local:{'fp.settings':'{"name":"远端"}'},operations:[{store:'kv',type:'put',value:{k:'note',v:'远端便签'}}]}),/quota/)
+  assert.equal(h.tables.kv.get('note').v,'原便签');assert.equal(h.tables.apps.get('app:tool').v.text,'原应用')
+  assert.equal(h.tables.recovery.size,0);assert.equal(h.errors.has('backup-restore'),false)
+  await assert.rejects(h.api.importBackup(makeBackup()),/先显式解绑/)
+})
+await test('活动绑定期间普通组件回退再失败，重启按精确日志恢复且保留应用的新编辑',async()=>{
+  const h=harness({activeBinding:true});h.failures.set=true;h.failures.rollback=true
+  await assert.rejects(h.commit.commitStorage({local:{'fp.settings':'{"name":"远端"}'},operations:[{store:'kv',type:'put',value:{k:'note',v:'远端便签'}}]}),/恢复日志已保留/)
+  const point=h.tables.recovery.get('backup-restore')
+  assert.equal(point.version,4);assert.deepEqual(Object.keys(point.before.data),['kv']);assert.equal(h.errors.has('backup-restore'),true)
+  h.tables.apps.set('app:tool',{k:'app:tool',v:{text:'另一标签保存的新应用'}})
+  const restarted=harness({activeBinding:true,existing:h})
+  await restarted.api.initStorage()
+  assert.equal(restarted.tables.kv.get('note').v,'原便签');assert.equal(restarted.tables.apps.get('app:tool').v.text,'另一标签保存的新应用')
+  assert.equal(restarted.tables.recovery.size,0);assert.equal(restarted.errors.has('backup-restore'),false)
+  assert.equal(restarted.ls.get('fp.settings'),'{"name":"原配置"}')
 })
 console.log(`备份公开行为 ${passed} 项通过`)

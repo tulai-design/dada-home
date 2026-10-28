@@ -1,14 +1,15 @@
-import {db} from './db'
-import {applicationDataKey, validateApplicationData, validateApplicationDataRecord, type ApplicationData, type ApplicationDataRef} from './applicationDataSchema'
+import {applicationDataKey, validateApplicationData, type ApplicationData, type ApplicationDataRef} from './applicationDataSchema'
+import {applicationSyncStore} from './applicationSyncStore'
 import {assertPersistenceWritable, clearPersistenceError, reportPersistenceError} from './persistence'
 
-type Revision = {version: number; value: ApplicationData}
+type Revision = {version: number; value: ApplicationData | null}
 type Waiter = {version: number; resolve: () => void; reject: (error: unknown) => void}
 type Entry = {
   key: string
   value?: ApplicationData
   loading?: Promise<void>
   version: number
+  generation: number
   pending?: Revision
   flushing?: Promise<void>
   waiters: Waiter[]
@@ -22,7 +23,7 @@ const writeSource = (entry: Entry) => `application-write:${entry.key}`
 function entryFor(ref: ApplicationDataRef): Entry {
   const key = applicationDataKey(ref)
   let entry = entries.get(key)
-  if (!entry) {entry = {key, version: 0, waiters: []}; entries.set(key, entry)}
+  if (!entry) {entry = {key, version: 0, generation: 0, waiters: []}; entries.set(key, entry)}
   return entry
 }
 
@@ -31,13 +32,9 @@ function load(entry: Entry): Promise<void> {
   if (entry.loading) return entry.loading
   const work = async () => {
     try {
-      const row = await db.get<unknown>('apps', entry.key)
-      if (row === undefined) entry.value = Object.create(null) as ApplicationData
-      else {
-        const record = validateApplicationDataRecord(row)
-        if (record.k !== entry.key) throw new Error('应用存储记录身份不匹配。')
-        entry.value = record.v
-      }
+      const row = await applicationSyncStore.loadLocal(entry.key)
+      entry.value = row.value ?? Object.create(null) as ApplicationData
+      entry.generation = row.generation
       clearPersistenceError(readSource(entry))
     } catch (error) {
       reportPersistenceError(readSource(entry), error, () => load(entry))
@@ -55,7 +52,7 @@ function flushEntry(entry: Entry): Promise<void> {
     try {
       while (entry.pending) {
         const revision = entry.pending
-        await db.put('apps', {k: entry.key, v: revision.value})
+        entry.generation = await applicationSyncStore.saveLocal(entry.key, revision.value, entry.generation)
         if (entry.pending === revision) entry.pending = undefined
         const confirmed = entry.waiters.filter(waiter => waiter.version <= revision.version)
         entry.waiters = entry.waiters.filter(waiter => waiter.version > revision.version)
@@ -80,9 +77,9 @@ function flushEntry(entry: Entry): Promise<void> {
   return run
 }
 
-function accept(entry: Entry, value: ApplicationData): Promise<void> {
+function accept(entry: Entry, value: ApplicationData | null): Promise<void> {
   const version = ++entry.version
-  entry.value = value
+  entry.value = value ?? Object.create(null) as ApplicationData
   entry.pending = {version, value}
   const confirmed = new Promise<void>((resolve, reject) => entry.waiters.push({version, resolve, reject}))
   void flushEntry(entry).catch(() => undefined)
@@ -119,6 +116,15 @@ export function setApplicationValue(ref: ApplicationDataRef, key: string, value:
     const field = validateApplicationData({[key]: value})
     const entry = entryFor(ref)
     return track(load(entry).then(() => accept(entry, validateApplicationData({...entry.value, ...field}))))
+  } catch (error) {return Promise.reject(error)}
+}
+
+/** 显式删除业务值，和保存空对象不同；卸载应用仍不调用此入口。 */
+export function deleteApplicationData(ref: ApplicationDataRef): Promise<void> {
+  try {
+    assertPersistenceWritable()
+    const entry = entryFor(ref)
+    return track(load(entry).then(() => accept(entry, null)))
   } catch (error) {return Promise.reject(error)}
 }
 
