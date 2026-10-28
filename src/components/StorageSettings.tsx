@@ -57,7 +57,7 @@ export function StorageSettings() {
             </Row>
           </>}
         </>}
-        {note && <Row stack><span role={note.error ? 'alert' : 'status'} style={{overflowWrap: 'anywhere'}}><Text type={note.error ? 'danger' : 'success'}>{note.text}</Text></span></Row>}
+        {note && <Row stack><span className="ios-note" role={note.error ? 'alert' : 'status'}><Text type={note.error ? 'danger' : 'success'}>{note.text}</Text></span></Row>}
       </Group>
     </>
   )

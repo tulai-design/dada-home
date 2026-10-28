@@ -1255,6 +1255,16 @@ body {
   line-height: 1.5;
   color: var(--text3);
 }
+.ios-note {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+.ios-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .ios-card {
   overflow: hidden;
   border-radius: 12px;

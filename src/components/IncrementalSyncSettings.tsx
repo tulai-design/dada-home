@@ -10,13 +10,15 @@ import {
 import {SYNC_COLLECTIONS, type SyncCollection} from '../lib/incrementalRows'
 import {TextRow, Group, Row} from './ios'
 
-type Note = {kind: 'ok' | 'error'; text: string} | null
+type Note = {kind: 'ok' | 'error'; text: string; group: string} | null
+/** 操作结果显示在被点击的那一组里，而不是固定在页面顶部。 */
+const GROUP_OF: Record<string, string> = {test: 'service', invite: 'invite', join: 'join', scope: 'scope', bind: 'sync', sync: 'sync', resolve: 'conflict', devices: 'device', revoke: 'device', detach: 'detach'}
 const messageOf = (error: unknown) => error instanceof Error ? error.message : String(error)
 const preview = (value: unknown) => {const text = JSON.stringify(value) ?? '已删除'; return text.length > 160 ? text.slice(0, 160) + '…' : text}
 
-function Notice({note}: {note: Note}) {
-  if (!note) return null
-  return <Row stack><span role={note.kind === 'error' ? 'alert' : 'status'} style={{overflowWrap: 'anywhere'}}><Text type={note.kind === 'error' ? 'danger' : 'success'}>{note.text}</Text></span></Row>
+function Notice({note, group}: {note: Note; group: string}) {
+  if (note?.group !== group) return null
+  return <Row stack><span className="ios-note" role={note.kind === 'error' ? 'alert' : 'status'}><Text type={note.kind === 'error' ? 'danger' : 'success'}>{note.text}</Text></span></Row>
 }
 
 /** 自建增量同步：连接、密钥、配对、范围、冲突和设备。所有操作都不会自动清空本地数据或改写远端。 */
@@ -43,7 +45,7 @@ export function IncrementalSyncSettings() {
   const set = (patch: Partial<IncrementalConfig>) => {writeIncrementalConfig({...config, ...patch}); setNote(null)}
   const act = async (name: string, work: () => Promise<string | void>) => {
     setBusy(name); setNote(null)
-    try {const text = await work(); if (text) setNote({kind: 'ok', text})} catch (error) {setNote({kind: 'error', text: messageOf(error)})} finally {setBusy(''); void refresh()}
+    try {const text = await work(); if (text) setNote({kind: 'ok', text, group: GROUP_OF[name]})} catch (error) {setNote({kind: 'error', text: messageOf(error), group: GROUP_OF[name]})} finally {setBusy(''); void refresh()}
   }
   const toggle = (name: SyncCollection, on: boolean) => act('scope', async () => {
     const next = SYNC_COLLECTIONS.filter(item => item === name ? on : config.collections.includes(item))
@@ -64,7 +66,7 @@ export function IncrementalSyncSettings() {
         <Row label="连接测试">
           <Button size="small" icon={<PlugsConnected size={16} />} loading={busy === 'test'} disabled={Boolean(busy)} onClick={() => void act('test', () => preflight(config))}>测试连接</Button>
         </Row>
-        <Notice note={note} />
+        <Notice note={note} group="service" />
       </Group>
 
       <Group title="空间密钥" footer="同步内容在本机加密后才上传，服务只看到密文。密钥丢失后无法恢复，请保留另一台已配对的设备或自行备份邀请。">
@@ -82,6 +84,7 @@ export function IncrementalSyncSettings() {
             return '邀请已生成，复制下面的内容到新设备。'
           })}>生成</Button>
         </Row>
+        <Notice note={note} group="invite" />
         {inviteText && <Row stack><TextArea aria-label="配对邀请" readOnly value={inviteText} autoSize={{minRows: 3, maxRows: 6}} onFocus={event => event.currentTarget.select()} /></Row>}
       </Group>
 
@@ -91,9 +94,10 @@ export function IncrementalSyncSettings() {
         <Row label="加入空间">
           <Button size="small" loading={busy === 'join'} disabled={Boolean(busy) || !joinText.trim()} onClick={() => void act('join', async () => {
             await acceptInvite(joinText.trim(), joinPass); setJoinText(''); setJoinPass('')
-            return '已加入。下一步点「绑定本机」，再手动同步一次拉取远端数据。'
+            return '已加入。下一步点「绑定」，再手动同步一次拉取远端数据。'
           })}>加入</Button>
         </Row>
+        <Notice note={note} group="join" />
       </Group>
 
       <Group title="同步内容" footer="关闭某一类只是不再发送或应用，本机和远端已有数据都保留；重新开启后下次同步会补齐。">
@@ -102,6 +106,7 @@ export function IncrementalSyncSettings() {
             <Switch aria-label={COLLECTION_LABELS[name]} checked={config.collections.includes(name)} disabled={Boolean(busy)} onChange={on => void toggle(name, on)} />
           </Row>
         ))}
+        <Notice note={note} group="scope" />
       </Group>
 
       <Group title="同步" footer="自动同步在启动、恢复联网和定时检查时只上传本机变更；拉取远端数据请手动同步，拉取后需要重新加载才能继续编辑。与快照同步同时开启时，自动快照同步会暂停。">
@@ -116,8 +121,9 @@ export function IncrementalSyncSettings() {
               <Button size="small" icon={<ArrowsClockwise size={16} />} loading={syncing} disabled={Boolean(busy) || status.needsReload} onClick={() => void act('sync', async () => {await runIncremental({pull: true})})}>立即同步</Button>
             </Row>
           </>}
+        <Notice note={note} group="sync" />
         <div aria-live="polite">
-          {status.message && <Row stack><span role={status.phase === 'error' ? 'alert' : 'status'} style={{overflowWrap: 'anywhere'}}><Text type={status.phase === 'error' ? 'danger' : undefined}>{status.message}</Text></span></Row>}
+          {status.message && <Row stack><span className="ios-note" role={status.phase === 'error' ? 'alert' : 'status'}><Text type={status.phase === 'error' ? 'danger' : undefined}>{status.message}</Text></span></Row>}
           {status.needsReload && <Row label="新数据已保存" hint="重新加载后显示拉取的数据。"><Button size="small" onClick={() => location.reload()}>重新加载</Button></Row>}
         </div>
       </Group>
@@ -127,12 +133,13 @@ export function IncrementalSyncSettings() {
           {conflicts.map(item => (
             <Row key={`${item.ref.collection}:${item.ref.key}`} stack label={`${COLLECTION_LABELS[item.ref.collection]} · ${item.ref.key.slice(0, 24)}`}
               hint={item.remoteReady ? `远端版本：${preview(item.remoteValue)}` : '远端版本还未下载，请先手动同步。'}>
-              <span style={{display: 'flex', gap: 8}}>
+              <span className="ios-actions">
                 <Button size="small" disabled={Boolean(busy)} onClick={() => void act('resolve', async () => {await resolveConflict(item, 'local'); return '已选择本机版本。'})}>保留本机</Button>
                 <Button size="small" disabled={Boolean(busy) || !item.remoteReady} onClick={() => void act('resolve', async () => {await resolveConflict(item, 'remote'); return '已选择远端版本，重新加载后生效。'})}>采用远端</Button>
               </span>
             </Row>
           ))}
+          <Notice note={note} group="conflict" />
         </Group>
       )}
 
@@ -148,6 +155,7 @@ export function IncrementalSyncSettings() {
             )}
           </Row>
         ))}
+        <Notice note={note} group="device" />
       </Group>
 
       {bound && (
@@ -155,6 +163,7 @@ export function IncrementalSyncSettings() {
           <Row label="解除本机绑定" danger>
             <Button size="small" danger loading={busy === 'detach'} disabled={Boolean(busy)} onClick={() => void act('detach', async () => {await detachIncremental(); return '已解除绑定。'})}>解除</Button>
           </Row>
+          <Notice note={note} group="detach" />
         </Group>
       )}
     </>
