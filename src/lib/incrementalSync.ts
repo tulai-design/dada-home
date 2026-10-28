@@ -16,7 +16,8 @@ export type IncrementalSyncControllerOptions = {
   collections?: readonly SyncCollection[]
   fetchImpl?: typeof fetch; retries?: number; timeoutMs?: number
 }
-export type IncrementalSyncRunOptions = {signal?: AbortSignal; maxPush?: number}
+/** pull 为 false 时只上传，不拉取也不应用远端数据，避免打断正在进行的编辑。 */
+export type IncrementalSyncRunOptions = {signal?: AbortSignal; maxPush?: number; pull?: boolean}
 export type IncrementalSyncRunResult = {pushed: number; pulled: number; conflicts: number; hasMore: boolean; needsReload: boolean}
 
 /** 已接受的应用与聊天写入都排空后，才能绑定、入站或解决冲突。 */
@@ -120,6 +121,11 @@ export function createIncrementalSyncController(options: IncrementalSyncControll
         cancelled(signal)
         const current = await checkBinding()
         if (current.epoch !== binding.epoch) throw bindingMismatch()
+        if (settings.pull === false) {
+          const queued = await incrementalStore.inspect(binding.epoch)
+          result.hasMore = queued.records.some(record => enabled.includes(record.collection) && !record.conflict && Boolean(record.draft || record.inFlight))
+          return result
+        }
         const page = await client.changes({cursor: current.cursor, limit: 1, signal}), records: SyncIncoming[] = []
         // Dada此版本每次只提交一条记录；在下载前拒绝更大的事务，限制单次明文驻留量。
         if (page.commits.length > 1 || page.commits.some(commit => commit.records.length !== 1)) throw new Error('此版本仅支持每次提交一条同步记录，远端游标未推进。')

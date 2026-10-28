@@ -8,6 +8,7 @@ import App from './App'
 import { initAnalytics } from './lib/analytics'
 import { initStorage } from './lib/storage'
 import { startAutoSync } from './lib/sync'
+import { startIncrementalAuto } from './lib/incrementalClient'
 import {StorageStartupError} from './components/PersistenceNotice'
 import './styles.css'
 import './theme.css'
@@ -64,6 +65,7 @@ async function start() {
   try {
     await initStorage()
     startAutoSync()
+    startIncrementalAuto()
     root.render(
       <StrictMode>
         <ConfigProvider motion={motion}>

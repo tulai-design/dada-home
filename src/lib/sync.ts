@@ -205,12 +205,16 @@ export function startAutoSync(): void {
   if (started || typeof window === 'undefined') return
   started = true
   // 自动同步只上传；显式完整同步再由用户选择重新加载，保护正在输入的内容。
-  const run = () => {
+  const run = async () => {
     const config = readSyncConfig()
-    if (config.auto && syncConfigured(config) && !syncConfigProblem(config) && navigator.onLine) void runSync('push').catch(() => undefined)
+    if (!config.auto || !syncConfigured(config) || syncConfigProblem(config) || !navigator.onLine) return
+    // 已启用自建增量同步时，快照同步不再自动上传，避免两套协议并行写远端。
+    if ((await import('./incrementalClient')).incrementalConfigured()) return
+    await runSync('push')
   }
-  window.setTimeout(run, 1500)
-  window.setInterval(run, 3 * 60_000)
-  window.addEventListener('online', run)
+  const tick = () => void run().catch(() => undefined)
+  window.setTimeout(tick, 1500)
+  window.setInterval(tick, 3 * 60_000)
+  window.addEventListener('online', tick)
 }
 export const syncNow = (options: SyncOptions = {}): Promise<SyncResult> => runSync('full', options)

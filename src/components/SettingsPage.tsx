@@ -15,6 +15,9 @@ import {exportBackupSnapshot, importBackup, MAX_BACKUP_BYTES, parseBackup, type 
 import {useIsMobile} from '../lib/useMedia'
 import {AiSettings} from './AiSettings'
 import {SyncSettings} from './SyncSettings'
+import {IncrementalSyncSettings} from './IncrementalSyncSettings'
+import {StorageSettings} from './StorageSettings'
+import {incrementalConfigured, readIncrementalConfig, useIncrementalStatus} from '../lib/incrementalClient'
 import {readSyncConfig, syncConfigured, useSyncStatus} from '../lib/sync'
 import {SearchSettings} from './SearchSettings'
 import {AboutPanel} from './About'
@@ -69,6 +72,7 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest,
   const mobile = useIsMobile()
   const persona = usePersona()
   const syncStatus = useSyncStatus()
+  const incrementalStatus = useIncrementalStatus()
   // 手机上一次只显示一栏：直接点进设置先看列表；从别处跳来指定某一项时直接显示那一项
   const [pane, setPane] = useState<'list' | 'detail'>(mobile && section === 'profile' ? 'list' : 'detail')
   // 外部入口可能连续打开相同 section，使用导航请求而非 section 变化进入详情。
@@ -249,6 +253,23 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest,
       summary: syncConfigured(readSyncConfig()) ? (syncStatus.phase === 'error' ? '出错了' : readSyncConfig().auto ? '自动' : '手动') : '未开启',
       description: '把数据同步到你自己的存储里，在多台设备间保持一致。',
       render: () => <SyncSettings />,
+    },
+    {
+      id: 'incremental',
+      name: '自建增量同步',
+      icon: ArrowsClockwise,
+      color: '#30b0c7',
+      summary: incrementalConfigured(readIncrementalConfig()) ? (incrementalStatus.phase === 'error' ? '出错了' : readIncrementalConfig().auto ? '自动上传' : '手动') : '未开启',
+      description: '连接你自己的同步服务，端到端加密，只传变化的记录，聊天变多也不需要整份上传。',
+      render: () => <IncrementalSyncSettings />,
+    },
+    {
+      id: 'storage',
+      name: '容量与清理',
+      icon: Database,
+      color: '#5e5ce6',
+      description: '看清各类数据占多少空间，按时间清理旧聊天。',
+      render: () => <StorageSettings />,
     },
     {
       id: 'data',
