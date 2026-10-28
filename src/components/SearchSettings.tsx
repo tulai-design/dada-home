@@ -3,7 +3,7 @@ import {A, Switch, Text} from '@lobehub/ui'
 import {PlugsConnected as PlugZap} from '@phosphor-icons/react'
 import {REMEMBERABLE, setAlwaysAllowed} from '../lib/permissions'
 import {useStored} from '../lib/store'
-import {SEARCH_KEY, SEARCH_PROVIDERS, defaultSearchConfig, providerInfo, searchReady, webSearch, type SearchConfig, type SearchProvider} from '../lib/webSearch'
+import {SEARCH_KEY, SEARCH_PROVIDERS, defaultSearchConfig, normalizeSearchConfig, providerInfo, searchReady, webSearch, type SearchConfig, type SearchProvider} from '../lib/webSearch'
 import {Group, Row, TextRow} from './ios'
 
 type Status = {kind: 'idle' | 'loading' | 'ok' | 'error'; text?: string}
@@ -12,10 +12,11 @@ type Status = {kind: 'idle' | 'loading' | 'ok' | 'error'; text?: string}
  * 搜索相关的设置：
  *   1. 联网搜索：让搭搭自己查资料用的搜索服务和密钥（Tavily、Firecrawl、SearXNG…）。
  *   2. 自动允许：「搜索并跳转」这类低风险动作，选过「总是允许」后可以在这里关掉。
- * 密钥只存在这台浏览器里，请求直接从浏览器发给服务商。
+ * 请求直接从浏览器发给服务商；自建增量同步包含加密后的业务密钥。
  */
 export function SearchSettings() {
-  const [config, setConfig] = useStored<SearchConfig>(SEARCH_KEY, defaultSearchConfig())
+  const [stored, setConfig] = useStored<unknown>(SEARCH_KEY, defaultSearchConfig())
+  const config = normalizeSearchConfig(stored)
   const [allowed] = useStored<string[]>('alwaysAllow', [])
   const [status, setStatus] = useState<Status>({kind: 'idle'})
   const info = providerInfo(config.provider)
@@ -50,7 +51,7 @@ export function SearchSettings() {
           title={info.name}
           footer={
             <>
-              {info.needsKey ? '密钥只保存在这台浏览器里，请求直接发给服务商。' : '这个服务不需要密钥。'}{' '}
+              {info.needsKey ? '请求直接发给服务商；启用自建增量同步后，密钥随配置加密同步。' : '这个服务不需要密钥。'}{' '}
               <A href={info.signup} target="_blank" rel="noreferrer noopener">
                 {info.needsKey ? '去申请密钥' : '了解如何自己搭一个'}
               </A>

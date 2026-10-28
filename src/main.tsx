@@ -35,8 +35,6 @@ if (import.meta.env.DEV) {
   })
 }
 
-initAnalytics()
-
 // PWA：生产环境注册 service worker。新版本下载好后提示一下，用户点了再刷新。
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   void import('virtual:pwa-register').then(({ registerSW }) => {
@@ -64,6 +62,7 @@ const root = createRoot(document.getElementById('root')!)
 async function start() {
   try {
     await initStorage()
+    initAnalytics()
     startAutoSync()
     startIncrementalAuto()
     root.render(

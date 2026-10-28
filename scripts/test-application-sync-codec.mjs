@@ -67,7 +67,7 @@ await test('哈希身份保留App/Applet隔离、1000字符及孤立surrogate，
   await assert.rejects(entityId('app:' + '中'.repeat(997)))
 })
 
-await test('8MiB完整应用状态经加密对象恢复，wire payload保持很小且凭据不出站', async () => {
+await test('8MiB完整应用状态经加密对象恢复，wire payload保持很小且凭据随密文同步', async () => {
   const value = {text: 'a'.repeat(schema.APPLICATION_DATA_MAX_BYTES - 11)}
   const prepared = await prepare('app:large', value), wire = record(prepared)
   assert.equal(prepared.ciphertext.size, schema.APPLICATION_DATA_MAX_BYTES + 9 * 16)
@@ -76,7 +76,7 @@ await test('8MiB完整应用状态经加密对象恢复，wire payload保持很�
   assert.equal(incoming.value.text, value.text)
   const secret = await prepare('app:secrets', {token: 'local-only', values: [{id: 'x', password: 'password', data: 'text'}]})
   const restored = await codec.decodeSyncRecord(record(secret), {...options, client: clientFor(secret)})
-  assert.deepEqual(clean(restored.value), {values: [{id: 'x', data: 'text'}]})
+  assert.deepEqual(clean(restored.value), {token: 'local-only', values: [{id: 'x', password: 'password', data: 'text'}]})
 })
 
 await test('100层对象不经过服务payload深度限制，空对象与逻辑删除分别表达', async () => {

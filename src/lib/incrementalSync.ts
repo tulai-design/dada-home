@@ -17,7 +17,7 @@ export type IncrementalSyncControllerOptions = {
   fetchImpl?: typeof fetch; retries?: number; timeoutMs?: number
 }
 /** pull 为 false 时只上传，不拉取也不应用远端数据，避免打断正在进行的编辑。 */
-export type IncrementalSyncRunOptions = {signal?: AbortSignal; maxPush?: number; pull?: boolean}
+export type IncrementalSyncRunOptions = {signal?: AbortSignal; maxPush?: number; maxPull?: number; pull?: boolean}
 export type IncrementalSyncRunResult = {pushed: number; pulled: number; conflicts: number; hasMore: boolean; needsReload: boolean}
 
 /** 已接受的应用与聊天写入都排空后，才能绑定、入站或解决冲突。 */
@@ -75,14 +75,27 @@ export function createIncrementalSyncController(options: IncrementalSyncControll
       })
     },
     async run(settings: IncrementalSyncRunOptions = {}): Promise<IncrementalSyncRunResult> {
-      const maxPush = settings.maxPush ?? 20
+      const maxPush = settings.maxPush ?? 20, maxPull = settings.maxPull ?? 1
       if (!Number.isSafeInteger(maxPush) || maxPush < 0 || maxPush > 100) throw new Error('单次同步的推送上限必须在 0–100 之间。')
+      if (!Number.isSafeInteger(maxPull) || maxPull < 1 || maxPull > 10000) throw new Error('单次同步的拉取上限必须在 1–10000 之间。')
       return locked(settings.signal, async signal => {
         assertPersistenceWritable()
         const binding = await checkBinding(), result: IncrementalSyncRunResult = {pushed: 0, pulled: 0, conflicts: 0, hasMore: false, needsReload: false}
-        await flushSources(); cancelled(signal)
-        // 上次崩溃留下的入站配置先落盘，再对账本机配置的修改。
-        if (await applyPendingConfig()) {reloadRequired(); result.needsReload = true}
+        // 正常启动会先重放待应用配置；若运行中仍发现恢复行，先完成落盘并要求重载，
+        // 不能让这一轮继续采样恢复前的业务内存。
+        const recovered = await withPersistenceExclusive(async () => {
+          await flushSources(); cancelled(signal)
+          try {
+            const count = await applyPendingConfig()
+            if (count) reloadRequired()
+            return count
+          } catch (error) {
+            // 写入多条配置时可能已部分落盘，不能解除门禁后继续使用旧内存。
+            reportPersistenceError('sync-reload', new Error('同步配置尚未完成，请重新加载后重试。'))
+            throw error
+          }
+        })
+        if (recovered) return {...result, hasMore: true, needsReload: true}
         await reconcileConfig(binding.epoch); cancelled(signal)
         const capabilities = await client.capabilities({signal})
         if (!capabilities.records || !capabilities.atomicBatch || !capabilities.idempotency || !capabilities.changeLog || !capabilities.objects) throw new Error('目标服务没有提供所需的增量同步能力。')
@@ -126,26 +139,42 @@ export function createIncrementalSyncController(options: IncrementalSyncControll
           result.hasMore = queued.records.some(record => enabled.includes(record.collection) && !record.conflict && Boolean(record.draft || record.inFlight))
           return result
         }
-        const page = await client.changes({cursor: current.cursor, limit: 1, signal}), records: SyncIncoming[] = []
-        // Dada此版本每次只提交一条记录；在下载前拒绝更大的事务，限制单次明文驻留量。
-        if (page.commits.length > 1 || page.commits.some(commit => commit.records.length !== 1)) throw new Error('此版本仅支持每次提交一条同步记录，远端游标未推进。')
-        for (const commit of page.commits) for (const record of commit.records) {
-          // 已关闭的集合不下载也不应用；游标照常前进，重新开启时由 rewind() 回补。
-          if (!enabled.includes(record.collection as SyncCollection)) continue
-          const decoded = await decodeSyncRecord(record, {scope, keyring, signal, client})
-          records.push({...decoded, deviceId: commit.deviceId, operationId: commit.operationId})
+        const downloadPage = async (cursor: string | undefined) => {
+          const page = await client.changes({cursor, limit: 1, signal}), records: SyncIncoming[] = []
+          // 保持每页一个提交/记录的明文预算，连续处理不意味着一次加载整个历史。
+          if (page.commits.length > 1 || page.commits.some(commit => commit.records.length !== 1)) throw new Error('此版本仅支持每次提交一条同步记录，远端游标未推进。')
+          if (page.hasMore && page.cursor === cursor) throw new Error('远端同步游标没有前进，请稍后重试。')
+          for (const commit of page.commits) for (const record of commit.records) {
+            if (!enabled.includes(record.collection as SyncCollection)) continue
+            const decoded = await decodeSyncRecord(record, {scope, keyring, signal, client})
+            records.push({...decoded, deviceId: commit.deviceId, operationId: commit.operationId})
+          }
+          cancelled(signal)
+          return {page, records}
         }
-        cancelled(signal)
-        const applied = await withPersistenceExclusive(async () => {
+        // 第一页在门禁外下载；应用前排空期间的修改并重新对账配置。
+        // 后续页始终在同一门禁内，不重新 flush 或采样可能已陈旧的业务缓存。
+        let next = await downloadPage(current.cursor)
+        await withPersistenceExclusive(async () => {
           await flushSources(); cancelled(signal)
-          const applied = await incrementalStore.applyPage(binding.epoch, current.cursor, {cursor: page.cursor, records})
-          if (applied.changed) {await applyPendingConfig(); reloadRequired()}
-          return applied
+          await reconcileConfig(binding.epoch); cancelled(signal)
+          let cursor = current.cursor
+          for (let index = 0; index < maxPull; index++) {
+            const {page, records} = next
+            const applied = await incrementalStore.applyPage(binding.epoch, cursor, {cursor: page.cursor, records})
+            result.pulled += records.length; result.conflicts += applied.conflicts
+            if (applied.changed) {
+              // IDB 已提交，后续 localStorage 写入或网络失败也必须阻止旧缓存写回。
+              result.needsReload = true; reloadRequired()
+              await applyPendingConfig()
+            }
+            cursor = page.cursor; result.hasMore = page.hasMore
+            if (!page.hasMore || index + 1 === maxPull) break
+            next = await downloadPage(cursor)
+          }
         })
-        result.pulled = records.length; result.conflicts += applied.conflicts
         const pending = await incrementalStore.inspect(binding.epoch)
-        result.hasMore = page.hasMore || pending.records.some(record => enabled.includes(record.collection) && !record.conflict && Boolean(record.draft || record.inFlight))
-        result.needsReload = result.needsReload || applied.changed
+        result.hasMore ||= pending.records.some(record => enabled.includes(record.collection) && !record.conflict && Boolean(record.draft || record.inFlight))
         return result
       })
     },
@@ -157,7 +186,7 @@ export function createIncrementalSyncController(options: IncrementalSyncControll
         return withPersistenceExclusive(async () => {
           await flushSources(); cancelled(signal)
           const result = await incrementalStore.resolve(binding.epoch, ref, version, choice)
-          if (result.changed) {await applyPendingConfig(); reloadRequired()}
+          if (result.changed) {reloadRequired(); await applyPendingConfig()}
           return {...result, needsReload: result.changed}
         })
       })

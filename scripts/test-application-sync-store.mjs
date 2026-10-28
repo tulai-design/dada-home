@@ -63,13 +63,13 @@ const incoming = (value, revision, operationId = 'remote-' + revision) => ({appl
 let count = 0
 async function test(name, run) {await run(); count++; console.log('通过：' + name)}
 
-await test('纯本地保存无队列，bind种子不改变应用generation，凭据不进draft', async () => {
+await test('纯本地保存无队列，bind种子不改变应用generation，完整业务数据进入draft', async () => {
   const {store, tables} = runtime()
   assert.equal(await store.saveLocal(key, {count: 1, token: 'local-secret'}, 0), 1)
   assert.equal((await store.inspect()).records.length, 0)
   const binding = await store.bind(identity)
   assert.equal((await store.loadLocal(key)).generation, 1)
-  assert.deepEqual(clean((await store.next(binding.epoch)).value), {count: 1})
+  assert.deepEqual(clean((await store.next(binding.epoch)).value), {count: 1, token: 'local-secret'})
   assert.equal(tables.apps.get(key).v.token, 'local-secret')
   await assert.rejects(store.bind({...identity, spaceId: 'other'}), /不同.*绑定/)
 })
@@ -113,7 +113,7 @@ await test('冲突保存双方与游标，后来编辑使旧解决generation失�
   await assert.rejects(store.resolve(binding.epoch, key, {localGeneration: 1, remoteRevision: 1}, 'remote'), /其他页面/)
   assert.equal((await store.resolve(binding.epoch, key, {localGeneration: 2, remoteRevision: 1}, 'local')).changed, true)
   const intent = await store.next(binding.epoch)
-  assert.equal(intent.baseRevision, 1); assert.deepEqual(clean(intent.value), {local: 3})
+  assert.equal(intent.baseRevision, 1); assert.deepEqual(clean(intent.value), {local: 3, apiKey: 'keep'})
   assert.equal((await store.loadLocal(key)).value.apiKey, 'keep')
 })
 

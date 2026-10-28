@@ -47,6 +47,12 @@ App/Applet 只走 applicationData 仓库，apps 专仓按类型+canonical实例I
 
 聊天UI只消费StoredTurn分页元信息；工具正文经readToolDetail单条读取。不得从可见数组缺席推断删除或从已加载页构造模型上下文。显式append/patch/appendTool绑定convId+turnId，活动轮独立于导航；loadContextTurns独立查最新N轮并沿用contextTurns预算。索引游标使用时间+ID且exclusive，失败不推进；在途读取需保留期间已确认的本地更新，不能仅靠flush后已清除的dirty覆盖旧快照，读取结束释放临时overlay。导航和删除按会话归属撤销请求，删除其他会话不能遗留分页loading。新增工具头和正文同db.batch提交，已保存正文不随回答重写；删除整个会话用key-only索引包括未加载数据。备份严格五仓交叉引用，sync仍完整逻辑Turn原子合并，不增加远端独立正文记录。详见[长期聊天合同](../../../docs/specs/runtime-contract.md#长期聊天与模型上下文)。
 
-## 应用增量同步
+## 自建加密增量同步
 
-applicationSyncStore 负责本机 epoch/generation/draft/prepared/版本/冲突/游标，SDK负责通用协议与加密；应用正文走完整加密对象，不能降低8MiB/100层约束。应用保存与draft同db.atomic事务；密码学/网络禁止进入同步决策函数。prepared随机密文及operationId首次发送前持久化，旧确认只清对应generation。入站当前值/本机凭据恢复、版本、冲突和cursor同事务。冲突解决同时检查观察时的本地generation与远端revision。绑定阻止apps整包替换，恢复日志仅回退实际触及仓；解绑后恢复/回退仍提升全局generation，旧cache写回明确拒绝。成功入站沿用sync-reload门禁直到重载；不是运行实例热更新。详细边界见[应用增量同步](../../../docs/specs/application-incremental-sync.md)。
+`incrementalStore` 负责本机 epoch/generation/draft/prepared/版本/冲突/游标，SDK负责通用协议与加密。config/component/applicationData/conversation/turn 的完整业务值均加密同步；不得复用快照脱敏投影删除业务 API Key、端点、订阅 URL 或普通 keys 字段。完整入站替换须传播凭据删除，不能补回旧密钥。配置名单与新增字段校验在 `incrementalConfigSchema`；本机执行授权、设备身份与协调状态排除。
+
+应用保存与draft同db.atomic事务；密码学/网络禁止进入同步决策函数。prepared随机密文及operationId首次发送前持久化，旧确认只清对应generation。入站值、版本、冲突和cursor同事务；配置用待应用行跨越IDB/localStorage，启动先重放。冲突解决同时检查观察时的generation与revision。绑定阻止业务表整包替换，恢复日志仅回退实际触及仓；旧cache的generation写回明确拒绝。
+
+手动同步先上传再在同一保存门禁内逐页拉取；第一条应用后维持sync-reload，不能让后续页重新经过writable断言，也不能flush旧缓存。IDB已提交后即使配置落盘/网络失败也保留重载提示。预算耗尽不得报完成。不是运行实例热更新。详细边界见[加密增量同步](../../../docs/specs/application-incremental-sync.md)。
+
+搜索配置是部分持久对象，`webSearch.normalizeSearchConfig` 接收 unknown 统一规整；设置摘要、详情、readiness 与工具入口都必须使用该边界，不能假定 keys/urls 已存在。

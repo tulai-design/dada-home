@@ -7,8 +7,8 @@ import * as encryption from '@tulai-design/sync-sdk/crypto'
 // Coordinator行为使用显式边界替身；真正IDB原子性/跨origin由浏览器验收覆盖。
 const scope = {appId: 'dada', spaceId: 'personal'}, keyring = encryption.createKeyring(scope)
 function harness() {
-  const events = [], intents = [], persisted = [], receipts = new Map(), downloads = new Map()
-  let binding, gate = false, locked = false, needsReload = false, applyChanged = false
+  const events = [], intents = [], persisted = [], receipts = new Map(), downloads = new Map(), appliedPages = []
+  let binding, gate = false, locked = false, needsReload = false, applyChanged = false, pendingApply = async () => 0
   let page = {cursor: 'cursor-0', commits: [], hasMore: false}, lockTail = Promise.resolve()
   const assertLock = () => assert.equal(locked, true)
   Object.defineProperty(globalThis, 'navigator', {configurable: true, value: {locks: {request(name, options, work) {
@@ -46,6 +46,7 @@ function harness() {
     async applyPage(epoch, cursor, incoming) {
       assertLock(); assert.equal(gate, true); events.push('applyPage')
       assert.equal(epoch, binding.epoch); assert.equal(cursor, binding.cursor)
+      appliedPages.push(structuredClone(incoming))
       binding.cursor = incoming.cursor; return {changed: applyChanged, conflicts: 0}
     },
     async inspect() {return {binding, records: intents.map(intent => ({collection: 'applicationData', inFlight: intent}))}},
@@ -95,7 +96,7 @@ function harness() {
       if (id === './applicationData') return {async flushApplicationData() {assertLock(); events.push('flush')}}
       if (id === './chat') return {async flush() {assertLock()}}
       if (id === './componentData') return {async flush() {assertLock()}}
-      if (id === './incrementalConfig') return {async applyPendingConfig() {return 0}, async reconcileConfig() {return 0}}
+      if (id === './incrementalConfig') return {applyPendingConfig: () => pendingApply(), async reconcileConfig() {return 0}}
       if (id === './persistence') return persistence
       if (id.startsWith('.')) return load(new URL(id + '.ts', 'file:///' + path).pathname.slice(1))
       throw new Error('Unknown test import')
@@ -106,8 +107,8 @@ function harness() {
   const factory = load('src/lib/incrementalSync.ts').createIncrementalSyncController
   const makeController = (overrides = {}) => factory({endpoint: 'http://localhost:8787', ...scope, deviceId: 'device-a', token: 'private-token', keyring, ...overrides})
   return {
-    events, intents, persisted, receipts, downloads, store, client, makeController, codec: load('src/lib/incrementalCodec.ts'),
-    binding: () => binding, gate: () => gate, setPage(value) {page = value}, setApplyChanged(value) {applyChanged = value},
+    events, intents, persisted, receipts, downloads, appliedPages, store, client, persistence, makeController, codec: load('src/lib/incrementalCodec.ts'),
+    binding: () => binding, gate: () => gate, setPage(value) {page = value}, setApplyChanged(value) {applyChanged = value}, setPendingApply(work) {pendingApply = work},
     addIntent(id = 'operation-1', value = {text: 'value'}) {intents.push({applicationKey: 'app:' + id, generation: 1, value, operationId: id, baseRevision: null})},
   }
 }
@@ -179,6 +180,63 @@ await test('入站下载期间不持写入门禁，完整认证后flush+原子ap
   assert.equal(h.events.filter(x => x === 'capabilities').length, count)
 })
 
+await test('一次运行在同一保存门禁内连续拉取多页，达到预算时如实保留hasMore', async () => {
+  const h = harness(), controller = h.makeController(); await controller.bind(); h.setApplyChanged(true)
+  const pages = [
+    {cursor: 'cursor-1', commits: [], hasMore: true},
+    {cursor: 'cursor-2', commits: [], hasMore: true},
+    {cursor: 'cursor-3', commits: [], hasMore: false},
+  ]
+  h.client.changes = async () => pages.shift()
+  const result = await controller.run({maxPush: 0, maxPull: 2})
+  assert.equal(result.hasMore, true)
+  assert.equal(h.events.filter(item => item === 'applyPage').length, 2)
+  assert.equal(h.events.slice(h.events.indexOf('applyPage')).filter(item => item === 'gate-enter' || item === 'flush').length, 0)
+  assert.equal(h.events.filter(item => item === 'reload').length, 2)
+  await assert.rejects(controller.run(), /reload/)
+})
+
+await test('连续拉取超过50页，后续下载保持只读且不重复flush旧缓存', async () => {
+  const h = harness(), controller = h.makeController(); await controller.bind(); h.setApplyChanged(true)
+  const prepared = await h.codec.prepareSyncRecord({ref: {collection: 'applicationData', key: 'app:remote'}, value: {text: 'remote'}, operationId: 'remote', baseRevision: null}, {scope, keyring})
+  const {type: _type, baseRevision: _base, ...mutation} = prepared.request.mutations[0]
+  let index = 0
+  h.downloads.set(mutation.objectRefs[0].sha256, prepared.ciphertext)
+  h.client.changes = async ({cursor, limit}) => {
+    assert.equal(limit, 1)
+    assert.equal(cursor, index ? 'cursor-' + index : undefined)
+    index++
+    return {cursor: 'cursor-' + index, commits: [{deviceId: 'other', operationId: 'remote-' + index, records: [{...mutation, deleted: false, revision: index}]}], hasMore: index < 61}
+  }
+  h.client.downloadObject = async (descriptor, sink) => {
+    assert.equal(h.gate(), index > 1, '仅第一页下载允许编辑')
+    if (index > 1) assert.throws(() => h.persistence.assertPersistenceWritable(), /reload/)
+    await sink.write(0, new Uint8Array(await prepared.ciphertext.arrayBuffer())); await sink.commit(); return descriptor
+  }
+  const result = await controller.run({maxPush: 0, maxPull: 10000})
+  assert.equal(result.pulled, 61); assert.equal(result.hasMore, false); assert.equal(result.needsReload, true)
+  assert.equal(h.binding().cursor, 'cursor-61')
+  assert.equal(h.appliedPages.length, 61)
+  assert.equal(h.events.slice(h.events.indexOf('applyPage')).includes('flush'), false)
+  assert.equal(h.gate(), false)
+  await assert.rejects(controller.run(), /reload/)
+})
+
+await test('入站后第二页网络失败或取消仍保留重载保护及已提交游标', async () => {
+  for (const abort of [false, true]) {
+    const h = harness(), controller = h.makeController(); await controller.bind(); h.setApplyChanged(true)
+    let page = 0
+    h.client.changes = async () => {
+      if (++page === 1) return {cursor: 'cursor-1', commits: [], hasMore: true}
+      if (abort) {controller.close(); throw new DOMException('Cancelled', 'AbortError')}
+      throw new Error('network interrupted')
+    }
+    await assert.rejects(controller.run({maxPull: 10}), abort ? /Cancelled/ : /network interrupted/)
+    assert.equal(h.binding().cursor, 'cursor-1'); assert.equal(h.gate(), false)
+    assert.throws(() => h.persistence.assertPersistenceWritable(), /reload/)
+  }
+})
+
 await test('close取消网络但保留prepared/checkpoint，可由新controller恢复；显式detach保留旧队列', async () => {
   const h = harness(), controller = h.makeController(); await controller.bind(); h.addIntent()
   const upload = h.client.uploadObject
@@ -208,6 +266,21 @@ await test('冲突解决传递所见双方版本，在锁和保存屏障内完�
   }
   assert.deepEqual(await controller.resolve('app:conflict', {localGeneration: 4, remoteRevision: 9}, 'local'), {changed: true, needsReload: true})
   await assert.rejects(controller.run(), /reload/)
+})
+
+await test('恢复行、远端入站与冲突解决在localStorage落盘失败时都保持重载保护', async () => {
+  for (const scenario of ['recover', 'apply', 'resolve']) {
+    const h = harness(), controller = h.makeController(); await controller.bind(); h.setApplyChanged(true)
+    let writes = 0
+    h.setPendingApply(async () => {
+      if (++writes === (scenario === 'apply' ? 2 : 1)) throw new Error('localStorage full')
+      return 0
+    })
+    if (scenario === 'resolve') await assert.rejects(controller.resolve('app:conflict', {localGeneration: 4, remoteRevision: 9}, 'remote'), /localStorage full/)
+    else await assert.rejects(controller.run(), /localStorage full/)
+    assert.equal(h.gate(), false)
+    assert.throws(() => h.persistence.assertPersistenceWritable(), /reload/)
+  }
 })
 
 console.log(`应用同步controller通过：${passed}项`)

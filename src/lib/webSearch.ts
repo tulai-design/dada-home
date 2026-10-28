@@ -6,7 +6,7 @@ import {readStored} from './store'
  *
  * 和首页的搜索框不是一回事：搜索框是用户自己搜、自己看结果；
  * 这里是搭搭拿到搜索结果后自己读、自己回答。所以需要能返回结构化结果的搜索 API。
- * 密钥只存在这台浏览器里，请求直接从浏览器发给服务商；不经过任何中转。
+ * 搜索请求从浏览器发给服务商；启用自建增量同步后，业务密钥随配置加密同步。
  */
 
 export type SearchProvider = 'off' | 'tavily' | 'firecrawl' | 'searxng' | 'exa' | 'brave'
@@ -48,13 +48,25 @@ export const SEARCH_PROVIDERS: ProviderInfo[] = [
 
 export const providerInfo = (id: SearchProvider): ProviderInfo | undefined => SEARCH_PROVIDERS.find((p) => p.id === id)
 
-export const readSearchConfig = (): SearchConfig => {
-  const stored = readStored<Partial<SearchConfig>>(SEARCH_KEY, {})
-  return {...defaultSearchConfig(), ...stored, keys: {...stored.keys}, urls: {...stored.urls}}
+/** 存储和配置快照可能只有服务商选择，所有读取入口统一补齐并校验嵌套字段。 */
+export const normalizeSearchConfig = (stored: unknown): SearchConfig => {
+  const object = (value: unknown): Record<string, unknown> => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+  const value = object(stored)
+  const providers: readonly string[] = ['off', ...SEARCH_PROVIDERS.map(info => info.id)]
+  const strings = (input: unknown): Partial<Record<SearchProvider, string>> => Object.fromEntries(
+    Object.entries(object(input)).filter(([key, item]) => providers.includes(key) && typeof item === 'string'),
+  )
+  return {
+    provider: typeof value.provider === 'string' && providers.includes(value.provider) ? value.provider as SearchProvider : 'off',
+    keys: strings(value.keys), urls: strings(value.urls),
+  }
 }
 
+export const readSearchConfig = (): SearchConfig => normalizeSearchConfig(readStored<unknown>(SEARCH_KEY, {}))
+
 /** 当前是否配好、可以搜。 */
-export function searchReady(config: SearchConfig): boolean {
+export function searchReady(stored: unknown): boolean {
+  const config = normalizeSearchConfig(stored)
   const info = providerInfo(config.provider)
   if (!info) return false
   if (info.needsKey && !config.keys[info.id]?.trim()) return false
@@ -127,7 +139,8 @@ async function getJson(info: ProviderInfo, url: string, headers: Record<string, 
   return rec(await res.json())
 }
 
-export async function webSearch(query: string, options: SearchOptions = {}, config: SearchConfig = readSearchConfig()): Promise<SearchResult> {
+export async function webSearch(query: string, options: SearchOptions = {}, stored: SearchConfig = readSearchConfig()): Promise<SearchResult> {
+  const config = normalizeSearchConfig(stored)
   const info = providerInfo(config.provider)
   if (!info) throw new Error('还没有开启联网搜索')
   if (!searchReady(config)) throw new Error(`${info.name} 还没配好`)
@@ -185,7 +198,8 @@ export async function webSearch(query: string, options: SearchOptions = {}, conf
 }
 
 /** 读单个网页的正文：服务商有抓取接口就用它，没有就退回「网络」里的代理直接取。 */
-export async function webFetch(url: string, maxChars: number, signal?: AbortSignal, config: SearchConfig = readSearchConfig()): Promise<string> {
+export async function webFetch(url: string, maxChars: number, signal?: AbortSignal, stored: SearchConfig = readSearchConfig()): Promise<string> {
+  const config = normalizeSearchConfig(stored)
   const info = providerInfo(config.provider)
   const key = info ? (config.keys[info.id] ?? '').trim() : ''
 

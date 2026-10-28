@@ -47,6 +47,11 @@ export function analyticsEnabled(): boolean {
 /** 开关统计。Umami 的脚本自己认 localStorage 的 umami.disabled，所以两处一起写。 */
 export function setAnalyticsEnabled(on: boolean) {
   writeStored('analytics', on)
+  alignDisabledFlag(on)
+}
+
+/** 同步/恢复直接替换 fp.analytics 后，也要对齐 Umami 自己读取的开关。 */
+function alignDisabledFlag(on: boolean) {
   try {
     if (on) localStorage.removeItem('umami.disabled')
     else localStorage.setItem('umami.disabled', '1')
@@ -57,8 +62,10 @@ export function setAnalyticsEnabled(on: boolean) {
 
 /** 页面加载时调用一次：配置齐全、访客没关，才注入 Umami 脚本。 */
 export function initAnalytics() {
+  const enabled = analyticsEnabled()
+  alignDisabledFlag(enabled)
   const config = umamiConfig()
-  if (!config || !analyticsEnabled() || document.querySelector('script[data-umami]')) return
+  if (!config || !enabled || document.querySelector('script[data-umami]')) return
   const script = document.createElement('script')
   script.defer = true
   script.src = config.src

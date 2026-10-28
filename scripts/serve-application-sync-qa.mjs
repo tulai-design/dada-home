@@ -34,7 +34,7 @@ async function close() {
 try {
   await listen(service)
   for (const [index, device] of devices.entries()) {
-    const vite = await createViteServer({root, configFile: false, server: {middlewareMode: true, hmr: false, ws: false}, optimizeDeps: {entries: ['tests/application-sync-worker.html', 'tests/application-sync-regressions.html']}, appType: 'mpa', logLevel: 'warn'})
+    const vite = await createViteServer({root, configFile: false, server: {middlewareMode: true, hmr: false, ws: false}, optimizeDeps: {entries: ['tests/application-sync-worker.html', 'tests/application-sync-regressions.html', 'tests/sync-completeness.html', 'tests/sync-completeness-worker.html', 'tests/sync-completeness-app.html']}, appType: 'mpa', logLevel: 'warn'})
     vites.push(vite)
     const site = createServer((req, res) => {
       const path = new URL(req.url, 'http://localhost').pathname

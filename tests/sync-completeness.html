@@ -1,0 +1,5 @@
+<!doctype html><html lang="zh-CN"><meta charset="UTF-8"><title>完整加密同步回归</title>
+<style>body{font:16px/1.6 system-ui;max-width:1100px;margin:32px auto;padding:20px;background:#f5f2eb;color:#252420}button{padding:10px 20px}pre{white-space:pre-wrap;font-size:13px}#frames iframe{width:48%;height:60px;border:1px solid #ccc}#app-frame iframe{width:100%;height:720px;border:1px solid #ccc}li{margin:8px 0}.pass{color:#23683d}.fail{color:#a32323}</style>
+<h1>完整加密同步：真实双设备回归</h1><p>随机隔离 origin、真实 IndexedDB、临时 SQLite/HTTP 服务。只使用合成数据；每次启动服务运行一次。</p>
+<button id="run" disabled>运行完整同步回归</button><p id="status">准备两台设备</p><div id="frames"></div><ol id="results"></ol><pre id="detail"></pre><div id="app-frame"></div>
+<script type="module" src="./sync-completeness.js"></script></html>

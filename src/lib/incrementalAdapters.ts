@@ -1,9 +1,8 @@
-import {validateApplicationData, validateApplicationDataRecord, type ApplicationData} from './applicationDataSchema'
-import {projectApplicationData, restoreApplicationData} from './applicationSyncProjection'
+import {validateApplicationData, validateApplicationDataRecord} from './applicationDataSchema'
 import {hydrateTurn, validateConv, validateStoredTurn, validateToolDetail, type StoredTurn, type ToolDetail} from './chatStorageSchema'
 import type {DbOperation, DbRead, StoreName} from './db'
 import {STORE, configApplyKey, invalid, isObject, put, read, type JsonValue, type SyncCollection} from './incrementalRows'
-import {applyConfig, configNames, onlyLocalConfig, project, restoreSecrets, secretFields, validateRecord} from './syncData'
+import {applyIncrementalConfig, INCREMENTAL_CONFIG_NAMES, projectIncrementalConfig} from './incrementalConfigSchema'
 
 /**
  * 每个集合的本机读写边界：同步引擎不理解业务，只通过它在同一事务里读取当前本机值、写入远端值。
@@ -17,9 +16,9 @@ export type SyncAdapter = {
   /** 规范化并校验身份；非法身份拒绝，不静默改写。 */
   key(raw: string): string
   reads(key: string): DbRead[]
-  /** 可携值（已去除凭据）；本机不存在返回 null。 */
+  /** 完整加密业务值（含凭据）；本机不存在返回 null。 */
   value(key: string, raws: unknown[]): JsonValue | null
-  /** 把远端可携值写入本机；current 用于恢复本机凭据。返回的操作与同步元数据同事务提交。 */
+  /** 把远端值写入本机；只保留设备本机授权。返回的操作与同步元数据同事务提交。 */
   apply(key: string, incoming: JsonValue | null, raws: unknown[]): DbOperation[]
   /** 远端值入站前的格式与大小校验。 */
   check(value: unknown): JsonValue | null
@@ -35,14 +34,13 @@ const applicationData: SyncAdapter = {
     if (raw === undefined) return null
     const row = validateApplicationDataRecord(raw)
     if (row.k !== key) return invalid()
-    return projectApplicationData(row.v) as JsonValue
+    return row.v as JsonValue
   },
-  apply(key, incoming, [raw]) {
+  apply(key, incoming) {
     if (incoming === null) return [{store: 'apps', type: 'delete', key}]
-    const current: ApplicationData = raw === undefined ? {} : validateApplicationDataRecord(raw).v
-    return [{store: 'apps', type: 'put', value: {k: key, v: restoreApplicationData(validateApplicationData(incoming), current)}}]
+    return [{store: 'apps', type: 'put', value: {k: key, v: validateApplicationData(incoming)}}]
   },
-  check: value => value === null ? null : projectApplicationData(validateApplicationData(value)) as JsonValue,
+  check: value => value === null ? null : validateApplicationData(value) as JsonValue,
 }
 
 const conversation: SyncAdapter = {
@@ -106,7 +104,6 @@ function bounded(value: unknown): JsonValue {
   return JSON.parse(text) as JsonValue
 }
 const identity = (raw: unknown): string => typeof raw === 'string' && raw.length > 0 && raw.length <= 1000 ? raw : invalid()
-const componentFields = (key: string) => key === '@shared.icsSubs' ? new Set(['url', ...secretFields]) : secretFields
 
 const component: SyncAdapter = {
   collection: 'component',
@@ -117,18 +114,17 @@ const component: SyncAdapter = {
   value(key, [raw]) {
     if (raw === undefined) return null
     if (!isObject(raw) || raw.k !== key || !Object.prototype.hasOwnProperty.call(raw, 'v')) return invalid()
-    return bounded({v: project(`component:${key}`, raw.v, 'full', false) ?? null})
+    return bounded({v: raw.v})
   },
-  apply(key, incoming, [raw]) {
+  apply(key, incoming) {
     if (incoming === null) return [{store: 'kv', type: 'delete', key}]
-    const local = isObject(raw) ? raw.v : undefined
-    return [{store: 'kv', type: 'put', value: {k: key, v: restoreSecrets(wrapped(incoming).v, local, false, componentFields(key))}}]
+    return [{store: 'kv', type: 'put', value: {k: key, v: wrapped(incoming).v}}]
   },
   check: value => value === null ? null : bounded({v: wrapped(value).v}),
 }
 
 /** 配置在 localStorage：同步读取是事务内允许的纯读取；写入走“待应用”行，提交后再落到 localStorage。 */
-export const CONFIG_NAMES: readonly string[] = [...configNames, 'read']
+export const CONFIG_NAMES = INCREMENTAL_CONFIG_NAMES
 const configName = (raw: unknown): string => typeof raw === 'string' && CONFIG_NAMES.includes(raw) ? raw : invalid()
 export type ConfigApply = {k: string; type: 'config-apply'; name: string; value: string | null}
 const pendingOf = (name: string, raw: unknown): ConfigApply | undefined => {
@@ -145,10 +141,8 @@ export function localConfig(name: string, pending?: ConfigApply): unknown {
 /** 可携投影：纯本机字段（网络授权等）不算同步内容。 */
 export function configValue(name: string, local: unknown): JsonValue | null {
   if (local === undefined) return null
-  const id = `config:${name}`, projected = project(id, local, 'full', false)
-  if (onlyLocalConfig(id, projected, local)) return null
-  validateRecord(id, projected, false, 'full')
-  return bounded({v: projected ?? null})
+  const projected = projectIncrementalConfig(name, local)
+  return projected === undefined ? null : bounded({v: projected})
 }
 const config: SyncAdapter = {
   collection: 'config',
@@ -159,8 +153,7 @@ const config: SyncAdapter = {
   apply(key, incoming, [raw]) {
     const pending = pendingOf(key, raw), base = localConfig(key, pending)
     const remote = incoming === null ? undefined : wrapped(incoming).v
-    if (incoming !== null) validateRecord(`config:${key}`, remote, false, 'full')
-    const next = applyConfig(key, remote, base, 'full', false)
+    const next = applyIncrementalConfig(key, remote, base)
     const row: ConfigApply = {k: configApplyKey(key), type: 'config-apply', name: key, value: next === undefined ? null : JSON.stringify(next)}
     return [put(row)]
   },

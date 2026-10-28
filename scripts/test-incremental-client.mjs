@@ -18,6 +18,8 @@ globalThis.fetch = async (url, init) => {
   return new Response('{}', {status: 404})
 }
 
+let controllerFactory = () => {throw new Error('unused')}
+let persistenceErrors = []
 const modules = new Map()
 function load(path) {
   if (modules.has(path)) return modules.get(path)
@@ -26,9 +28,10 @@ function load(path) {
   const require = id => {
     if (id === '@tulai-design/sync-sdk') return sdk
     if (id === '@tulai-design/sync-sdk/crypto') return encryption
-    if (id === 'react') return {useSyncExternalStore: () => undefined}
-    if (id === './incrementalSync') return {createIncrementalSyncController: () => { throw new Error('unused') }}
+    if (id === 'react') return {useSyncExternalStore: (_subscribe, snapshot) => snapshot()}
+    if (id === './incrementalSync') return {createIncrementalSyncController: options => controllerFactory(options)}
     if (id === './incrementalStore') return {incrementalStore: {}}
+    if (id === './persistence') return {getPersistenceStatus: () => ({errors: persistenceErrors})}
     if (id === './incrementalRows') return {SYNC_COLLECTIONS: ['config', 'component', 'applicationData', 'conversation', 'turn']}
     throw new Error('Unknown test import ' + id)
   }
@@ -94,6 +97,71 @@ await test('服务器已有数据或无法确认时拒绝新建密钥，空库�
     globalThis.fetch = async () => new Response('{}', {status: 500})
     await assert.rejects(client.createSpaceKeyring(config), /无法确认/)
   } finally {globalThis.fetch = original}
+})
+
+await test('手动同步先排空上传，再用单轮批量拉取，第二次无修改同步为空操作', async () => {
+  const calls = []
+  let uploadRounds = 0, pulls = 0, closed = 0
+  controllerFactory = () => ({
+    async run(options) {
+      calls.push(options)
+      if (options.pull === false) {uploadRounds++; return {pushed: uploadRounds <= 2 ? 100 : 0, pulled: 0, conflicts: 0, hasMore: uploadRounds < 2, needsReload: false}}
+      pulls++; return {pushed: 0, pulled: pulls === 1 ? 61 : 0, conflicts: 0, hasMore: false, needsReload: false}
+    },
+    async inspect() {return {records: []}},
+    close() {closed++},
+  })
+  const first = await client.runIncremental()
+  assert.equal(first.phase, 'ok'); assert.equal(first.pushed, 200); assert.equal(first.pulled, 61)
+  assert.deepEqual(calls.map(options => options.pull === false), [true, true, false])
+  assert.equal(calls.at(-1).maxPull, 10000)
+  const second = await client.runIncremental()
+  assert.equal(second.phase, 'ok'); assert.equal(second.pushed, 0); assert.equal(second.pulled, 0)
+  assert.equal(closed, 2)
+})
+
+await test('上传或下载预算耗尽显示未完成，不宣称同步成功', async () => {
+  for (const uploadOnly of [true, false]) {
+    let calls = 0
+    controllerFactory = () => ({
+      async run(options) {calls++; return {pushed: 0, pulled: 0, conflicts: 0, hasMore: uploadOnly || options.pull !== false, needsReload: !uploadOnly && options.pull !== false}},
+      async inspect() {return {records: []}}, close() {},
+    })
+    const result = await client.runIncremental()
+    assert.equal(result.phase, 'error'); assert.equal(result.hasMore, true)
+    assert.match(result.message, /尚未完成/)
+    assert.equal(result.needsReload, !uploadOnly)
+    assert.equal(calls, uploadOnly ? 100 : 2)
+  }
+})
+
+await test('部分入站后失败以及再次同步失败，都保留需要重载的状态', async () => {
+  persistenceErrors = []
+  controllerFactory = () => ({
+    async run(options) {
+      if (persistenceErrors.length) throw new Error('reload required')
+      if (options.pull === false) return {pushed: 0, pulled: 0, conflicts: 0, hasMore: false, needsReload: false}
+      persistenceErrors = [{source: 'sync-reload'}]
+      throw new Error('network interrupted after apply')
+    },
+    async inspect() {return {records: []}}, close() {},
+  })
+  const result = await client.runIncremental()
+  assert.equal(result.phase, 'error'); assert.equal(result.needsReload, true)
+  assert.match(result.message, /network interrupted/)
+  const again = await client.runIncremental({pull: false})
+  assert.equal(again.needsReload, true); assert.match(again.message, /reload/)
+  persistenceErrors = []
+})
+
+await test('解决冲突提交后落盘失败也向设置页保留重新加载入口', async () => {
+  persistenceErrors = []
+  controllerFactory = () => ({
+    async resolve() {persistenceErrors = [{source: 'sync-reload'}]; throw new Error('localStorage full')}, close() {},
+  })
+  await assert.rejects(client.resolveConflict({ref: {collection: 'config', key: 'search'}, version: {localGeneration: 1, remoteRevision: 2}}, 'remote'), /localStorage full/)
+  assert.equal(client.useIncrementalStatus().needsReload, true)
+  persistenceErrors = []
 })
 
 console.log(`共 ${passed} 项通过`)

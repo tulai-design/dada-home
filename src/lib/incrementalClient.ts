@@ -4,6 +4,7 @@ import {useSyncExternalStore} from 'react'
 import {createIncrementalSyncController} from './incrementalSync'
 import {SYNC_COLLECTIONS, type JsonValue, type SyncCollection, type SyncConflictVersion, type SyncRef} from './incrementalRows'
 import {incrementalStore} from './incrementalStore'
+import {getPersistenceStatus} from './persistence'
 
 /**
  * 自建增量同步在设置页的运行时：连接信息、状态、自动调度、设备配对与冲突。
@@ -15,7 +16,7 @@ export type IncrementalConfig = {
 }
 export type IncrementalStatus = {
   phase: 'idle' | 'syncing' | 'ok' | 'error'; message?: string; at?: number
-  pushed?: number; pulled?: number; conflicts?: number; needsReload?: boolean
+  pushed?: number; pulled?: number; conflicts?: number; needsReload?: boolean; hasMore?: boolean
 }
 export type ConflictItem = {ref: SyncRef; version: SyncConflictVersion; remoteReady: boolean; remoteValue?: JsonValue | null}
 export type PairingInvite = {format: 'dada-sync-invite'; version: 1; endpoint: string; appId: string; spaceId: string; pairingToken: string; deviceId: string; keyring: unknown}
@@ -124,25 +125,35 @@ export async function bindIncremental(config = readIncrementalConfig()): Promise
 export async function isBound(): Promise<boolean> {return Boolean(await incrementalStore.active())}
 
 let running: Promise<IncrementalStatus> | undefined
-/** 同步直到队列清空；auto 只上传，手动同步同时拉取。拉取后需要重新加载才能继续编辑。 */
+/** 先排空上传，再在一次门禁内拉取；有界预算耗尽必须显示未完成，不能谎报成功。 */
 export function runIncremental(options: {pull: boolean} = {pull: true}): Promise<IncrementalStatus> {
   if (running) return running
   running = (async () => {
     const config = readIncrementalConfig()
     setStatus({...status, phase: 'syncing', message: undefined})
-    const controller = (() => {try {return controllerFor(config)} catch (error) {setStatus({phase: 'error', message: messageOf(error)}); return undefined}})()
+    const controller = (() => {try {return controllerFor(config)} catch (error) {setStatus({...status, phase: 'error', message: messageOf(error)}); return undefined}})()
     if (!controller) return status
-    const total = {pushed: 0, pulled: 0, conflicts: 0, needsReload: false}
+    const total = {pushed: 0, pulled: 0, conflicts: 0, needsReload: false, hasMore: false}
+    const add = (result: Awaited<ReturnType<typeof controller.run>>) => {
+      total.pushed += result.pushed; total.pulled += result.pulled; total.conflicts += result.conflicts
+      total.needsReload ||= result.needsReload; total.hasMore = result.hasMore
+    }
     try {
-      for (let round = 0; round < 50; round++) {
-        const result = await controller.run({pull: options.pull})
-        total.pushed += result.pushed; total.pulled += result.pulled; total.conflicts += result.conflicts; total.needsReload ||= result.needsReload
-        if (!result.hasMore) break
+      // 上传阶段没有远端应用，允许分批继续；避免第一页入站后再次采样旧内存。
+      for (let round = 0; round < 100; round++) {
+        add(await controller.run({pull: false, maxPush: 100}))
+        if (!total.hasMore || total.needsReload) break
       }
+      if (!total.hasMore && !total.needsReload && options.pull) add(await controller.run({maxPush: 0, maxPull: 10000}))
       const open = (await controller.inspect()).records.filter(record => record.conflict).length
-      setStatus({phase: 'ok', at: Date.now(), ...total, conflicts: open, message: open ? `有 ${open} 处冲突等待选择。` : undefined})
+      const message = total.hasMore
+        ? `本次同步尚未完成，剩余进度已保存。${total.needsReload ? '请重新加载后继续同步。' : '请再次同步以继续。'}`
+        : open ? `有 ${open} 处冲突等待选择。` : undefined
+      setStatus({phase: total.hasMore ? 'error' : 'ok', at: Date.now(), ...total, conflicts: open, message})
     } catch (error) {
-      setStatus({phase: 'error', at: Date.now(), message: messageOf(error), needsReload: total.needsReload})
+      // controller 可能已提交前几页后才遇到网络或落盘错误，异常没有正常 result。
+      const needsReload = total.needsReload || getPersistenceStatus().errors.some(item => item.source === 'sync-reload')
+      setStatus({phase: 'error', at: Date.now(), ...total, message: messageOf(error), needsReload})
     } finally {controller.close()}
     return status
   })().finally(() => {running = undefined})
@@ -165,6 +176,9 @@ export async function resolveConflict(item: ConflictItem, choice: 'local' | 'rem
     const result = await controller.resolve(item.ref, item.version, choice)
     if (result.needsReload) setStatus({...status, needsReload: true})
     return result.needsReload
+  } catch (error) {
+    if (getPersistenceStatus().errors.some(item => item.source === 'sync-reload')) setStatus({...status, needsReload: true})
+    throw error
   } finally {controller.close()}
 }
 

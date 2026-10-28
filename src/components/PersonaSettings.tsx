@@ -33,7 +33,7 @@ export function ProfileForm() {
   const {profile} = usePersona()
   return (
     <>
-      <Group title="关于你" footer="填得越具体，搭搭越懂你。这些只存在这台浏览器里，只在你和搭搭对话时当作背景使用。">
+      <Group title="关于你" footer="填得越具体，搭搭越懂你。这些资料用于对话背景；启用自建增量同步后，会随配置加密同步。">
         <TextRow label="身份" stack value={profile.role} placeholder="例如：独立开发者 / 产品经理 / 大三学生" onChange={(role) => setProfile({role})} />
         <TextRow label="兴趣" stack value={profile.interests} placeholder="例如：摄影、咖啡、Rust、科幻小说" onChange={(interests) => setProfile({interests})} />
       </Group>

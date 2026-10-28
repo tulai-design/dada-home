@@ -14,7 +14,10 @@ type Note = {kind: 'ok' | 'error'; text: string; group: string} | null
 /** 操作结果显示在被点击的那一组里，而不是固定在页面顶部。 */
 const GROUP_OF: Record<string, string> = {test: 'service', key: 'key', invite: 'invite', join: 'join', scope: 'scope', bind: 'sync', sync: 'sync', resolve: 'conflict', devices: 'device', revoke: 'device', detach: 'detach'}
 const messageOf = (error: unknown) => error instanceof Error ? error.message : String(error)
-const preview = (value: unknown) => {const text = JSON.stringify(value) ?? '已删除'; return text.length > 160 ? text.slice(0, 160) + '…' : text}
+const preview = (value: unknown) => {
+  const text = JSON.stringify(value, (key, item) => ['apiKey', 'token', 'password', 'secret', 'keys'].includes(key) ? '••••' : item) ?? '已删除'
+  return text.length > 160 ? text.slice(0, 160) + '…' : text
+}
 
 function Notice({note, group}: {note: Note; group: string}) {
   if (note?.group !== group) return null
@@ -97,7 +100,7 @@ export function IncrementalSyncSettings() {
         <Notice note={note} group="service" />
       </Group>
 
-      <Group title="空间密钥" footer="同步内容在本机加密后才上传，服务只看到密文。密钥丢失后无法恢复，请保留另一台已配对的设备或自行备份邀请。">
+      <Group title="空间加密密钥" footer="这把密钥用于加密和解密同步数据，与 AI、搜索服务的 API 密钥不同。密钥丢失后无法恢复，请保留另一台已配对的设备或自行备份邀请。">
         <Row label={config.keyring ? '已保存空间密钥' : '还没有空间密钥'} hint={config.keyring ? `密钥 ${config.keyring.keys.map(key => key.id).join('、')}；各设备的密钥编号必须一致，换设备请用下面的邀请。` : serverData === 'yes' ? '服务器上这个空间已有数据，需要用另一台设备生成的邀请加入，不能新建密钥。' : serverData === 'no' ? '服务器上还没有数据，可以在这台设备新建密钥。' : '先填好服务地址和访问令牌，确认服务器上是否已有数据。'}>
           {!config.keyring && <Button size="small" disabled={Boolean(busy) || serverData !== 'no'} onClick={() => void act('key', async () => {set({keyring: await createSpaceKeyring(config)}); return '已新建空间密钥。'})}>新建密钥</Button>}
         </Row>
@@ -137,7 +140,7 @@ export function IncrementalSyncSettings() {
         <Notice note={note} group="join" />
       </Group>
 
-      <Group title="同步内容" footer="关闭某一类只是不再发送或应用，本机和远端已有数据都保留；重新开启后下次同步会补齐。">
+      <Group title="同步内容" footer="默认同步全部业务数据，包括主题、页面背景、AI 与搜索的 API 密钥和服务地址、订阅、应用数据及聊天；内容在本机加密后上传。本机操作授权与设备身份单独管理。关闭某一类会保留已有数据，重新开启后补齐。">
         {SYNC_COLLECTIONS.map(name => (
           <Row key={name} label={COLLECTION_LABELS[name]}>
             <Switch aria-label={COLLECTION_LABELS[name]} checked={config.collections.includes(name)} disabled={Boolean(busy)} onChange={on => void toggle(name, on)} />

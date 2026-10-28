@@ -8,7 +8,7 @@ import {AppSettingsCtx, listApps, type AppSettingsContext} from '../lib/apps'
 import {listApplications} from '../lib/applications'
 import {PROXY_PRESETS} from '../lib/rss'
 import {useStored} from '../lib/store'
-import {SEARCH_KEY, defaultSearchConfig, providerInfo, searchReady, type SearchConfig} from '../lib/webSearch'
+import {SEARCH_KEY, defaultSearchConfig, normalizeSearchConfig, providerInfo, searchReady} from '../lib/webSearch'
 import {Group, Row, TextRow, Tile} from './ios'
 import {SidebarSettings, StatusbarSettings} from './LayoutSettings'
 import {exportBackupSnapshot, importBackup, MAX_BACKUP_BYTES, parseBackup, type BackupSummary} from '../lib/storage'
@@ -104,7 +104,8 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest,
       setImportError(error instanceof Error ? error.message : String(error))
     }
   }
-  const [searchConfig] = useStored<SearchConfig>(SEARCH_KEY, defaultSearchConfig())
+  const [storedSearch] = useStored<unknown>(SEARCH_KEY, defaultSearchConfig())
+  const searchConfig = normalizeSearchConfig(storedSearch)
   const searchSummary = providerInfo(searchConfig.provider) ? (searchReady(searchConfig) ? providerInfo(searchConfig.provider)?.name : '未配好') : '未启用'
   const [assistantMode, setAssistantMode] = useStored<AssistantMode>('sidebarAi', 'full')
 

@@ -19,7 +19,8 @@
   "pr_url": null,
   "subtasks": [],
   "children": [
-    "10-28-application-incremental-sync"
+    "10-28-application-incremental-sync",
+    "10-28-sync-completeness"
   ],
   "parent": "10-28-storage-sync",
   "relatedFiles": [],

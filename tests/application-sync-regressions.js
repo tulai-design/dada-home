@@ -41,11 +41,11 @@ document.querySelector('#run').addEventListener('click', async event => {
   event.target.disabled = true; status.textContent = '验收运行中'
   try {
     await save('a', 'app:before-bind', {seed: true}); await Promise.all([call('a', 'bind'), call('b', 'bind')])
-    await check('大对象、深层 JSON、长 ID 与已知凭据过滤', async () => {
+    await check('大对象、深层 JSON、长 ID 与加密业务凭据完整保留', async () => {
       const key = 'app:长🙂'.repeat(140) + '\ud800', data = {body: '中'.repeat(710000), token: 'local-only', nested: {}}
       let level = data.nested; for (let i = 0; i < 90; i++) {level.next = {}; level = level.next} level.value = 42
       await save('a', key, data); const before = await stats(); await drain('a'); await drain('b')
-      const copy = await load('b', key); assert(copy.body.length === 710000, '大对象内容损坏'); assert(!('token' in copy), '凭据泄露')
+      const copy = await load('b', key); assert(copy.body.length === 710000, '大对象内容损坏'); assert(copy.token === data.token, '加密业务凭据未同步')
       let levelCopy = copy.nested; for (let i = 0; i < 90; i++) levelCopy = levelCopy.next
       equal(levelCopy.value, 42, '深层值'); const after = await stats(); assert(after.objectChunkPuts - before.objectChunkPuts >= 3, '没有真实分块')
       return {commits: after.commits - before.commits, uploadBytes: after.objectChunkBytes - before.objectChunkBytes}
