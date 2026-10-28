@@ -5,7 +5,10 @@
 # - 不写 ports：Coolify 自带的反向代理（Traefik / Caddy）按域名转发到容器的 80 端口，并自动签 HTTPS。
 # - SERVICE_FQDN_WEB_80 是 Coolify 的「魔法变量」：它会在界面里给 web 服务生成一个域名输入框（容器端口 80）。
 # - 镜像来自 ghcr。包是公开的就能直接拉；私有的话，要先在服务器 / Coolify 里配置 ghcr 的登录凭据。
-# - 下面的变量会出现在 Coolify 的「环境变量」页面里，按需填写即可，都可以留空。
+# - 下面的变量会出现在 Coolify 的「环境变量」页面里。web 的变量都可以留空；sync 有两项必填：
+#   TULAI_SYNC_ADMIN_TOKEN（管理令牌）和 DADA_ORIGIN（搭搭的访问地址）。
+# - sync 是自建增量同步服务，数据库在卷 sync-data，只能单实例。给它单独绑定一个域名（容器端口 8787）。
+# - 不使用增量同步时，可以删掉整个 sync 服务和 volumes 段。
 services:
   web:
     image: ghcr.io/tulai-design/dada-home:${IMAGE_TAG:-latest}
@@ -24,3 +27,22 @@ services:
       timeout: 3s
       retries: 3
       start_period: 5s
+
+  sync:
+    image: ghcr.io/tulai-design/sync:${TULAI_SYNC_TAG:-latest}
+    restart: unless-stopped
+    init: true
+    environment:
+      - SERVICE_FQDN_SYNC_8787
+      # 管理令牌：32–128 位 [A-Za-z0-9_-]。生成：
+      # node --input-type=module -e "import {randomBytes} from 'node:crypto'; console.log(randomBytes(32).toString('base64url'))"
+      - TULAI_SYNC_ADMIN_TOKEN=${TULAI_SYNC_ADMIN_TOKEN:?必须设置管理令牌}
+      # 可访问的应用空间，格式 appId:spaceId，多个用逗号分隔；与搭搭设置里的应用标识、空间标识对应。
+      - TULAI_SYNC_SCOPES=${TULAI_SYNC_SCOPES:-dada:personal}
+      # 搭搭的访问地址，精确的源（如 https://dada.example.com，不带末尾斜杠）。
+      - TULAI_SYNC_ALLOWED_ORIGINS=${DADA_ORIGIN:?必须填写搭搭的访问地址，否则浏览器无法跨源访问同步服务}
+    volumes:
+      - sync-data:/data
+
+volumes:
+  sync-data:
