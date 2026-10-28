@@ -509,3 +509,38 @@
 
 - 共用增量同步服务及客户端，供搭搭和aifenjing使用；之后容量管理和父任务组合验收。
 - 本轮仅本地提交，未推送、发布或部署；父任务4/6，仍进行中。
+
+
+## Session 15: 共用同步服务仓库归属与接入提案
+<!-- trellis-session: v=2 fp=9950737fb020de73 -->
+
+**Date**: 2026-10-28
+**Task**: 共用同步服务仓库归属与接入提案
+**Branch**: `main`
+
+### Summary
+
+建议在tulai-design建立独立sync仓库，服务/协议/轻量SDK同仓，两个产品各自维护本地适配器；仍为提案。
+
+### Main Changes
+
+- 只读核对组织仓库及aifenjing ProductStore/checkpoint；记录ADR0004、仓库布局和跨仓实施顺序。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `eab3cf4` | docs: 明确共用同步服务的独立仓库提案与接入边界 |
+
+### Testing
+
+- [OK] Standards与Spec文档审查PASS；本地链接、Trellis JSONL和diff检查通过，审查代理类型检查通过。
+- [OK] 本轮无产品代码变更，未运行产品测试或构建；未创建远端仓库或发布部署。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 确定新仓库创建信息，完成服务协议设计和独立仓库基线；当前子任务planning，父任务4/6。
