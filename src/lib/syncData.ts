@@ -5,10 +5,10 @@ import {canonical, digest, exactKeys, object, type SyncRecord} from './syncProto
 import type {SyncScope} from './syncTypes'
 import {WORKSPACE_VERSION} from './workspace'
 
-const configNames = ['workspace', 'settings', 'search', 'persona', 'focusSettings', 'searchMode', 'sidebarAi', 'assistantPanelMode', 'range']
+export const configNames = ['workspace', 'settings', 'search', 'persona', 'focusSettings', 'searchMode', 'sidebarAi', 'assistantPanelMode', 'range']
 const settingsFields = ['name', 'city', 'lat', 'lon', 'theme', 'showFavicons', 'showSeconds', 'wallpaper', 'wallpaperIndex', 'wallpaperUrl', 'hotSource', 'hotBoards', 'ai']
 const aiFields = ['model', 'protocol', 'temperature', 'topP', 'maxTokens', 'presencePenalty', 'frequencyPenalty', 'reasoningEffort', 'contextTurns', 'maxRounds', 'apiKey']
-const secretFields = new Set(['apiKey', 'token', 'password', 'secret', 'keys'])
+export const secretFields = new Set(['apiKey', 'token', 'password', 'secret', 'keys'])
 const own = (value: object, key: string) => Object.prototype.hasOwnProperty.call(value, key)
 const nonempty = (value: unknown): value is string => typeof value === 'string' && value.length > 0
 const finite = (value: unknown) => typeof value === 'number' && Number.isFinite(value) && value >= 0
@@ -21,7 +21,7 @@ function stripSecrets(value: unknown, fields = secretFields): unknown {
   if (!object(value)) return value
   return Object.fromEntries(Object.entries(value).filter(([key]) => !fields.has(key)).map(([key, item]) => [key, stripSecrets(item, fields)]))
 }
-function restoreSecrets(remote: unknown, local: unknown, withSecrets: boolean, fields = secretFields): unknown {
+export function restoreSecrets(remote: unknown, local: unknown, withSecrets: boolean, fields = secretFields): unknown {
   if (Array.isArray(remote)) {
     const byId = new Map((Array.isArray(local) ? local : []).filter(item => object(item) && nonempty(item.id)).map(item => [(item as Record<string, unknown>).id, item]))
     // 数组只有明确身份才能恢复本机凭据，绝不能把上一项的密钥按位置交给另一项。
@@ -209,7 +209,7 @@ export function validateAssociations(records: Record<string, SyncRecord>): void 
 }
 export type LocalData = {values: Map<string, unknown>; full: Map<string, unknown>; deferred: Set<string>; fingerprint: string}
 /** 删除配置后，保留的本机字段不是一个新的可携记录，不能复活墓碑。 */
-function onlyLocalConfig(id: string, value: unknown, full: unknown): boolean {
+export function onlyLocalConfig(id: string, value: unknown, full: unknown): boolean {
   if (!object(value) || !object(full)) return false
   if (id === 'config:workspace') return own(full, 'network') && exactKeys(full, ['network']) && Array.isArray(full.network)
   if (id === 'config:persona') return (own(full, 'profile') || object(full.soul) && own(full.soul, 'history') || object(full.memory) && own(full.memory, 'items')) && Object.keys(value).every(key => ['soul', 'memory'].includes(key)) && Object.values(value).every(item => object(item) && !Object.keys(item).length)
@@ -251,7 +251,7 @@ export async function collect(scope: SyncScope, secrets: boolean): Promise<Local
   }
   return {values, full, deferred, fingerprint: await digest({raw, database})}
 }
-function applyConfig(name: string, incoming: unknown, local: unknown, scope: SyncScope, secrets: boolean): unknown {
+export function applyConfig(name: string, incoming: unknown, local: unknown, scope: SyncScope, secrets: boolean): unknown {
   const mine = object(local) ? local : {}
   const value = object(incoming) ? incoming : {}
   if (name === 'workspace') return incoming === undefined ? (mine.network === undefined ? undefined : {network: mine.network}) : {...value, network: mine.network ?? []}

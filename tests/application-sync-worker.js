@@ -1,4 +1,4 @@
-import {createApplicationSyncController} from '../src/lib/applicationSync'
+import {createIncrementalSyncController} from '../src/lib/incrementalSync'
 import {replaceApplicationData, loadApplicationData, deleteApplicationData} from '../src/lib/applicationData'
 import {db} from '../src/lib/db'
 import {commitStorage, recoverStorage} from '../src/lib/storageCommit'
@@ -24,30 +24,39 @@ const options = {...config.scope, endpoint: config.baseUrl, deviceId: config.dev
     }
     return response
   }}
-controller = createApplicationSyncController(options)
+controller = createIncrementalSyncController(options)
 const ref = key => {const split = key.indexOf(':'); return {kind: key.slice(0, split), id: key.slice(split + 1)}}
 const commands = {
   bind: () => controller.bind(),
   run: args => controller.run(args || {}),
-  inspect: () => controller.inspect(),
+  // 引擎记录不再复制本地值；回归页仍要看到候选，这里从活动数据实时读出并保留旧字段名。
+  inspect: async () => {
+    const state = await controller.inspect()
+    const records = await Promise.all(state.records.map(async record => {
+      const next = {...record, applicationKey: record.key}
+      if (record.conflict) next.conflict = {...record.conflict, localValue: (await db.get('apps', record.key))?.v ?? null}
+      return next
+    }))
+    return {...state, records}
+  },
   save: args => replaceApplicationData(ref(args.key), args.value),
   load: args => loadApplicationData(ref(args.key)),
   row: args => db.get('apps', args.key),
   delete: args => deleteApplicationData(ref(args.key)),
-  resolve: args => controller.resolve(args.key, args.expected, args.choice),
+  resolve: args => controller.resolve({collection: 'applicationData', key: args.key}, args.expected, args.choice),
   detach: () => controller.detach(),
   fault: args => {fault = args; return true},
   async abortSave(args) {
     const put = IDBObjectStore.prototype.put
     IDBObjectStore.prototype.put = function (...values) {
       const req = Reflect.apply(put, this, values)
-      if (this.name === 'applicationSync') req.addEventListener('success', () => {try {this.transaction.abort()} catch {}}, {once: true})
+      if (this.name === 'incrementalSync') req.addEventListener('success', () => {try {this.transaction.abort()} catch {}}, {once: true})
       return req
     }
     let rejected = false
     try {await replaceApplicationData(ref(args.key), args.value)} catch {rejected = true} finally {IDBObjectStore.prototype.put = put}
     const row = await db.get('apps', args.key)
-    const state = await controller.inspect()
+    const state = await commands.inspect()
     await retryPersistence()
     return {rejected, row, state}
   },
@@ -64,7 +73,7 @@ const commands = {
     try {await commitStorage({local: {'fp.qa-restore': 'after'}, operations: [{store: 'kv', type: 'put', value: {k: 'qa-note', v: 'after'}}]})} catch {rejected = true} finally {Storage.prototype.setItem = original}
     const journal = await db.get('recovery', 'backup-restore')
     await recoverStorage()
-    return {rejected, hadJournal: !!journal, pending: !!await db.get('recovery', 'backup-restore'), note: await db.get('kv', 'qa-note'), local: localStorage.getItem('fp.qa-restore'), state: await controller.inspect()}
+    return {rejected, hadJournal: !!journal, pending: !!await db.get('recovery', 'backup-restore'), note: await db.get('kv', 'qa-note'), local: localStorage.getItem('fp.qa-restore'), state: await commands.inspect()}
   },
   async abortInbound() {
     const put = IDBObjectStore.prototype.put
@@ -75,7 +84,7 @@ const commands = {
     }
     let rejected = false
     try {await controller.run({maxPush: 0})} catch {rejected = true} finally {IDBObjectStore.prototype.put = put}
-    return {rejected, state: await controller.inspect()}
+    return {rejected, state: await commands.inspect()}
   },
   async restoreAfterDetach() {await commitStorage({local: {}, operations: [{store: 'apps', type: 'put', value: {k: 'app:after-restore', v: {restored: true}}}]}); return true},
   async restoreGuard() {

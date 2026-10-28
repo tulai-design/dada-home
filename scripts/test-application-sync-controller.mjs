@@ -27,7 +27,8 @@ function harness() {
       if (!binding) binding = {...identity, epoch: 'epoch-1'}
       return structuredClone(binding)
     },
-    async next() {assertLock(); return intents[0] && structuredClone(intents[0])},
+    async next() {assertLock(); return intents[0] && {ref: {collection: 'applicationData', key: intents[0].applicationKey}, intent: structuredClone(intents[0])}},
+    async sample(ref) {assertLock(); return {value: structuredClone(intents.find(item => item.applicationKey === ref.key).value), generation: 1}},
     async prepare(epoch, id, prepared) {
       assertLock(); events.push('prepare'); assert.equal(epoch, binding.epoch)
       const intent = intents.find(item => item.operationId === id)
@@ -90,8 +91,9 @@ function harness() {
     const require = id => {
       if (id === '@tulai-design/sync-sdk') return {createSyncClient: () => client}
       if (id === '@tulai-design/sync-sdk/crypto') return encryption
-      if (id === './applicationSyncStore') return {applicationSyncStore: store}
+      if (id === './incrementalStore') return {incrementalStore: store}
       if (id === './applicationData') return {async flushApplicationData() {assertLock(); events.push('flush')}}
+      if (id === './chat') return {async flush() {assertLock()}}
       if (id === './persistence') return persistence
       if (id.startsWith('.')) return load(new URL(id + '.ts', 'file:///' + path).pathname.slice(1))
       throw new Error('Unknown test import')
@@ -99,10 +101,10 @@ function harness() {
     vm.runInThisContext('(function(module, exports, require) {' + code + '\n})', {filename: path})(module, module.exports, require)
     return module.exports
   }
-  const factory = load('src/lib/applicationSync.ts').createApplicationSyncController
+  const factory = load('src/lib/incrementalSync.ts').createIncrementalSyncController
   const makeController = (overrides = {}) => factory({endpoint: 'http://localhost:8787', ...scope, deviceId: 'device-a', token: 'private-token', keyring, ...overrides})
   return {
-    events, intents, persisted, receipts, downloads, store, client, makeController, codec: load('src/lib/applicationSyncCodec.ts'),
+    events, intents, persisted, receipts, downloads, store, client, makeController, codec: load('src/lib/incrementalCodec.ts'),
     binding: () => binding, gate: () => gate, setPage(value) {page = value}, setApplyChanged(value) {applyChanged = value},
     addIntent(id = 'operation-1', value = {text: 'value'}) {intents.push({applicationKey: 'app:' + id, generation: 1, value, operationId: id, baseRevision: null})},
   }
@@ -154,13 +156,13 @@ await test('未知schema和多record事务不推进cursor，多record在对象�
   h.setPage({cursor: 'cursor-1', commits: [{deviceId: 'other', operationId: 'remote', records: [unsupported]}], hasMore: false})
   await assert.rejects(controller.run()); assert.equal(h.binding().cursor, undefined)
   h.setPage({cursor: 'cursor-1', commits: [{deviceId: 'other', operationId: 'remote', records: [unsupported, unsupported]}], hasMore: false})
-  await assert.rejects(controller.run(), /每次提交一个应用/)
+  await assert.rejects(controller.run(), /每次提交一条同步记录/)
   assert.equal(h.events.includes('download'), false); assert.equal(h.events.includes('applyPage'), false)
 })
 
 await test('入站下载期间不持写入门禁，完整认证后flush+原子apply，reload阻止下一轮覆盖', async () => {
   const h = harness(), controller = h.makeController(); await controller.bind()
-  const prepared = await h.codec.prepareApplicationSyncRecord({applicationKey: 'app:remote', value: {text: 'remote'}, operationId: 'remote', baseRevision: null}, {scope, keyring})
+  const prepared = await h.codec.prepareSyncRecord({ref: {collection: 'applicationData', key: 'app:remote'}, value: {text: 'remote'}, operationId: 'remote', baseRevision: null}, {scope, keyring})
   const {type: _type, baseRevision: _base, ...mutation} = prepared.request.mutations[0]
   h.downloads.set(mutation.objectRefs[0].sha256, prepared.ciphertext)
   h.setPage({cursor: 'cursor-1', commits: [{deviceId: 'other', operationId: 'remote', records: [{...mutation, deleted: false, revision: 1}]}], hasMore: true})

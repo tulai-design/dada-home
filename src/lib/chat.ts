@@ -1,5 +1,7 @@
 import {useSyncExternalStore} from 'react'
 import {db, type DbOperation} from './db'
+import {commitWithSync} from './incrementalLocal'
+import type {SyncRef} from './incrementalRows'
 import {assertPersistenceWritable, clearPersistenceError, reportPersistenceError} from './persistence'
 import {readStored, writeStored} from './store'
 import {hydrateTurn, splitTurn, toolDetailId, validateConv, validateStoredChat, validateStoredTurn, validateToolDetail, type Conv, type StoredTurn, type ToolDetail, type ToolStep, type Turn} from './chatStorageSchema'
@@ -100,7 +102,10 @@ export function flush(): Promise<void> {
           ...turns.map(([, value]) => ({store: 'turns' as const, type: 'put' as const, value})),
           ...convs.map(([, value]) => ({store: 'convs' as const, type: 'put' as const, value})),
         ]
-        await db.batch(operations)
+        // 受影响的轮次/会话在同一事务里留下待同步标记；工具正文随所属轮次同步。
+        const turnKeys = new Set([...turns.map(([id]) => id), ...details.map(([, value]) => value.turnId)])
+        const touched: SyncRef[] = [...[...turnKeys].map(key => ({collection: 'turn' as const, key})), ...convs.map(([id]) => ({collection: 'conversation' as const, key: id}))]
+        await commitWithSync(operations, touched)
         for (const [id, value] of turns) if (dirty.get(id) === value) dirty.delete(id)
         for (const [id, value] of convs) if (dirtyConvs.get(id) === value) dirtyConvs.delete(id)
         for (const [id, value] of details) if (dirtyDetails.get(id) === value) dirtyDetails.delete(id)
@@ -245,7 +250,8 @@ export async function deleteConv(id: string): Promise<void> {
     await flush()
     const [turnIds, detailIds] = await Promise.all([db.keysByIndex('turns', 'convId', id), db.keysByIndex('toolDetails', 'convId', id)])
     assertPersistenceWritable()
-    await db.batch([...turnIds.map(key => ({store: 'turns' as const, type: 'delete' as const, key})), ...detailIds.map(key => ({store: 'toolDetails' as const, type: 'delete' as const, key})), {store: 'convs', type: 'delete', key: id}])
+    await commitWithSync([...turnIds.map(key => ({store: 'turns' as const, type: 'delete' as const, key})), ...detailIds.map(key => ({store: 'toolDetails' as const, type: 'delete' as const, key})), {store: 'convs', type: 'delete', key: id}],
+      [...turnIds.map(key => ({collection: 'turn' as const, key})), {collection: 'conversation' as const, key: id}])
     ++convGeneration; convRequest = undefined
     knownConvs.delete(id); drafts.delete(id)
     const convs = state.convs.filter(conv => conv.id !== id)
@@ -303,7 +309,9 @@ export async function clearChat() {
   try {
     await flush()
     assertPersistenceWritable()
-    await db.batch([{store: 'convs', type: 'clear'}, {store: 'turns', type: 'clear'}, {store: 'toolDetails', type: 'clear'}])
+    const [convKeys, turnKeys] = await Promise.all([db.keys('convs'), db.keys('turns')])
+    await commitWithSync([{store: 'convs', type: 'clear'}, {store: 'turns', type: 'clear'}, {store: 'toolDetails', type: 'clear'}],
+      [...convKeys.map(key => ({collection: 'conversation' as const, key})), ...turnKeys.map(key => ({collection: 'turn' as const, key}))])
     ++navigation; ++convGeneration
     olderRequest = undefined; convRequest = undefined; opening = undefined
     dirty.clear(); dirtyConvs.clear(); dirtyDetails.clear(); knownConvs.clear(); drafts.clear()

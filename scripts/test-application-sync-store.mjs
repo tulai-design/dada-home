@@ -6,7 +6,7 @@ import ts from 'typescript'
 
 // 测真实状态机；数据库替身只供状态转换单测，真实IDB事务另由浏览器QA验收。
 function runtime() {
-  const tables = {apps: new Map(), applicationSync: new Map()}, modules = new Map(), readsLog = []
+  const tables = {apps: new Map(), convs: new Map(), turns: new Map(), toolDetails: new Map(), incrementalSync: new Map()}, modules = new Map(), readsLog = []
   const db = {
     async get(store, key) {return structuredClone(tables[store].get(key))},
     async batch(operations) {return this.atomic([], [], () => ({operations, result: undefined}))},
@@ -17,7 +17,7 @@ function runtime() {
       for (const operation of plan.operations) {
         if (operation.type === 'clear') next[operation.store].clear()
         else if (operation.type === 'delete') next[operation.store].delete(operation.key)
-        else next[operation.store].set(operation.value.k, structuredClone(operation.value))
+        else next[operation.store].set(operation.value.k ?? operation.value.id, structuredClone(operation.value))
       }
       Object.assign(tables, next)
       return structuredClone(plan.result)
@@ -30,13 +30,30 @@ function runtime() {
     vm.runInNewContext(code, {module, exports: module.exports, require: id => id === './db' ? {db} : load(id.slice(2)), structuredClone, TextEncoder, URL, Blob, crypto: {...webcrypto, randomUUID}}, {filename: file})
     return module.exports
   }
-  return {store: load('applicationSyncStore').applicationSyncStore, tables, readsLog}
+  const engine = load('incrementalStore').incrementalStore, local = load('applicationSyncStore').applicationSyncStore
+  return {store: wrap(engine, local), engine, commitWithSync: load('incrementalLocal').commitWithSync, tables, readsLog}
+}
+// 测试门面：引擎按集合通用，这里按应用数据调用，并把 sample 值挂到意图上便于断言。
+const refOf = key => ({collection: 'applicationData', key})
+function wrap(engine, local) {
+  return {
+    ...local,
+    active: () => engine.active(), bind: id => engine.bind(id), detach: e => engine.detach(e), inspect: e => engine.inspect(e),
+    checkpoint: (...a) => engine.checkpoint(...a), acknowledge: (...a) => engine.acknowledge(...a),
+    async next(epoch) {
+      const head = await engine.next(epoch)
+      return head && {...head.intent, applicationKey: head.ref.key, value: head.intent.prepared ? undefined : (await engine.sample(head.ref)).value}
+    },
+    prepare: (epoch, id, wire) => engine.prepare(epoch, id, wire, !wire.ciphertext),
+    applyPage: (epoch, cursor, page) => engine.applyPage(epoch, cursor, {...page, records: page.records.map(({applicationKey, ...row}) => ({...row, ref: refOf(applicationKey)}))}),
+    resolve: (epoch, key, ...a) => engine.resolve(epoch, refOf(key), ...a),
+  }
 }
 const identity = {endpoint: 'http://127.0.0.1:8787', appId: 'dada', spaceId: 'personal', deviceId: 'desktop', keyFingerprint: 'a'.repeat(64)}
 const clean = value => JSON.parse(JSON.stringify(value))
 const key = 'app:tool'
 function prepared(intent) {
-  const ciphertext = intent.value === null ? undefined : new Blob([new Uint8Array(16)])
+  const ciphertext = intent.deleting ? undefined : new Blob([new Uint8Array(16)])
   const mutation = {type: 'put', collection: 'applicationData', entityId: 'b'.repeat(64), baseRevision: intent.baseRevision, schemaVersion: 1, payload: {format: 'tulai-encrypted', version: 1, keyId: 'k', iv: 'a', ciphertext: 'b'}}
   if (ciphertext) mutation.objectRefs = [{sha256: 'c'.repeat(64), byteLength: ciphertext.size}]
   return {request: {protocolVersion: 1, operationId: intent.operationId, mutations: [mutation]}, ...(ciphertext ? {ciphertext} : {})}
@@ -64,7 +81,7 @@ await test('prepared在后继编辑后不变，ack只确认旧generation，新�
   await store.prepare(binding.epoch, intent.operationId, wire)
   await store.saveLocal(key, {count: 2}, 1)
   const retry = await store.next(binding.epoch)
-  assert.equal(retry.operationId, intent.operationId); assert.deepEqual(clean(retry.value), {count: 1})
+  assert.equal(retry.operationId, intent.operationId); assert.equal(retry.value, undefined) // 已 prepared：重试只用固定请求，不再读取本机当前值
   assert.deepEqual(clean(retry.prepared.request), wire.request)
   await store.acknowledge(binding.epoch, intent.operationId, receipt(intent, 7))
   assert.deepEqual(clean((await store.loadLocal(key)).value), {count: 2})
@@ -91,7 +108,7 @@ await test('冲突保存双方与游标，后来编辑使旧解决generation失�
   assert.equal(result.changed, false); assert.equal(result.conflicts, 1)
   assert.equal(await store.next(binding.epoch), undefined)
   let conflict = (await store.inspect()).records[0].conflict
-  assert.deepEqual(clean(conflict.localValue), {local: 1}); assert.deepEqual(clean(conflict.remoteValue), {remote: 2})
+  assert.deepEqual(clean(conflict.remoteValue), {remote: 2}); assert.equal(conflict.localValue, undefined) // 本地候选从活动数据实时读取，不在冲突里留副本
   await store.saveLocal(key, {local: 3, apiKey: 'keep'}, 1)
   await assert.rejects(store.resolve(binding.epoch, key, {localGeneration: 1, remoteRevision: 1}, 'remote'), /其他页面/)
   assert.equal((await store.resolve(binding.epoch, key, {localGeneration: 2, remoteRevision: 1}, 'local')).changed, true)
@@ -119,7 +136,7 @@ await test('删除draft不会被空值合并回旧live，409先保留候选等�
   const intent = await store.next(binding.epoch); await store.prepare(binding.epoch, intent.operationId, prepared(intent))
   await store.saveLocal(key, null, 1)
   await store.acknowledge(binding.epoch, intent.operationId, {protocolVersion: 1, operationId: intent.operationId, status: 'conflict', conflicts: [{collection: 'applicationData', entityId: 'b'.repeat(64), baseRevision: null, currentRevision: 1}]})
-  assert.equal((await store.inspect()).records[0].conflict.localValue, null)
+  assert.equal((await store.inspect()).records[0].conflict.remoteReady, false)
   await assert.rejects(store.resolve(binding.epoch, key, {localGeneration: 2, remoteRevision: 1}, 'remote'), /尚未读取/)
   await store.applyPage(binding.epoch, undefined, {cursor: 'one', records: [incoming({remote: true}, 1)]})
   await store.resolve(binding.epoch, key, {localGeneration: 2, remoteRevision: 1}, 'local')
@@ -184,4 +201,46 @@ await test('冲突解决同时守卫本地和远端版本，看到旧remote的�
   await store.resolve(binding.epoch, key, {localGeneration: 1, remoteRevision: 2}, 'local')
   assert.equal((await store.next(binding.epoch)).baseRevision, 2)
 })
+const turn = (id = 't1', tools = 1) => ({id, convId: 'c1', prompt: 'hi', answer: 'ok', reasoning: '', error: '', startedAt: 1, endedAt: 2, tools: Array.from({length: tools}, (_, i) => ({name: 'tool', title: 'T', ok: true, detailId: JSON.stringify([id, i])}))})
+const detail = (id, index, text = 'body') => ({id: JSON.stringify([id, index]), turnId: id, convId: 'c1', index, text, bytes: new TextEncoder().encode(text).byteLength})
+const turnOps = (id, tools = 1) => [{store: 'toolDetails', type: 'put', value: detail(id, 0)}, {store: 'turns', type: 'put', value: turn(id, tools)}]
+const turnRef = key => ({collection: 'turn', key})
+
+await test('聊天写入与待同步标记同事务；轮次和工具正文作为一个实体发送与回放', async () => {
+  const {store, engine, commitWithSync, tables} = runtime(), binding = await store.bind(identity)
+  await commitWithSync(turnOps('t1'), [turnRef('t1'), {collection: 'conversation', key: 'c1'}])
+  const head = await engine.next(binding.epoch)
+  assert.equal(head.ref.collection, 'turn')
+  const sampled = await engine.sample(head.ref)
+  assert.deepEqual(clean(sampled.value.details.map(item => item.text)), ['body'])
+  assert.equal(sampled.value.turn.tools[0].detailId, JSON.stringify(['t1', 0]))
+  // 另一设备的轮次带两段正文：入站写入新正文，旧轮次的多余正文被清除，不泄漏孤儿。
+  const remote = {turn: turn('t2', 2), details: [detail('t2', 0), detail('t2', 1, 'second')]}
+  const result = await engine.applyPage(binding.epoch, undefined, {cursor: 'one', records: [{ref: turnRef('t2'), entityId: 'b'.repeat(64), revision: 1, value: remote, deviceId: 'mobile', operationId: 'r1'}]})
+  assert.equal(result.changed, true); assert.equal(tables.toolDetails.size, 3)
+  await engine.applyPage(binding.epoch, 'one', {cursor: 'two', records: [{ref: turnRef('t2'), entityId: 'b'.repeat(64), revision: 2, value: {turn: turn('t2', 1), details: [detail('t2', 0, 'changed')]}, deviceId: 'mobile', operationId: 'r2'}]})
+  assert.deepEqual([...tables.toolDetails.keys()].sort(), [JSON.stringify(['t1', 0]), JSON.stringify(['t2', 0])].sort())
+  await engine.applyPage(binding.epoch, 'two', {cursor: 'three', records: [{ref: turnRef('t2'), entityId: 'b'.repeat(64), revision: 3, value: null, deviceId: 'mobile', operationId: 'r3'}]})
+  assert.equal(tables.turns.has('t2'), false); assert.equal(tables.toolDetails.size, 1)
+})
+
+await test('聊天身份、工具正文缺失或不属于该轮次的入站值整页拒绝，游标不推进', async () => {
+  const {engine, store, tables} = runtime(), binding = await store.bind(identity)
+  const bad = [
+    {turn: turn('t9', 1), details: []},
+    {turn: turn('t9', 1), details: [detail('other', 0)]},
+    {turn: turn('t8', 1), details: [detail('t8', 0)]},
+  ]
+  for (const value of bad) await assert.rejects(engine.applyPage(binding.epoch, undefined, {cursor: 'bad', records: [{ref: turnRef('t9'), entityId: 'b'.repeat(64), revision: 1, value, deviceId: 'mobile', operationId: 'r1'}]}))
+  assert.equal((await store.active()).cursor, undefined); assert.equal(tables.turns.size, 0)
+})
+
+await test('未绑定时聊天写入只是普通批量写；绑定在采样后变化会重采样而不丢标记', async () => {
+  const {store, engine, commitWithSync, tables} = runtime()
+  await commitWithSync(turnOps('t1'), [turnRef('t1')])
+  assert.equal(tables.turns.has('t1'), true); assert.equal([...tables.incrementalSync.values()].length, 0)
+  const binding = await store.bind(identity)
+  assert.equal((await engine.next(binding.epoch)).ref.key, 't1') // 绑定时已有轮次作为种子
+})
+
 console.log(`应用同步状态机：${count}/${count}`)

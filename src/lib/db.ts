@@ -5,8 +5,8 @@ import {reportPersistenceError} from './persistence'
  * 读写失败必须 reject，不能把数据库故障当成空表或成功保存。
  */
 const NAME = 'dada'
-const VERSION = 5
-export type StoreName = 'kv' | 'apps' | 'convs' | 'turns' | 'toolDetails' | 'recovery' | 'applicationSync'
+const VERSION = 6
+export type StoreName = 'kv' | 'apps' | 'convs' | 'turns' | 'toolDetails' | 'recovery' | 'incrementalSync'
 export type DbOperation =
   | {store: StoreName; type: 'put'; value: unknown}
   | {store: StoreName; type: 'delete'; key: string}
@@ -50,9 +50,12 @@ export function openDb(): Promise<IDBDatabase | null> {
         if (!convs.indexNames.contains('recent')) convs.createIndex('recent', ['updatedAt', 'id'])
         if (!turns.indexNames.contains('chronological')) turns.createIndex('chronological', ['convId', 'startedAt', 'id'])
         if (!database.objectStoreNames.contains('recovery')) database.createObjectStore('recovery', {keyPath: 'k'})
-        if (!database.objectStoreNames.contains('applicationSync')) {
-          const sync = database.createObjectStore('applicationSync', {keyPath: 'k'})
+        // 早期仅程序入口的应用同步仓没有产品入口；新方案使用独立仓，旧协调数据不迁移。业务五仓不受影响。
+        if (database.objectStoreNames.contains('applicationSync')) database.deleteObjectStore('applicationSync')
+        if (!database.objectStoreNames.contains('incrementalSync')) {
+          const sync = database.createObjectStore('incrementalSync', {keyPath: 'k'})
           sync.createIndex('epoch', 'epoch'); sync.createIndex('type', 'type')
+          sync.createIndex('inflight', 'qInflight'); sync.createIndex('draft', 'qDraft'); sync.createIndex('conflict', 'qConflict')
         }
       }
       request.onerror = () => fail(request.error)
@@ -133,7 +136,10 @@ async function batch(operations: DbOperation[]): Promise<void> {
   })
 }
 
-export type DbRead = {store: StoreName; key: string} | {store: StoreName; all: true; index?: string; key?: string}
+export type DbRead =
+  | {store: StoreName; key: string}
+  | {store: StoreName; all: true; index?: string; key?: string; limit?: number}
+  | {store: StoreName; keys: true; index?: string; key?: string; limit?: number}
 /** 最后一个读取的事件内同步决策和排入写入，不允许跨网络/crypto await 维持事务。 */
 function atomic<T>(stores: StoreName[], reads: DbRead[], decide: (values: unknown[]) => {operations: DbOperation[]; result: T}): Promise<T> {
   return transaction(stores, 'readwrite', tx => new Promise<T>((resolve, reject) => {
@@ -158,7 +164,9 @@ function atomic<T>(stores: StoreName[], reads: DbRead[], decide: (values: unknow
     try {
       reads.forEach((read, index) => {
         const store = tx.objectStore(read.store)
-        const request = 'all' in read ? (read.index ? store.index(read.index).getAll(read.key) : store.getAll()) : store.get(read.key)
+        const request: IDBRequest = 'all' in read ? (read.index ? store.index(read.index).getAll(read.key, read.limit) : store.getAll(undefined, read.limit))
+          : 'keys' in read ? (read.index ? store.index(read.index).getAllKeys(read.key, read.limit) : store.getAllKeys(undefined, read.limit))
+            : store.get(read.key)
         request.onerror = () => fail(request.error ?? new Error('本地事务读取失败。'))
         request.onsuccess = () => {if (failed) return; values[index] = request.result; if (--remaining === 0) apply()}
       })
@@ -197,6 +205,7 @@ export const db = {
   keysByIndex: (store: StoreName, index: string, key: string) => run<string[]>(store, 'readonly', s => wrap(s.index(index).getAllKeys(key)) as Promise<string[]>),
   get: <T>(store: StoreName, key: string) => run<T | undefined>(store, 'readonly', s => wrap(s.get(key)) as Promise<T | undefined>),
   all: <T>(store: StoreName) => run<T[]>(store, 'readonly', s => wrap(s.getAll()) as Promise<T[]>),
+  keys: (store: StoreName) => run<string[]>(store, 'readonly', s => wrap(s.getAllKeys()) as Promise<string[]>),
   byIndex: <T>(store: StoreName, index: string, key: string) =>
     run<T[]>(store, 'readonly', s => wrap(s.index(index).getAll(key)) as Promise<T[]>),
   put: (store: StoreName, value: unknown) => batch([{store, type: 'put', value}]),

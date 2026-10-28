@@ -14,6 +14,7 @@ function backend() {
  const tables=Object.fromEntries(['kv','apps','convs','turns','toolDetails'].map(s=>[s,new Map()]))
  return {tables,reads:[],batches:[],pageGate:null,writeGate:null,readError:null,writeError:null,
   async page(store,index,options){this.reads.push({method:'page',store,index,options:clone(options)});if(this.readError)throw this.readError;const key=r=>index==='recent'?[r.updatedAt,r.id]:[r.convId,r.startedAt,r.id];const rows=[...tables[store].values()].filter(row=>(options.lower===undefined||compare(key(row),options.lower)>(options.lowerOpen?0:-1))&&(options.upper===undefined||compare(key(row),options.upper)<(options.upperOpen?0:1))).sort((a,b)=>compare(key(a),key(b))*(options.direction==='prev'?-1:1)).slice(0,options.limit).map(clone);const gate=this.pageGate;this.pageGate=null;if(gate)await gate;return rows},
+  async keys(store){return [...tables[store].keys()]},
   async get(store,id){this.reads.push({method:'get',store,id});if(this.readError)throw this.readError;return tables[store].has(id)?clone(tables[store].get(id)):undefined},
   async keysByIndex(store,index,key){this.reads.push({method:'keys',store,index,key});if(this.readError)throw this.readError;return [...tables[store].values()].filter(r=>r[index]===key).map(r=>r.id)},
   async batch(operations){this.batches.push(clone(operations));const gate=this.writeGate;this.writeGate=null;if(gate)await gate;if(this.writeError)throw this.writeError;for(const op of operations){if(op.type==='clear')tables[op.store].clear();else if(op.type==='delete')tables[op.store].delete(op.key);else tables[op.store].set(op.value.id??op.value.k,clone(op.value))}},
@@ -23,7 +24,7 @@ function backend() {
 function runtime(db,saved='') {
  const modules=new Map(),settings=new Map([['conv',saved]]),timers=new Map();let timer=0
  function load(path){if(modules.has(path))return modules.get(path);const module={exports:{}};modules.set(path,module.exports);const code=ts.transpileModule(readFileSync(new URL('../'+path,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
- const require=id=>{if(id==='react')return{useSyncExternalStore:(_,get)=>get()};if(id==='./db')return{db};if(id==='./store')return{readStored:(k,f)=>settings.get(k)??f,writeStored:(k,v)=>settings.set(k,v)};if(id.startsWith('.'))return load(new URL(id+'.ts','file:///'+path).pathname.slice(1));throw new Error(id)}
+ const require=id=>{if(id==='react')return{useSyncExternalStore:(_,get)=>get()};if(id==='./db')return{db};if(id==='./incrementalLocal')return{commitWithSync:ops=>db.batch(ops)};if(id==='./store')return{readStored:(k,f)=>settings.get(k)??f,writeStored:(k,v)=>settings.set(k,v)};if(id.startsWith('.'))return load(new URL(id+'.ts','file:///'+path).pathname.slice(1));throw new Error(id)}
  vm.runInNewContext(code,{module,exports:module.exports,require,TextEncoder,Error,window:{setTimeout:fn=>{timers.set(++timer,fn);return timer},clearTimeout:id=>timers.delete(id),addEventListener(){}},document:{addEventListener(){},visibilityState:'visible'}},{filename:path});return module.exports}
  return{chat:load('src/lib/chat.ts'),schema:load('src/lib/chatStorageSchema.ts'),persistence:load('src/lib/persistence.ts')}
 }

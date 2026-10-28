@@ -122,7 +122,7 @@ await test('localStorage失败可见并重试最新值', async () => {
 })
 await test('并发flush串行，旧删除不会覆盖更新值，调用等待已有事务', async () => {
   const db = backend()
-  const app = runtime({mocks: {'./db': {db, openDb: async () => ({})}}})
+  const app = runtime({mocks: {'./db': {db, openDb: async () => ({})}, './incrementalLocal': {commitWithSync: ops => db.batch(ops)}}})
   const data = app.load('src/lib/componentData.ts')
   await data.initComponentData()
   data.writeData('same', {count: 1})
@@ -144,7 +144,7 @@ await test('旧组件单条坏JSON保留，其他合法数据仍迁移且目标�
   const db = backend()
   db.stores.kv.set('newer', {k: 'newer', v: 9})
   const storage = localStore({'fp.data.bad': '{', 'fp.data.good': '7', 'fp.data.newer': '1'})
-  const app = runtime({storage, mocks: {'./db': {db, openDb: async () => ({})}}})
+  const app = runtime({storage, mocks: {'./db': {db, openDb: async () => ({})}, './incrementalLocal': {commitWithSync: ops => db.batch(ops)}}})
   const data = app.load('src/lib/componentData.ts')
   await data.initComponentData()
   assert.equal(data.readData('good', 0), 7)
@@ -155,7 +155,7 @@ await test('旧组件单条坏JSON保留，其他合法数据仍迁移且目标�
 })
 await test('聊天失败重试完整轮次，并发新编辑不会被旧ack清除', async () => {
   const db = backend()
-  const app = runtime({mocks: {'./db': {db, openDb: async () => ({})}}})
+  const app = runtime({mocks: {'./db': {db, openDb: async () => ({})}, './incrementalLocal': {commitWithSync: ops => db.batch(ops)}}})
   const chat = app.load('src/lib/chat.ts')
   await chat.initChat()
   const turn = {...chat.beginTurn('你好'), id: 'one'}
@@ -177,7 +177,7 @@ await test('聊天失败重试完整轮次，并发新编辑不会被旧ack清�
 })
 await test('迟到的打开会话不覆盖较新的导航请求', async () => {
   const db = backend()
-  const app = runtime({mocks: {'./db': {db, openDb: async () => ({})}}})
+  const app = runtime({mocks: {'./db': {db, openDb: async () => ({})}, './incrementalLocal': {commitWithSync: ops => db.batch(ops)}}})
   const chat = app.load('src/lib/chat.ts')
   await chat.initChat()
   const slow = deferred()
@@ -345,7 +345,7 @@ await test('当前聊天坏轮次或坏工具引用拒绝加载并保留原数�
   const valid={id:'t',convId:'c',prompt:'原文',answer:'',reasoning:'',tools:[],error:'',startedAt:1,endedAt:2}
   for(const turn of [{...valid,answer:undefined},{...valid,tools:[{name:'坏工具'}]}]){
     const db=backend();db.stores.convs.set('c',{id:'c',title:'会话',createdAt:1,updatedAt:2});db.stores.turns.set('t',turn)
-    const storage=localStore({'fp.conv':'"c"'}),app=runtime({storage,mocks:{'./db':{db,openDb:async()=>({})}}})
+    const storage=localStore({'fp.conv':'"c"'}),app=runtime({storage,mocks:{'./db':{db,openDb:async()=>({})},'./incrementalLocal':{commitWithSync:ops=>db.batch(ops)}}})
     await assert.rejects(app.load('src/lib/chat.ts').initChat())
     assert.deepEqual(db.stores.turns.get('t'),turn);assert.equal(db.stores.convs.size,1)
   }
