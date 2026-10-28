@@ -1,0 +1,26 @@
+.ap-data-table-container, .ap-data-table {width:100%; min-width:0; max-width:100%;}
+.ap-data-table {color:var(--text); font-size:13px;}
+.ap-data-table-title {margin:0 0 16px; font:500 18px/1.4 var(--font-serif); overflow-wrap:anywhere;}
+.ap-data-table-search {display:flex; align-items:center; gap:8px; min-width:0; flex-wrap:wrap; margin-bottom:12px;}
+.ap-data-table-search > :first-child {flex:1 1 180px;}
+.ap-data-table-toolbar, .ap-data-table-summary, .ap-data-table-pagination, .ap-data-table-pages, .ap-data-table-page-size {display:flex; align-items:center; flex-wrap:wrap; gap:8px 12px; min-width:0;}
+.ap-data-table-control-label, .ap-data-table-summary, .ap-data-table-pagination {color:var(--text2); font-size:12px;}
+.ap-data-table-control-label {overflow-wrap:anywhere;}
+.ap-data-table-summary {min-height:44px; margin:8px 0;}
+.ap-data-table-summary > span {overflow-wrap:anywhere;}
+.ap-data-table-grid {max-width:100%; min-width:0;}
+.ap-data-table-grid table {width:100%;}
+.ap-data-table-grid th, .ap-data-table-grid td {overflow-wrap:anywhere; white-space:normal; font-variant-numeric:tabular-nums;}
+.ap-data-table-value {white-space:pre-wrap; overflow-wrap:anywhere;}
+.ap-data-table-checkbox {min-height:44px; min-width:44px; display:inline-flex; align-items:center; justify-content:center;}
+.ap-data-table-sr-only {position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;}
+.ap-data-table-details-button {min-height:44px; padding-inline:8px;}
+.ap-data-table-detail {min-width:0; max-width:100%; padding:8px 0;}
+.ap-data-table-detail dl {margin:0; display:grid; gap:12px;}
+.ap-data-table-detail dl > div {display:grid; grid-template-columns:minmax(0,1fr) minmax(0,3fr); gap:12px;}
+.ap-data-table-detail dt {color:var(--text2); font-size:12px;}
+.ap-data-table-detail dd {margin:0; white-space:pre-wrap;}
+.ap-data-table-detail dt, .ap-data-table-detail dd {min-width:0; overflow-wrap:anywhere;}
+.ap-data-table-pagination {justify-content:space-between; gap:12px; margin-top:16px; font-variant-numeric:tabular-nums;}
+.ap-data-table button {max-width:100%;}
+.ap-data-table-error {min-width:0; overflow-wrap:anywhere;}

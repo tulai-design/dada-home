@@ -32,6 +32,8 @@
 
 折线/趋势使用LineChart，简单柱状仍用Bars。图表数据上限和缺失值规则由目录及lineChartData.ts统一；AI先排序/聚合，不能把缺失补0或超量静默截断。示例源码应与运行时指南同源并实际执行验证；不能只在测试页画图就声称AI会用。具体约束见[趋势图规范](../frontend/applet-charts.md)。
 
+需要查找、排序、分页和详情的记录工具使用DataTable，简单展示继续用Table。行ID稳定，列定义只传JSON；受控onChange是局部patch，合并到临时视图state，不能替换或保存成业务记录。窄容器仍可读取完整详情，500行能力不代表100KB业务保存额度自动扩大。具体约束见[数据管理规范](../frontend/applet-data-table.md)。
+
 Applet 计算逻辑可按现有沙盒策略导入远程 ESM 库，见 [runner.ts](../../../src/lib/applet/runner.ts)；这不授予任意 React/DOM UI 能力。UI 保持目录白名单，业务网络访问经过宿主授权。
 
 HTML App 用于游戏、Canvas/WebGL 或确需完全自定义视觉的场景。其主题、消息、存储桥与隔离规则由 [widgets/app.tsx](../../../src/widgets/app.tsx) 及运行时支持，不得通过增加宿主权限绕开沙盒。

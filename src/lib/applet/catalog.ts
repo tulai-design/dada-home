@@ -1,5 +1,7 @@
 import {POINT_LIMIT, SERIES_LIMIT} from './lineChartData'
 import {TREND_APPLET_EXAMPLE} from './chartExample'
+import {ROW_LIMIT, COLUMN_LIMIT} from './dataTableData'
+import {RECORD_APPLET_EXAMPLE} from './dataTableExample'
 
 /**
  * 小程序（applet）的组件目录。
@@ -35,6 +37,7 @@ export const CATALOG: CatalogEntry[] = [
   {name: 'Bars', props: '{values:number[], labels?:string[], highlight?:index, height:40-240}  —— 简单柱状图'},
   {name: 'LineChart', props: `{title?:string, labels:string[], series:{name:string,values:(number|null)[],tone?:"accent"|"blue"|"green"|"orange"}[], unit?:string, height:160-360(默认220)} —— 趋势折线图；最多${POINT_LIMIT}点/${SERIES_LIMIT}系列，values与labels等长。零和负数保留，null缺失断线；非法/超量明确报错，不截断。窄容器减刻度，图例与明细保留准确数据；标题/名称/标签最多80字符，unit最多16，数值绝对值≤1e12`},
   {name: 'Table', props: '{columns:string[], rows:(string|number)[][]}  —— 简单表格'},
+  {name: 'DataTable', props: `{title?, columns:{key,label,type?:"text"|"number",priority?:1|2|3}[], rows:{id:string,values:Record<string,string|number|boolean|null>}[], state:{query?,sort?:{key,direction:"asc"|"desc"}|null,page?,pageSize?:5|10|20|50,selectedIds?:string[]}, onChange(patch), selectable?:boolean} —— 可搜索、排序、分页和查看详情的受控数据表；最多${ROW_LIMIT}行/${COLUMN_LIMIT}列，稳定唯一id；onChange以Object.assign(s.table,patch)合并，不替换整个state。窄容器优先关键列，详情保留全部字段`},
 
   // 输入与操作
   {name: 'Button', props: '{label, icon?, variant:"default"|"primary"|"text"|"dashed", size:"small"|"middle"|"large", danger, disabled, block, onClick}  —— 一个小程序里最多一个 primary'},
@@ -196,6 +199,20 @@ applet({
 
 \`\`\`json
 ${JSON.stringify(TREND_APPLET_EXAMPLE, null, 2)}
+\`\`\`
+
+## 记录管理与受控数据表
+
+少量静态展示用 ui.Table；需要搜索、单列排序、分页、选择及详情时用 ui.DataTable。数据格式为 columns: [{key,label,type?,priority?}] 和 rows: [{id,values:{列key:标量}}]，最多${ROW_LIMIT}行/${COLUMN_LIMIT}列，不静默截断。key以英文字母开头且只含字母、数字、下划线（最多40字符，不用constructor/prototype）；id是每条记录稳定且唯一的字符串（最多80字符），不能用当前排序或分页的下标。
+
+每个声明列必须有values自有字段。text列可用string/number/boolean/null，文本最多500字符；number列只用有限number/null，数值绝对值≤1e12。null显示缺失，0与false保留；不要把业务值格式化成带单位的数字字符串后再要求数值排序。title/列名最多80字符。priority为1/2/3，越小越优先；窄容器只显示关键字段，详情保留全部列。搜索检查所有列，包括隐藏列；数字排序按数值，文本排序按文字，null在升降序都放最后。
+
+state是单独的临时视图对象：{query:'',sort:null,page:0,pageSize:10,selectedIds:[]}。page从0开始，pageSize只能是5/10/20/50；sort为{key,direction:'asc'|'desc'}或null，query最多200字符。onChange必须是顶层函数，接收局部patch，用Object.assign(s.table,patch)合并，不能写成s.table=patch；columns里不能放render/formatter等函数。搜索、排序、页容量变化回到第0页；删除后宿主会显示最后有效页。selectable:true启用选择，选择跨分页/筛选保留ID，当前页全选只改变当前页；删除后的ID会从有效选择剔除。业务增删仍由应用处理，图表/表格本身不取数或保存记录。
+
+业务records和ID计数放persist，搜索/排序/分页/选择通常不persist。刷新恢复记录和应用设置，临时视图回到初始状态。数据表500行限制不等于保存额度：Applet持久化上限仍为100KB，按字段长度控制业务容量。下面的完整创建参数从空记录开始，最多100条，备注200字符，支持添加、按ID删除、设置页容量与紧凑状态栏；不要自动灌入假记录。可直接作为create_applet参数再按用户需求调整：
+
+\`\`\`json
+${JSON.stringify(RECORD_APPLET_EXAMPLE, null, 2)}
 \`\`\`
 
 ## 积木（ui.Xxx(props?, ...children)）

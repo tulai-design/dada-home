@@ -46,3 +46,7 @@ page-sections已实现主视觉、内容分区、主次分栏及AI目录/写入�
 homepage-recipes已接通四方向确定性编排、内存草稿、版本/正式首页冲突校验、静态预览和单次应用/取消/撤销，AI目录与独立草稿检查宿主完整转发。真实App模拟模型完成生成→检查→修正→复查→应用→撤销，便签与原DOM保留。验收范围仅布局，动态背景和业务内容不运行。详见该子任务verification.md。下一项applet-charts，随后applet-data-table；父任务仍需最终集成验收。
 
 2026-10-28：applet-charts接通有界LineChart目录/数据校验/宿主SVG、精确明细和共享本地记录示例；保留Bars与既有运行时。当前子任务验收见其verification.md，后续applet-data-table及父任务最终集成。此前main已推送至1d12e1f，CI和镜像发布成功。
+
+2026-10-28存储核对：用户询问100KB与IndexedDB，确认内置组件/聊天已用IndexedDB，而AI App/Applet仍各自写localStorage且硬编码100000 JSON字符上限。当前数据表任务保持存储边界；后续重点为统一AI应用IndexedDB存储、旧数据迁移、失败反馈、备份兼容和重新制定容量，另设完整纵向任务后实现。不能仅提高常量或宣称切库已完成。
+
+2026-10-28：applet-data-table交付受控DataTable、稳定ID选择/删除、窄容器详情、共享开销记录示例与AI目录。协议11/11、UiTree SSR7/7、完整test/tsc/build、真实App闭环及四宽双主题矩阵通过，修复同内容快照导致旧回声阻挡外部状态的问题。子任务验收见其verification.md；父任务仍需对首页草稿、检查器、特效和新数据积木执行组合场景验收后再归档。

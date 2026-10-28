@@ -71,6 +71,14 @@ App 不具有宿主同源权限，数据与宿主交互经过桥接。Applet 逻
 
 依据：[Applet 目录](../../src/lib/applet/catalog.ts)、[Applet runner](../../src/lib/applet/runner.ts)、[App 运行时](../../src/widgets/app.tsx)、[应用设置](../../src/components/ApplicationSettings.tsx)。
 
+## AI 应用存储现状
+
+内置组件数据与聊天记录已使用IndexedDB，但AI应用尚未统一到该链路：Applet的persist经store.ts写入localStorage的`fp.applet.<id>`，HTML App的tada.store直接写入`fp.app.<id>`。两者的`MAX_STORE = 100_000`是宿主人为限制，判断依据为JSON字符串长度，并非精确字节数或IndexedDB配额。
+
+Applet的store.ts在localStorage写入失败时可能只保留内存值；这与成功落盘不同。后续应独立处理AI应用IndexedDB存储、旧数据迁移、写入失败反馈、备份兼容及容量策略。当前数据表能力不改变此存储实现，也不把100KB描述为浏览器容量。
+
+依据：[Applet保存](../../src/widgets/applet.tsx)、[App保存](../../src/widgets/app.tsx)、[旧存储工具](../../src/lib/store.ts)、[组件IndexedDB存储](../../src/lib/componentData.ts)。
+
 ## Applet 趋势图
 
 LineChart以宿主积木提供有界折线展示，沿用目录→沙盒声明→宿主渲染链路；Bars保持原有简单柱状行为。标签按输入顺序等距排列，最多120点、4条同单位系列；超量或数据不合法显示局部错误，要求调用方整理数据，不静默截断。
@@ -80,6 +88,18 @@ LineChart以宿主积木提供有界折线展示，沿用目录→沙盒声明�
 图表只消费数据，不发请求或写业务状态。宽度与主题变化只更新展示；状态栏应由应用返回简短数字。AI技能含共享源码的本地记录示例，用户输入后持久化，默认不在用户工作空间自动安装。
 
 依据：[图表协议](../../src/lib/applet/lineChartData.ts)、[图表渲染](../../src/lib/applet/LineChart.tsx)、[可执行示例](../../src/lib/applet/chartExample.ts)。
+
+## Applet 数据管理
+
+DataTable独立于原有简单Table，复用Lobe表格和控件。列为纯数据定义，行由稳定ID和标量values组成；最多500行、8列，文本≤500字符、有限数值绝对值≤1e12。非法/超量明确局部错误，不静默截断，不扩大既有100KB业务持久化额度。
+
+应用同时提供state和顶层onChange，回调是局部patch，由应用合并。搜索覆盖全部声明列，包括窄屏隐藏列；先搜索，再稳定单列排序，再分页，null排在末尾。页码从0开始，筛选/排序/页容量变化回到首页；记录删除后有效页码夹到最后一页，选择移除缺失ID，渲染不自动回传修正事件。
+
+选择按ID跨搜索和分页保留，当前页全选只影响当前页，完整已选数可见且可清空。详情按稳定行ID关联，在窄容器保留关键列后仍可读取全部字段；操作支持键盘和触摸。空数据、无匹配和错误分别呈现。
+
+共享记录示例将records与ID计数持久化，搜索/排序/页码/选择保持临时状态；设置变更只更新相关视图，不重新初始化数据。表格自身没有网络或业务存储副作用，尺寸与主题更新不重启runner。
+
+依据：[数据协议](../../src/lib/applet/dataTableData.ts)、[宿主渲染](../../src/lib/applet/DataTable.tsx)、[可执行示例](../../src/lib/applet/dataTableExample.ts)。
 
 ## AI 可确认的结果
 

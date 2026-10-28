@@ -167,7 +167,7 @@ registerComponent<AppletConfig>({
   type: 'applet',
   name: '小程序',
   description:
-    '有交互的小工具：逻辑是 AI 写的 JavaScript，界面用系统自带的控件（按钮、输入框、开关、滑块、选择器、标签、统计、柱状图、趋势折线、表格…）拼出来，风格和主页一致、深浅色自动适配、点击输入都可靠。适合计算器、生成器、记账、待办、换算、抽签、问卷、小看板。游戏、Canvas/WebGL 或需要完全自定义视觉的才用沙盒应用(app)。用 create_applet 创建，update_applet 修改。',
+    '有交互的小工具：逻辑是 AI 写的 JavaScript，界面用系统自带的控件（按钮、输入框、开关、滑块、选择器、标签、统计、柱状图、趋势折线、表格、可筛选分页的记录列表…）拼出来，风格和主页一致、深浅色自动适配、点击输入都可靠。适合计算器、生成器、记账、待办、换算、抽签、问卷、小看板。游戏、Canvas/WebGL 或需要完全自定义视觉的才用沙盒应用(app)。用 create_applet 创建，update_applet 修改。',
   category: 'content',
   defaultConfig: {source: "const {Stack, Text} = ui\napplet({\n  state: {},\n  view: () => Stack([Text({text: '你好，搭搭', size: 'lg'})]),\n})"},
   configSchema: {

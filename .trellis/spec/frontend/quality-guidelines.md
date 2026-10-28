@@ -23,6 +23,7 @@ PATH="/Users/xiaomengdao/.nvm/versions/node/v24.11.0/bin:$PATH" /Users/xiaomengd
 | 应用目录与窗口 | [test-applications.mjs](../../../scripts/test-applications.mjs)、[test-application-tools.mjs](../../../scripts/test-application-tools.mjs)、[test-application-window.mjs](../../../scripts/test-application-window.mjs) |
 | 运行时与容器 | [test-applet-runtime.mjs](../../../scripts/test-applet-runtime.mjs)、[test-app-runtime.mjs](../../../scripts/test-app-runtime.mjs) |
 | Applet趋势图 | [test-applet-charts.mjs](../../../scripts/test-applet-charts.mjs)、[test-applet-chart-render.mjs](../../../scripts/test-applet-chart-render.mjs)；[隔离渲染浏览器脚本](../../../scripts/test-applet-charts-browser.mjs)与[真实应用浏览器脚本](../../../scripts/test-applet-chart-app-browser.mjs) |
+| Applet数据管理 | [test-applet-data-table.mjs](../../../scripts/test-applet-data-table.mjs)、[test-applet-data-table-render.mjs](../../../scripts/test-applet-data-table-render.mjs)；[隔离渲染浏览器脚本](../../../scripts/test-applet-data-table-browser.mjs)与[真实应用浏览器脚本](../../../scripts/test-applet-data-table-app-browser.mjs) |
 | 撤销与迁移 | [test-workspace-history.mjs](../../../scripts/test-workspace-history.mjs) |
 | 特效预算与旧配置 | [test-effect-policy.mjs](../../../scripts/test-effect-policy.mjs)；真实渲染入口 [effect-policy-regressions.html](../../../tests/effect-policy-regressions.html) |
 | 特效主题与失败恢复 | [test-effect-theme.mjs](../../../scripts/test-effect-theme.mjs)；真实渲染入口 [effect-theme-regressions.html](../../../tests/effect-theme-regressions.html) |

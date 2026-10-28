@@ -23,6 +23,7 @@ import {
 } from '@lobehub/ui'
 import {iconOf} from './icons'
 import {LineChart} from './LineChart'
+import {DataTable} from './DataTable'
 import {useContainerWidth} from './useContainerWidth'
 export {useContainerWidth} from './useContainerWidth'
 
@@ -351,6 +352,8 @@ export function UiTree({node, fire}: {node: UiNode; fire: Fire}) {
       return <LineChart p={p} />
     case 'Table':
       return <Table p={p} />
+    case 'DataTable':
+      return <DataTable p={p} onChange={isHandler(p.onChange) ? patch => send(p.onChange, patch) : undefined} />
 
     case 'Button': {
       const variant = pick(p.variant, ['default', 'primary', 'text', 'dashed'] as const, 'default')

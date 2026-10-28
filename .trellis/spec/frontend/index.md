@@ -9,6 +9,7 @@
 | [页面分区](page-layouts.md) | 主视觉、内容分区、主次分栏、引用顺序与容器重排 |
 | [首页草稿](homepage-drafts.md) | 首页组合、预览隔离、版本与冲突、单次应用和检查 |
 | [Applet趋势图](applet-charts.md) | 有界数据协议、缺失值、主题、响应式与数据明细 |
+| [Applet数据管理](applet-data-table.md) | 受控搜索/排序/分页、稳定ID选择、窄容器详情与持久化边界 |
 | [状态与持久化](state-management.md) | 工作空间、应用数据、撤销与迁移 |
 | [Hooks 与生命周期](hook-guidelines.md) | 尺寸、定时器、监听与异步状态 |
 | [输入与类型](type-safety.md) | AI 配置、导入数据、字段协议 |
