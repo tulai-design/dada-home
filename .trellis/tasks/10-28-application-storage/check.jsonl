@@ -1,6 +1,7 @@
 {"file": ".trellis/spec/frontend/state-management.md", "reason": "持久化与生命周期"}
 {"file": ".trellis/spec/frontend/type-safety.md", "reason": "备份与网络unknown边界"}
 {"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "行为和隔离浏览器验证"}
-{"file": ".trellis/tasks/10-28-storage-sync/research/local-storage.md", "reason": "应用命名空间与迁移"}
-{"file": ".trellis/tasks/10-28-storage-sync/research/sync.md", "reason": "v1稳定记录身份"}
+{"file": ".trellis/tasks/10-28-storage-sync/research/local-storage.md", "reason": "应用命名空间与当前数据流研究；不实施旧数据迁移"}
+{"file": ".trellis/tasks/10-28-storage-sync/research/sync.md", "reason": "同步边界背景；实施以当前 design 和新协议为准"}
 {"file": ".trellis/spec/ai/tools-and-apps.md", "reason": "应用协议及AI说明"}
+{"file": ".trellis/tasks/10-28-application-storage/design.md", "reason": "本轮冻结的新存储、确认、预算与集成契约"}

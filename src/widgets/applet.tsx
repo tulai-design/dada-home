@@ -4,7 +4,8 @@ import {ArrowCounterClockwise as RotateCcw, MagicWand as Wand2} from '@phosphor-
 import {useDark} from '../fx/Fx'
 import {buildRunnerDoc} from '../lib/applet/runner'
 import {UiTree, useContainerWidth, type UiNode} from '../lib/applet/render'
-import {readStored, writeStored} from '../lib/store'
+import {loadApplicationData, replaceApplicationData} from '../lib/applicationData'
+import {usePersistenceStatus} from '../lib/persistence'
 import {registerComponent, type ComponentHost, type ComponentProps} from '../lib/registry'
 import {bridgeFetch, copyText} from './app'
 
@@ -17,11 +18,9 @@ import {bridgeFetch, copyText} from './app'
 
 type AppletConfig = {source: string; settings?: Record<string, unknown>; surface?: string}
 
-const MAX_STORE = 100_000
-
 type Message = {applet: 1; k: string; [key: string]: unknown}
 
-async function handleCall(message: Message, host: ComponentHost, storeKey: string): Promise<unknown> {
+async function handleCall(message: Message, host: ComponentHost): Promise<unknown> {
   switch (message.op) {
     case 'fetch':
       return bridgeFetch(String(message.url ?? ''), host)
@@ -45,7 +44,6 @@ async function handleCall(message: Message, host: ComponentHost, storeKey: strin
       return true
     }
     default:
-      void storeKey
       throw new Error(`未知操作：${String(message.op)}`)
   }
 }
@@ -66,59 +64,119 @@ function Applet({instance, config, host}: ComponentProps<AppletConfig>) {
 
   const [tree, setTree] = useState<UiNode | null>(null)
   const [error, setError] = useState('')
+  const [storageError, setStorageError] = useState<{kind: 'read' | 'write'; message: string} | null>(null)
+  const [saving, setSaving] = useState(false)
+  const {errors: persistenceErrors} = usePersistenceStatus()
+  const previousStorageFailure = useRef({read: false, write: false})
   const [run, setRun] = useState(0)
-  const storeKey = `applet.${instance.id}`
+  const runtime = useMemo(() => ({
+    session: crypto.randomUUID(), ready: false, initialized: false, loading: false,
+    latestSave: 0, pending: new Map<number, Promise<void>>(), latestCall: 0,
+  }), [config.source, instance.id, run])
+  const runtimeRef = useRef(runtime)
+  runtimeRef.current = runtime
+  const srcdoc = useMemo(() => buildRunnerDoc(config.source, runtime.session), [config.source, runtime])
 
-  const srcdoc = useMemo(
-    () => buildRunnerDoc(config.source),
-    // run 变化 = 用户点了「重新运行」
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [config.source, run],
-  )
-
-  // 源码变了就是一次全新的运行
   useEffect(() => {
     setTree(null)
     setError('')
-  }, [srcdoc])
+    setStorageError(null)
+    setSaving(false)
+  }, [runtime])
 
-  const post = useCallback((payload: Record<string, unknown>) => {
-    frame.current?.contentWindow?.postMessage({applet: 1, ...payload}, '*')
+  const post = useCallback((payload: Record<string, unknown>, session = runtimeRef.current.session) => {
+    if (runtimeRef.current.session !== session) return
+    frame.current?.contentWindow?.postMessage({applet: 1, session, ...payload}, '*')
   }, [])
 
+  const initialize = useCallback(async () => {
+    const current = runtimeRef.current
+    if (!current.ready || current.loading || current.initialized) return
+    current.loading = true
+    setStorageError(null)
+    try {
+      const saved = await loadApplicationData({kind: 'applet', id: instance.id})
+      if (runtimeRef.current !== current) return
+      current.initialized = true
+      post({k: 'init', saved, dark: darkRef.current, ...contextRef.current, viewport: viewportRef.current}, current.session)
+    } catch (cause) {
+      if (runtimeRef.current === current) setStorageError({kind: 'read', message: cause instanceof Error ? cause.message : String(cause)})
+    } finally {current.loading = false}
+  }, [instance.id, post])
+
   useEffect(() => {
+    let active = true
     const onMessage = (event: MessageEvent) => {
-      // 只信任自己这个沙盒发来的消息
       if (event.source !== frame.current?.contentWindow) return
       const message = event.data as Message
-      if (!message || message.applet !== 1) return
+      if (!message || message.applet !== 1 || message.session !== runtime.session || runtimeRef.current !== runtime) return
+      const reply = (payload: Record<string, unknown>) => {
+        if (active) post(payload, runtime.session)
+      }
       switch (message.k) {
         case 'ready':
-          post({k: 'init', saved: readStored<Record<string, unknown>>(storeKey, {}), dark: darkRef.current, ...contextRef.current, viewport: viewportRef.current})
+          runtime.ready = true
+          void initialize()
           break
         case 'view':
-          setTree(message.tree as UiNode)
+          if (runtime.initialized) setTree(message.tree as UiNode)
           break
         case 'error':
           setError(String(message.message ?? '未知错误').slice(0, 500))
           break
+        case 'storage-error':
+          if (typeof message.id !== 'number' || !Number.isSafeInteger(message.id) || message.id <= runtime.latestSave) return
+          runtime.latestSave = message.id
+          setStorageError({kind: 'write', message: String(message.message ?? '数据无法保存').slice(0, 500)})
+          setSaving(false)
+          break
         case 'save': {
-          const text = JSON.stringify(message.data ?? {})
-          if (text.length > MAX_STORE) setError('存储超过 100KB 上限，新的改动没有保存')
-          else writeStored(storeKey, message.data ?? {})
+          if (!runtime.initialized || typeof message.id !== 'number' || !Number.isSafeInteger(message.id) || message.id <= 0) return
+          const id = message.id
+          let operation = runtime.pending.get(id)
+          if (!operation) {
+            // 已完成或迟到的旧序号不能把旧快照写回；重复进行中请求共享确认。
+            if (id <= runtime.latestSave) return
+            runtime.latestSave = id
+            setSaving(true)
+            setStorageError(null)
+            operation = replaceApplicationData({kind: 'applet', id: instance.id}, message.data)
+            runtime.pending.set(id, operation)
+            void operation.finally(() => runtime.pending.delete(id)).catch(() => undefined)
+          }
+          operation.then(() => {
+            reply({k: 'save-reply', id})
+            if (active && runtimeRef.current === runtime && id === runtime.latestSave) {setSaving(false); setStorageError(null)}
+          }, cause => {
+            const message = cause instanceof Error ? cause.message : String(cause)
+            reply({k: 'save-reply', id, error: message})
+            if (active && runtimeRef.current === runtime && id === runtime.latestSave) {setSaving(false); setStorageError({kind: 'write', message})}
+          })
           break
         }
         case 'call':
-          handleCall(message, hostRef.current, storeKey).then(
-            (result) => post({k: 'reply', id: message.id, result}),
-            (cause: Error) => post({k: 'reply', id: message.id, error: cause.message}),
+          if (!runtime.initialized || typeof message.id !== 'number' || !Number.isSafeInteger(message.id) || message.id <= runtime.latestCall) return
+          runtime.latestCall = message.id
+          handleCall(message, hostRef.current).then(
+            result => reply({k: 'reply', id: message.id, result}),
+            cause => reply({k: 'reply', id: message.id, error: cause instanceof Error ? cause.message : String(cause)}),
           )
           break
       }
     }
     window.addEventListener('message', onMessage)
-    return () => window.removeEventListener('message', onMessage)
-  }, [post, storeKey])
+    return () => {active = false; window.removeEventListener('message', onMessage)}
+  }, [initialize, instance.id, post, runtime])
+
+  // 全局重试完成后仍向当前运行确认最新快照，不能留下过期的局部失败提示。
+  useEffect(() => {
+    const read = persistenceErrors.some(item => item.source === `application-read:applet:${instance.id}`)
+    const write = persistenceErrors.some(item => item.source === `application-write:applet:${instance.id}`)
+    const previous = previousStorageFailure.current
+    previousStorageFailure.current = {read, write}
+    if (previous.read && !read && storageError?.kind === 'read') void initialize()
+    if (previous.write && !write && storageError?.kind === 'write') post({k: 'retry-save'})
+  }, [initialize, instance.id, persistenceErrors, post, storageError])
 
   useEffect(() => {
     post({k: 'dark', dark})
@@ -158,7 +216,16 @@ function Applet({instance, config, host}: ComponentProps<AppletConfig>) {
         </Flexbox>
       )}
 
-      {tree ? <UiTree node={tree} fire={fire} /> : !error && <Text type="secondary" fontSize={13}>正在启动…</Text>}
+      {storageError && (
+        <Flexbox gap={8} role="alert">
+          <Text fontSize={13}>{storageError.kind === 'read' ? '无法读取应用数据' : '更改尚未保存'}：{storageError.message}</Text>
+          <Button size="small" onClick={() => storageError.kind === 'read' ? void initialize() : post({k: 'retry-save'})}>
+            {storageError.kind === 'read' ? '重新读取' : '重试保存'}
+          </Button>
+        </Flexbox>
+      )}
+      {saving && <Text type="secondary" fontSize={12} role="status">正在保存…</Text>}
+      {tree ? <UiTree node={tree} fire={fire} /> : !error && !storageError && <Text type="secondary" fontSize={13}>正在启动…</Text>}
     </Flexbox>
   )
 }

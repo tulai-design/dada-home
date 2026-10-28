@@ -144,6 +144,7 @@ applet({
 
 规则：
 - 直接修改 state 对象就行，事件处理函数结束后界面会自动刷新；异步函数在每个 await 之后也会刷新。
+- persist 字段统一存入本应用独立的 IndexedDB 记录，整个 JSON 对象最多 8 MiB（UTF-8 字节）。只能保存 JSON 值；不要存函数、undefined、NaN、循环引用或巨型二进制。读取成功后才启动 init，真实保存由宿主事务回执确认；保存错误由宿主显示并提供重试，不要在事件结束时自行提示“已保存”。
 - 事件属性（onClick / onChange / onEnter）直接给函数。onChange 的参数是新值。
 - children 可以是数组，false / null / undefined 会被忽略，所以能写 \`cond && Tag({text:'新'})\`；字符串自动变成 Text。
 - 列表项很多时，别一次渲染几百条；上限约 4000 个节点。
@@ -209,7 +210,7 @@ ${JSON.stringify(TREND_APPLET_EXAMPLE, null, 2)}
 
 state是单独的临时视图对象：{query:'',sort:null,page:0,pageSize:10,selectedIds:[]}。page从0开始，pageSize只能是5/10/20/50；sort为{key,direction:'asc'|'desc'}或null，query最多200字符。onChange必须是顶层函数，接收局部patch，用Object.assign(s.table,patch)合并，不能写成s.table=patch；columns里不能放render/formatter等函数。搜索、排序、页容量变化回到第0页；删除后宿主会显示最后有效页。selectable:true启用选择，选择跨分页/筛选保留ID，当前页全选只改变当前页；删除后的ID会从有效选择剔除。业务增删仍由应用处理，图表/表格本身不取数或保存记录。
 
-业务records和ID计数放persist，搜索/排序/分页/选择通常不persist。刷新恢复记录和应用设置，临时视图回到初始状态。数据表500行限制不等于保存额度：Applet持久化上限仍为100KB，按字段长度控制业务容量。下面的完整创建参数从空记录开始，最多100条，备注200字符，支持添加、按ID删除、设置页容量与紧凑状态栏；不要自动灌入假记录。可直接作为create_applet参数再按用户需求调整：
+业务records和ID计数放persist，搜索/排序/分页/选择通常不persist。刷新恢复记录和应用设置，临时视图回到初始状态。数据表500行限制不等于保存额度：每个 Applet 的业务 JSON 总量上限为 8 MiB（UTF-8 字节），按字段长度控制业务容量；宿主事务提交后才确认保存，失败时可重试。下面的完整创建参数从空记录开始，最多100条，备注200字符，支持添加、按ID删除、设置页容量与紧凑状态栏；不要自动灌入假记录。可直接作为create_applet参数再按用户需求调整：
 
 \`\`\`json
 ${JSON.stringify(RECORD_APPLET_EXAMPLE, null, 2)}

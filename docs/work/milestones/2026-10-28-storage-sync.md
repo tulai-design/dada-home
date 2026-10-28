@@ -1,6 +1,6 @@
 # 存储与可持续同步
 
-日期：2026-10-28。本地可靠保存与新快照同步子任务已通过验收；AI 应用存储、长期聊天与增量服务仍是后续，未部署。实际状态以 [Trellis 父任务](../../../.trellis/tasks/10-28-storage-sync/prd.md)及子任务为准。
+日期：2026-10-28。本地可靠保存、新快照同步与 AI 应用存储子任务已通过验收；长期聊天与增量服务仍是后续，服务未部署。实际状态以 [Trellis 父任务](../../../.trellis/tasks/10-28-storage-sync/prd.md)及子任务为准。
 
 ## 确认的路线
 
@@ -8,13 +8,13 @@
 
 后续进一步确认服务要供搭搭与 aifenjing 共用：通用记录版本/不可变对象归服务，业务投影与本地应用归各客户端，见[跨项目审查](../../../.trellis/tasks/10-28-storage-sync/research/shared-service.md)。Gist 收敛为配置同步；WebDAV 可以保留全部数据，S3 技术上也可承载全量但尚未接入。完整范围不意味着每次都重传所有历史。
 
-已有聊天与内置组件使用 IndexedDB，App/Applet 业务数据仍在 localStorage；应用的 100000 限制是 JSON 字符串长度，并非浏览器额度。当前 Gist、WebDAV、HTTP 同步按记录合并，但每次读整个快照，有变更时重写整个文件。Gist 原已支持超过正文截断范围时读取 raw_url；其 API 边界及适用判断见[官方资料研究](../../../.trellis/tasks/10-28-storage-sync/research/provider-limits.md)。
+聊天与内置组件使用 IndexedDB，App/Applet 现已统一到独立 apps 仓；原 100000 JSON 字符限制已替换为每实例 8 MiB UTF-8 JSON 预算，浏览器实际配额另行约束。当前 Gist、WebDAV、HTTP 同步按记录合并，但每次读整个快照，有变更时重写整个文件。Gist 原已支持超过正文截断范围时读取 raw_url；其 API 边界及适用判断见[官方资料研究](../../../.trellis/tasks/10-28-storage-sync/research/provider-limits.md)。
 
 ## 交付顺序
 
 1. **已交付**：可靠写入与可恢复备份，阻断存储读取/保存错误变成同步删除；含旧数据迁移保护、可见失败与重试。
 2. **已交付**：新快照协议、Gist 配置范围、加密策略、并发与供应商错误处理；不兼容旧同步文件。
-3. AI 应用统一 IndexedDB，新存储与同步用稳定逻辑身份。
+3. **已交付**：AI 应用统一 IndexedDB、事务确认与失败重试、8 MiB UTF-8预算，备份v2与完整同步共用独立逻辑身份。
 4. 聊天分页与工具大内容按需读取，保留完整历史。
 5. 可选自建同步服务与客户端：游标、幂等、离线重试和冲突恢复。
 6. 分类容量、同步范围、导出和清理管理。
@@ -33,4 +33,6 @@
 
 本地可靠性本轮检查：完整 Node 回归、类型检查、生产构建通过；隔离 Chromium 覆盖真实事务/升级、迁移、重载、恢复回退及四宽双主题提示。具体复用入口和边界见 [可靠保存验收](../../../.trellis/tasks/archive/2026-10/10-28-storage-durability/verification.md)；构建有 chunk 体积提示，未在本轮做打包优化。
 
-新快照同步检查：完整 Node/类型/构建通过；提供方13项、公开协议21项、记录codec7项，真实同步浏览器11项及存储浏览器23项通过。范围、失败语义和独立审查证据见[同步验收](../../../.trellis/tasks/archive/2026-10/10-28-sync-v1-hardening/verification.md)。下一项为 AI 应用统一 IndexedDB；此时仍保留原应用100000字符限制。
+新快照同步检查：完整 Node/类型/构建通过；提供方13项、公开协议21项、记录codec7项，真实同步浏览器11项及存储浏览器23项通过。范围、失败语义和独立审查证据见[同步验收](../../../.trellis/tasks/archive/2026-10/10-28-sync-v1-hardening/verification.md)。应用存储随后完成：超过原字符限制的中文/emoji、关闭重开、设置/卸载撤销、配额/事务失败重试、备份恢复与同名记录同步均验证。下一项为长期聊天分页和工具明细按需读取。
+
+应用存储验收：核心14项、App6项、Applet10项、备份17项，真实应用12项、存储24项、同步12项通过；全量test、类型和build通过，Standards/Spec最终PASS。见[应用存储验收](../../../.trellis/tasks/10-28-application-storage/verification.md)。

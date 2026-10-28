@@ -33,7 +33,7 @@ function harness(source) {
   const context = vm.createContext(sandbox)
   vm.runInContext(buildRunnerDoc('').match(/<script>([\s\S]*?)<\/script>/)[1], context)
   vm.runInContext(source, context)
-  const send = message => listeners.message({data: {applet: 1, ...message}})
+  const send = message => listeners.message({source: sandbox.parent, data: {applet: 1, session: '', ...message}})
   const tree = () => messages.filter(message => message.k === 'view').at(-1)?.tree
   const nodes = () => {const result = []; const visit = node => {if (node) {result.push(node); node.c.forEach(visit)}}; visit(tree()); return result}
   const waitFor = async predicate => {

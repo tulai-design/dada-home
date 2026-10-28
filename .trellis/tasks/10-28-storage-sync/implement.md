@@ -1,12 +1,12 @@
 # 实施顺序
 
-2026-10-28：storage-durability 与新快照同步协议已通过验收，下一项是 AI 应用统一 IndexedDB。用户允许单人测试阶段全新开发，无须旧实例和旧格式兼容；服务仍按搭搭与 aifenjing 共用的通用对象/版本模型设计。未迁移用户真实数据或部署服务。
+2026-10-28：可靠保存、新快照同步与 AI 应用 IndexedDB 已通过验收，下一项是长期聊天分页与明细按需读取。用户允许单人测试阶段全新开发，无须旧实例和旧格式兼容；服务仍按搭搭与 aifenjing 共用的通用对象/版本模型设计。未迁移用户真实数据或部署服务。
 
 | 顺序 | 子任务 | 可观察交付 | 依赖 |
 | --- | --- | --- | --- |
 | 1 | [storage-durability](../archive/2026-10/10-28-storage-durability/prd.md) | 已交付：保存失败可见并可重试、并发不回退、备份完整可恢复 | 无 |
 | 2 | [sync-v1-hardening](../archive/2026-10/10-28-sync-v1-hardening/prd.md) | 已交付：严格新快照、Gist配置范围、策略重写、并发/失败提示 | 1 |
-| 3 | [application-storage](../10-28-application-storage/prd.md) | AI 应用统一 IndexedDB，新模型与逻辑同步身份一致 | 1、2 |
+| 3 | [application-storage](../10-28-application-storage/prd.md) | 已交付：AI 应用统一 IndexedDB、8 MiB UTF-8预算、提交确认与新备份/同步身份一致 | 1、2 |
 | 4 | [chat-history-storage](../10-28-chat-history-storage/prd.md) | 大会话分页，明细按需读取，完整历史仍可恢复 | 1；可与 2/3 独立推进 |
 | 5 | [incremental-sync](../10-28-incremental-sync/prd.md) | 可选服务+客户端两设备增量闭环，离线/冲突可恢复 | 2、3、4 |
 | 6 | [storage-management](../10-28-storage-management/prd.md) | 容量、同步范围、清理/导出和迁移状态可管理 | 3、4、5 |

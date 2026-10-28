@@ -37,14 +37,14 @@ function Runtime({dark}:{dark:boolean}){
  const currentDark=useRef(dark);currentDark.current=dark
  const [tree,setTree]=useState<UiNode|null>(null)
  const doc=useMemo(()=>buildRunnerDoc(source),[])
- const post=(message:Record<string,unknown>)=>frame.current?.contentWindow?.postMessage({applet:1,...message},'*')
+ const post=(message:Record<string,unknown>)=>frame.current?.contentWindow?.postMessage({applet:1,session:'',...message},'*')
  useEffect(()=>{
   const receive=(event:MessageEvent)=>{
    if(event.source!==frame.current?.contentWindow||event.data?.applet!==1)return
    const message=event.data
    if(message.k==='ready'){runtimeInit++;post({k:'init',saved:{note:''},dark:currentDark.current,settings:{},surface:'widget',viewport:viewport.current})}
    if(message.k==='view')setTree(message.tree)
-   if(message.k==='save')runtimeSaves++
+   if(message.k==='save'){runtimeSaves++;post({k:'save-reply',id:message.id})}
    if(message.k==='call'){if(message.op==='fetch')runtimeFetch++;post({k:'reply',id:message.id,result:{ok:true,status:200,text:'{}',json:{}}})}
    if(message.k==='error')runtimeErrors.push(message.message)
   }

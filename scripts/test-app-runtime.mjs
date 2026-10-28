@@ -36,39 +36,58 @@ function runner() {
   }
   scope.window=scope
   vm.runInNewContext(sdk,scope)
-  const send=(message,source=parent)=>{for(const fn of listeners.get('message')??[])fn({data:message,source})}
+  const send=(message,source=parent)=>{for(const fn of listeners.get('message')??[])fn({data:{session:'',...message},source})}
   return {scope,root,variables,parent,posted,events,send}
 }
+function deferred() {let resolve,reject;const promise=new Promise((res,rej)=>{resolve=res;reject=rej});return {promise,resolve,reject}}
+const tick=()=>new Promise(resolve=>setImmediate(resolve))
 function bridgeRunner() {
-  const rows=new Map([['fp.app.fixture',JSON.stringify({counter:1})]])
-  const effects=[],listeners=new Set(),waiting=new Map();let definition,sequence=0
-  const frame={postMessage(message){waiting.get(message.id)?.(message);waiting.delete(message.id)}}
-  const react={useRef:value=>({current:value}),useCallback:fn=>fn,useMemo:fn=>fn(),useState:value=>[value,()=>{}],useEffect:fn=>effects.push(fn),useSyncExternalStore(){}}
+  const rows=new Map([['app:fixture',{counter:1}]])
+  const hooks=[],effects=[],listeners=new Set(),waiting=new Map(),replies=[]
+  let definition,sequence=0,cursor=0,renderConfig=config,document,uuid=0,writeBarrier,readError,writes=0
+  const frame={postMessage(message){replies.push(message);waiting.get(message.id)?.(message);waiting.delete(message.id)}}
+  const same=(a,b)=>a&&b&&a.length===b.length&&a.every((value,i)=>Object.is(value,b[i]))
+  const react={
+    useRef:value=>{const index=cursor++;return hooks[index]??(hooks[index]={current:value})},
+    useMemo:(fn,deps)=>{const index=cursor++;if(!same(hooks[index]?.deps,deps))hooks[index]={deps,value:fn()};return hooks[index].value},
+    useCallback:(fn,deps)=>react.useMemo(()=>fn,deps),
+    useState:value=>{const index=cursor++;if(!(index in hooks))hooks[index]=value;return [hooks[index],value=>{hooks[index]=typeof value==='function'?value(hooks[index]):value}]},
+    useEffect:(fn,deps)=>{const index=cursor++;if(!same(hooks[index]?.deps,deps)){effects.push(()=>{hooks[index]?.cleanup?.();hooks[index]={deps,cleanup:fn()}})}},
+    useSyncExternalStore(){},
+  }
   const persistenceModule={exports:{}}
   const persistenceSource=ts.transpileModule(readFileSync(new URL('../src/lib/persistence.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText
   vm.runInNewContext(persistenceSource,{module:persistenceModule,exports:persistenceModule.exports,require:()=>react})
   const persistence=persistenceModule.exports
-  const jsx=(type,props)=>{if(type==='iframe')props.ref.current={contentWindow:frame};return {type,props}}
+  const repository={
+    async loadApplicationData(ref){if(readError)throw readError;return structuredClone(rows.get(`${ref.kind}:${ref.id}`)??{})},
+    async setApplicationValue(ref,key,value){
+      persistence.assertPersistenceWritable();writes++
+      if(readError)throw readError
+      if(writeBarrier)await writeBarrier.promise
+      const id=`${ref.kind}:${ref.id}`;rows.set(id,{...rows.get(id),[key]:value})
+    },
+  }
+  const jsx=(type,props)=>{if(type==='iframe'){props.ref.current={contentWindow:frame};document=props.srcDoc}return {type,props}}
   const appModule={exports:{}}
   vm.runInNewContext(compiled,{
     module:appModule,exports:appModule.exports,
     require:id=>({
-      react,'react/jsx-runtime':{jsx,jsxs:jsx},'../lib/persistence':persistence,
+      react,'react/jsx-runtime':{jsx,jsxs:jsx},'../lib/applicationData':repository,
       '../lib/registry':{registerComponent:value=>{definition=value}},'../fx/Fx':{useDark:()=>false},
     })[id]??{},
-    window:{addEventListener:(name,fn)=>{if(name==='message')listeners.add(fn)},removeEventListener(){}},
+    crypto:{randomUUID:()=>`session-${++uuid}`},
+    window:{addEventListener:(name,fn)=>{if(name==='message')listeners.add(fn)},removeEventListener:(_name,fn)=>listeners.delete(fn)},
     document:{documentElement:{dataset:{theme:'light'}}},
     getComputedStyle:()=>({getPropertyValue:name=>hostVariables[name]??''}),
     MutationObserver:class{observe(){}disconnect(){}},
-    localStorage:{getItem:key=>rows.get(key)??null,setItem:(key,value)=>rows.set(key,String(value))},
   })
-  definition.component({instance:{id:'fixture'},config,host:{networkGrants:[]}})
-  for(const effect of effects)effect()
-  const send=payload=>new Promise(resolve=>{
-    const id=++sequence;waiting.set(id,resolve)
-    for(const listener of listeners)listener({source:frame,data:{tada:1,id,...payload}})
-  })
-  return {rows,persistence,send}
+  const render=(next=renderConfig)=>{cursor=0;renderConfig=next;definition.component({instance:{id:'fixture'},config:next,host:{networkGrants:[]}});effects.splice(0).forEach(fn=>fn())}
+  render()
+  const session=()=>JSON.parse(document.match(/const session=(.*?);/)[1])
+  const dispatch=payload=>{for(const listener of listeners)listener({source:frame,data:{tada:1,session:session(),...payload}})}
+  const send=payload=>new Promise(resolve=>{const id=payload.id??++sequence;waiting.set(id,resolve);dispatch({id,...payload})})
+  return {rows,persistence,send,dispatch,replies,render,session,get writes(){return writes},setWriteBarrier:value=>{writeBarrier=value},setReadError:value=>{readError=value}}
 }
 let passed=0
 async function test(name,run){await run();passed+=1;console.log(`通过：${name}`)}
@@ -123,15 +142,49 @@ await test('HTML应用后台持久写在恢复和回退失败时拒绝，恢复�
   await h.persistence.withPersistenceExclusive(async()=>{
     const reply=await h.send({op:'set',key:'counter',value:2})
     assert.match(reply.error,/正在恢复数据/)
-    assert.equal(JSON.parse(h.rows.get('fp.app.fixture')).counter,1)
+    assert.equal(h.rows.get('app:fixture').counter,1)
   })
   h.persistence.reportPersistenceError('backup-restore',new Error('模拟回退失败'))
   const rejected=await h.send({op:'set',key:'counter',value:3})
   assert.match(rejected.error,/恢复尚未完成/)
-  assert.equal(JSON.parse(h.rows.get('fp.app.fixture')).counter,1)
+  assert.equal(h.rows.get('app:fixture').counter,1)
   h.persistence.clearPersistenceError('backup-restore')
   const saved=await h.send({op:'set',key:'counter',value:4})
   assert.equal(saved.result,true)
-  assert.equal(JSON.parse(h.rows.get('fp.app.fixture')).counter,4)
+  assert.equal(h.rows.get('app:fixture').counter,4)
+})
+await test('set 仅在宿主提交后确认；事务失败 reject，读取失败不会变成空数据',async()=>{
+  const h=bridgeRunner(),gate=deferred();h.setWriteBarrier(gate)
+  let settled=false
+  const pending=h.send({op:'set',key:'counter',value:8}).then(reply=>{settled=true;return reply})
+  await tick();assert.equal(settled,false);assert.equal(h.rows.get('app:fixture').counter,1)
+  gate.resolve();assert.equal((await pending).result,true);assert.equal(h.rows.get('app:fixture').counter,8)
+  const failed=deferred();h.setWriteBarrier(failed)
+  const rejected=h.send({op:'set',key:'counter',value:9});failed.reject(new Error('事务中止'))
+  assert.match((await rejected).error,/事务中止/);assert.equal(h.rows.get('app:fixture').counter,8)
+  h.setReadError(new Error('无法读取数据库'))
+  assert.match((await h.send({op:'get',key:'counter'})).error,/无法读取数据库/)
+  assert.equal(h.rows.get('app:fixture').counter,8)
+})
+await test('同一会话重复 set 不重新执行，旧会话消息和旧异步回包不能进入新文档',async()=>{
+  const h=bridgeRunner(),gate=deferred();h.setWriteBarrier(gate)
+  const oldSession=h.session()
+  const pending=h.send({id:1,op:'set',key:'counter',value:2})
+  h.dispatch({id:1,op:'set',key:'counter',value:999})
+  assert.equal(h.writes,1)
+  gate.resolve();await pending;await tick()
+  h.dispatch({id:1,op:'set',key:'counter',value:999})
+  await tick();assert.equal(h.writes,1);assert.equal(h.rows.get('app:fixture').counter,2)
+  const delayed=deferred();h.setWriteBarrier(delayed)
+  h.dispatch({id:2,op:'set',key:'counter',value:3})
+  const before=h.replies.length
+  h.render({...config,js:'window.changed=true'})
+  assert.notEqual(h.session(),oldSession)
+  h.dispatch({session:oldSession,id:3,op:'set',key:'counter',value:1000})
+  delayed.resolve();await tick()
+  assert.equal(h.writes,2);assert.equal(h.replies.length,before,'旧请求不能回包到新文档')
+  assert.equal(h.rows.get('app:fixture').counter,3,'已接受的旧运行保存继续完成')
+  h.setWriteBarrier(undefined)
+  assert.equal((await h.send({id:1,op:'get',key:'counter'})).result,3)
 })
 console.log(`HTML应用运行时回归全部通过：${passed}/${passed}`)

@@ -24,12 +24,12 @@ function server() {
     },get writes(){return this.requests.filter(r=>r.method!=='GET').length}}
 }
 function client(remote, existing) {
-  const ls=existing?.ls??new Map(),tables=existing?.tables??Object.fromEntries(['kv','convs','turns','recovery'].map(s=>[s,new Map()]))
+  const ls=existing?.ls??new Map(),tables=existing?.tables??Object.fromEntries(['kv','apps','convs','turns','recovery'].map(s=>[s,new Map()]))
   const modules=new Map(),errors={read:false,batch:false,set:false,rollback:false},log=[]
   const localStorage={get length(){return ls.size},key:index=>[...ls.keys()][index]??null,getItem:key=>ls.get(key)??null,setItem(key,value){if(errors.set){errors.set=false;throw new Error('quota')}ls.set(key,String(value))},removeItem:key=>ls.delete(key)}
-  const db={async get(store,key){await onGet?.();return copy(tables[store].get(key))},async snapshot(){if(errors.read)throw new Error('读取失败');return Object.fromEntries(['kv','convs','turns'].map(s=>[s,copy([...tables[s].values()])]))},async del(s,k){tables[s].delete(k)},async batch(ops){log.push(ops);if(errors.batch)throw new Error('事务abort');const next=Object.fromEntries(Object.entries(tables).map(([s,rows])=>[s,new Map(rows)]));for(const op of ops){if(op.type==='clear')next[op.store].clear();else if(op.type==='delete')next[op.store].delete(op.key);else next[op.store].set(op.store==='kv'||op.store==='recovery'?op.value.k:op.value.id,copy(op.value))}for(const s of Object.keys(tables))tables[s]=next[s]}}
+  const db={async get(store,key){await onGet?.();return copy(tables[store].get(key))},async snapshot(){if(errors.read)throw new Error('读取失败');return Object.fromEntries(['kv','apps','convs','turns'].map(s=>[s,copy([...tables[s].values()])]))},async del(s,k){tables[s].delete(k)},async batch(ops){log.push(ops);if(errors.batch)throw new Error('事务abort');const next=Object.fromEntries(Object.entries(tables).map(([s,rows])=>[s,new Map(rows)]));for(const op of ops){if(op.type==='clear')next[op.store].clear();else if(op.type==='delete')next[op.store].delete(op.key);else next[op.store].set(op.store==='kv'||op.store==='apps'||op.store==='recovery'?op.value.k:op.value.id,copy(op.value))}for(const s of Object.keys(tables))tables[s]=next[s]}}
   let flush=async()=>{},onGet
-  const deps={react:{useSyncExternalStore:(_,get)=>get()},'./db':{db,openDb:async()=>({})},'./chat':{flush:async()=>flush()},'./componentData':{flush:async()=>flush()},'./rss':{proxied:url=>url}}
+  const deps={react:{useSyncExternalStore:(_,get)=>get()},'./db':{db,openDb:async()=>({})},'./applicationData':{flushApplicationData:async()=>flush()},'./chat':{flush:async()=>flush()},'./componentData':{flush:async()=>flush()},'./rss':{proxied:url=>url}}
   const navigator={onLine:true,locks:{request:async(_name,_options,work)=>work()}}
   function load(file){if(modules.has(file))return modules.get(file);const module={exports:{}};modules.set(file,module.exports);if(!sources.has(file))sources.set(file,ts.transpileModule(readFileSync(new URL(`../src/lib/${file}.ts`,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText);new Function('module','exports','require','localStorage','fetch','navigator','crypto',sources.get(file))(module,module.exports,id=>deps[id]??load(id.slice(2)),localStorage,(...args)=>remote.fetch(...args),navigator,webcrypto);return module.exports}
   const api=load('sync'),persistence=load('persistence')
@@ -50,6 +50,23 @@ await test('两设备首次同身份远端优先，本机独有合并；完整�
   await a.api.runSync();const b=client(s);b.ls.set('fp.settings','{"name":"B"}');b.tables.kv.set('unique',{k:'unique',v:'独有'})
   const result=await b.api.runSync();assert.equal(result.needsReload,true);assert.equal(JSON.parse(b.ls.get('fp.settings')).name,'A');assert.equal(b.tables.kv.get('note').v,'A便签');assert.equal(JSON.parse(s.text).records['component:unique'].value,'独有')
   assert.throws(()=>b.persistence.assertPersistenceWritable(),/重新加载/);assert.doesNotThrow(()=>b.reload().persistence.assertPersistenceWritable())
+})
+await test('两设备应用仓往返保留同名三种身份，无安装记录也同步且无物理重复',async()=>{
+  const s=server();let a=client(s)
+  a.tables.apps.set('app:same',{k:'app:same',v:{text:'中文🙂'.repeat(30000)}})
+  a.tables.apps.set('applet:same',{k:'applet:same',v:{count:2}})
+  a.tables.kv.set('same',{k:'same',v:'普通组件'})
+  a.ls.set('fp.app.same',JSON.stringify({text:'旧物理值不采样'}))
+  await a.api.runSync()
+  assert.deepEqual(Object.keys(JSON.parse(s.text).records).sort(),['app:app:same','app:applet:same','component:same'])
+  let b=client(s);await b.api.runSync();b=b.reload()
+  assert.equal(b.tables.apps.get('app:same').v.text,'中文🙂'.repeat(30000))
+  b.tables.apps.set('applet:same',{k:'applet:same',v:{count:3}});await b.api.runSync()
+  await a.api.runSync();a=a.reload()
+  assert.equal(a.tables.apps.get('applet:same').v.count,3)
+  a.tables.apps.delete('app:same');await a.api.runSync();await b.api.runSync()
+  assert.equal(b.tables.apps.has('app:same'),false);assert.equal(b.tables.apps.get('applet:same').v.count,3);assert.equal(b.tables.kv.get('same').v,'普通组件')
+  assert.equal(JSON.parse(s.text).records['app:app:same'].deleted,true)
 })
 await test('规范化对象键顺序不上传；同一毫秒多次修改仍使用增长的逻辑版本',async()=>{
   const s=server(),c=client(s);c.tables.kv.set('note',{k:'note',v:{a:1,b:2}});await c.api.runSync();const first=JSON.parse(s.text).records['component:note'].revision.counter

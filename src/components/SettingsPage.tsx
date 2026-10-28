@@ -381,7 +381,7 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest,
       >
         {pendingImport && (
           <Text>
-            {pendingImport.name}：{pendingImport.summary.keys} 项配置，{pendingImport.summary.data} 份组件数据，{pendingImport.summary.convs} 段对话。
+            {pendingImport.name}：{pendingImport.summary.keys} 项配置，{pendingImport.summary.data} 份组件数据，{pendingImport.summary.apps} 份应用数据，{pendingImport.summary.convs} 段对话。
             导入会替换现在的订阅、书签、待办、页面、对话和配置，建议先导出一份当前的备份。请先停止回答，并关闭其他搭搭标签页，再恢复数据。完成后页面会自动刷新。
           </Text>
         )}

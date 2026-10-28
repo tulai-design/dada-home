@@ -40,7 +40,7 @@ function Runtime() {
   viewport.current = {width:contentWidth,compact:contentWidth<480}
   const [tree,setTree] = useState<UiNode|null>(null)
   const doc = useMemo(()=>buildRunnerDoc(source),[])
-  const post = (message:Record<string,unknown>)=>frame.current?.contentWindow?.postMessage({applet:1,...message},'*')
+  const post = (message:Record<string,unknown>)=>frame.current?.contentWindow?.postMessage({applet:1,session:'',...message},'*')
   resizeRuntime = setWidth
   runtimePost = post
   useEffect(()=>{
@@ -49,6 +49,7 @@ function Runtime() {
       const message = event.data
       if(message.k==='ready')post({k:'init',saved:{count:67},settings:{minutes:25},surface:'widget',viewport:viewport.current})
       if(message.k==='view'){latest=JSON.parse(message.tree.p.text);setTree(message.tree)}
+      if(message.k==='save')post({k:'save-reply',id:message.id})
       if(message.k==='error')runnerErrors.push(message.message)
     }
     window.addEventListener('message',receive)

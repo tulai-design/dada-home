@@ -6,7 +6,7 @@ import ts from 'typescript'
 // 真实记录codec，隔离物理存储；协议/网络协调另由公开runSync回归覆盖。
 function runtime(seed = {}) {
   const entries = new Map(Object.entries(seed).map(([key, value]) => [key, JSON.stringify(value)]))
-  const modules = new Map(), data = {kv: [], convs: [], turns: []}
+  const modules = new Map(), data = {kv: [], apps: [], convs: [], turns: []}
   let reads = 0
   const localStorage = {get length() {return entries.size}, key: index => [...entries.keys()][index] ?? null, getItem: key => entries.get(key) ?? null}
   function load(path) {
@@ -99,12 +99,27 @@ await test('未知写入目标、配置越权、坏会话关联在codec拒绝', 
   for (const [id, value] of [['config:range', ['1h']], ['config:sidebarAi', ['full']], ['config:settings', {theme: ['dark']}], ['config:search', {provider: ['off']}]]) assert.throws(() => h.api.validateRecord(id, value, false, 'full'))
 })
 await test('完整范围区分App和Applet同名状态、保留嵌套JSON与稳定ID凭据', async () => {
-  const h = runtime({'fp.app.same': {value: 1}, 'fp.applet.same': {value: 2}})
+  const h = runtime({'fp.app.same': {value: '旧值不参与'}, 'fp.applet.same': {value: '旧值不参与'}, 'fp.app.legacyOnly': {value: '不迁移'}})
+  h.data.apps.push({k: 'app:same', v: {value: 1}}, {k: 'applet:same', v: {value: 2}})
+  h.data.kv.push({k: 'same', v: {value: 3}})
   h.data.kv.push({k: 'private', v: [{id: 'a', text: 'A', token: 'A-key'}, {id: 'b', text: 'B', token: 'B-key'}]})
   const local = await h.api.collect('full', false)
   assert.equal(local.values.get('app:app:same').value, 1); assert.equal(local.values.get('app:applet:same').value, 2)
+  assert.equal(local.values.get('component:same').value, 3); assert.equal(local.values.has('app:app:legacyOnly'), false)
+  const deletion = h.api.changes([['app:app:same', tombstone]], local, 'full', false)
+  assert.deepEqual(clone(deletion), {local: {}, operations: [{store: 'apps', type: 'delete', key: 'app:same'}]})
+  const saving = h.api.changes([['app:applet:same', {value: {value: 4}}]], local, 'full', false)
+  assert.deepEqual(clone(saving), {local: {}, operations: [{store: 'apps', type: 'put', value: {k: 'applet:same', v: {value: 4}}}]})
   const update = h.api.changes([['component:private', {value: [{id: 'b', text: 'new B'}, {id: 'c', text: 'new C'}, {id: 'a', text: 'new A'}]}]], local, 'full', false)
   const rows = clone(update.operations[0].value.v)
   assert.deepEqual(rows.map(row => row.token), ['B-key', undefined, 'A-key'])
+})
+await test('应用codec双向校验对象与UTF8预算，合回本机凭据仍不能超额', async () => {
+  const h = runtime(), big = {text: '中'.repeat(3 * 1024 * 1024)}
+  for (const value of [[], null, 1, big]) assert.throws(() => h.api.validateRecord('app:app:a', value, false, 'full'))
+  h.data.apps.push({k: 'app:a', v: big})
+  await assert.rejects(h.api.collect('full', true))
+  const local = {full: new Map([['app:app:a', {token: 'x'.repeat(8 * 1024 * 1024 - 20)}]])}
+  assert.throws(() => h.api.changes([['app:app:a', {value: {text: '新'.repeat(20)}}]], local, 'full', false))
 })
 console.log(`同步记录codec回归全部通过：${passed}/${passed}`)

@@ -4,7 +4,7 @@ import {MagicWand as Wand2} from '@phosphor-icons/react'
 import {useDark} from '../fx/Fx'
 import {checkUrl} from '../lib/customWidget'
 import {proxied} from '../lib/rss'
-import {assertPersistenceWritable} from '../lib/persistence'
+import {loadApplicationData, setApplicationValue} from '../lib/applicationData'
 import {registerComponent, type ComponentHost, type ComponentProps} from '../lib/registry'
 
 /**
@@ -30,7 +30,6 @@ type AppConfig = {
   surface?: string
 }
 
-const MAX_STORE = 100_000
 const ESM_HOSTS = 'https://esm.sh https://cdn.jsdelivr.net https://unpkg.com'
 
 /** 把主题里的关键变量快照进应用，让它天然和主页同一套视觉。 */
@@ -85,16 +84,17 @@ const SDK = `
   const freeze=(v)=>{if(v&&typeof v==='object'){Object.values(v).forEach(freeze);Object.freeze(v)}return v};
   const context=freeze(__APPLICATION_CONTEXT__);
   const themeNames=__THEME_NAMES__;
+  const session=__SESSION__;
   const pending=new Map();let seq=0;
   const call=(op,payload)=>new Promise((resolve,reject)=>{
     const id=++seq;pending.set(id,{resolve,reject});
-    parent.postMessage({tada:1,id,op,...payload},'*');
+    parent.postMessage({tada:1,session,id,op,...payload},'*');
     /* 取数可能先等用户确认域名，给授权操作留出时间。 */
     setTimeout(()=>{if(pending.delete(id))reject(new Error('tada.'+op+' 超时'))},op==='fetch'?300000:15000);
   });
   addEventListener('message',(e)=>{
     if(e.source!==parent)return;
-    const m=e.data;if(!m||m.tada!==1)return;
+    const m=e.data;if(!m||m.tada!==1||m.session!==session)return;
     if(m.op==='theme'){
       const root=document.documentElement;
       for(const name of themeNames){const value=m.variables&&m.variables[name];if(typeof value==='string')root.style.setProperty(name,value)}
@@ -113,11 +113,11 @@ const SDK = `
   }
   try{Object.defineProperty(navigator,'clipboard',{value:{writeText:(t)=>call('copy',{text:String(t)})},configurable:true})}catch{}
   /* 运行出错不再是一片空白：告诉主页，由主页显示并提供「让搭搭修复」 */
-  const report=(e)=>{const msg=(e&&e.message)||String(e);parent.postMessage({tada:1,id:0,op:'error',message:msg},'*')};
+  const report=(e)=>{const msg=(e&&e.message)||String(e);parent.postMessage({tada:1,session,id:0,op:'error',message:msg},'*')};
   addEventListener('error',(e)=>report(e.error||e.message));
   addEventListener('unhandledrejection',(e)=>report(e.reason));
   window.tada={
-    /** 本应用私有的持久存储（键值，总量约 100KB） */
+    /** 本应用私有的 IndexedDB 存储；set 在事务提交后成功，失败 reject */
     store:{get:(key)=>call('get',{key}),set:(key,value)=>call('set',{key,value})},
     /** 取数。url 的域名必须已被用户授权；返回 {ok,status,text,json} */
     fetch:(url)=>call('fetch',{url}),
@@ -138,7 +138,7 @@ function hostList(grants: string[]): string[] {
   return grants.filter((host) => /^[a-z0-9.-]+$/.test(host)).map((host) => `https://${host}`)
 }
 
-export function buildSrcdoc(config: AppConfig, grants: string[], dark: boolean): string {
+export function buildSrcdoc(config: AppConfig, grants: string[], dark: boolean, session = ''): string {
   const granted = hostList(grants).join(' ')
   const csp = [
     "default-src 'none'",
@@ -155,7 +155,7 @@ export function buildSrcdoc(config: AppConfig, grants: string[], dark: boolean):
   ].join('; ')
   // JSON 只能作为数据进入脚本，不能由设置里的 </script> 提前闭合标签。
   const context = JSON.stringify({settings: config.settings ?? {}, surface: config.surface ?? 'widget'}).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029')
-  const sdk = SDK.replace('__THEME_NAMES__', () => JSON.stringify(THEME_VARS)).replace('__APPLICATION_CONTEXT__', () => context)
+  const sdk = SDK.replace('__THEME_NAMES__', () => JSON.stringify(THEME_VARS)).replace('__APPLICATION_CONTEXT__', () => context).replace('__SESSION__', () => JSON.stringify(session))
   // 用户代码放在后面：SDK 和样式套件先就位
   return `<!doctype html><html data-theme="${dark ? 'dark' : 'light'}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -219,28 +219,17 @@ export async function copyText(text: string): Promise<boolean> {
 }
 
 async function handle(request: Request, instanceId: string, host: ComponentHost): Promise<unknown> {
-  const storeKey = `fp.app.${instanceId}`
-  const read = (): Record<string, unknown> => {
-    try {
-      return JSON.parse(localStorage.getItem(storeKey) ?? '{}') as Record<string, unknown>
-    } catch {
-      return {}
-    }
-  }
+  const ref = {kind: 'app' as const, id: instanceId}
   switch (request.op) {
     case 'get': {
       const key = String(request.key ?? '')
-      return read()[key] ?? null
+      const data = await loadApplicationData(ref)
+      return Object.hasOwn(data, key) ? data[key] : null
     }
     case 'set': {
-      assertPersistenceWritable()
       const key = String(request.key ?? '')
       if (!/^[\w.-]{1,64}$/.test(key)) throw new Error('键名只能是字母数字和 _ . -，最长 64 位')
-      const data = read()
-      data[key] = request.value
-      const text = JSON.stringify(data)
-      if (text.length > MAX_STORE) throw new Error('存储超过 100KB 上限')
-      localStorage.setItem(storeKey, text)
+      await setApplicationValue(ref, key, request.value)
       return true
     }
     case 'fetch':
@@ -271,24 +260,24 @@ function AppBlock({instance, config, host}: ComponentProps<AppConfig>) {
   hostRef.current = host
 
   const [error, setError] = useState('')
-  const documentRef = useRef<{config: AppConfig; dark: boolean; grants: string[]} | null>(null)
+  const documentRef = useRef<{config: AppConfig; dark: boolean; grants: string[]; instanceId: string; session: string; latestRequest: number; pending: Map<number, Promise<unknown>>} | null>(null)
   const previous = documentRef.current
   // 新授权直接供 tada.fetch 使用，保留当前文档与待完成的请求。
   // 图片、媒体的 CSP 使用文档快照：重新挂载或修改源码后才加入新域名；
   // 已写入 CSP 的域名一旦撤销，则立即重建文档以收紧权限。
-  if (!previous || previous.config.html !== config.html || previous.config.css !== config.css || previous.config.js !== config.js || JSON.stringify(previous.config.settings) !== JSON.stringify(config.settings) || previous.config.surface !== config.surface || previous.grants.some((grant) => !host.networkGrants.includes(grant))) {
-    documentRef.current = {config: {...config}, dark, grants: [...host.networkGrants]}
+  if (!previous || previous.instanceId !== instance.id || previous.config.html !== config.html || previous.config.css !== config.css || previous.config.js !== config.js || JSON.stringify(previous.config.settings) !== JSON.stringify(config.settings) || previous.config.surface !== config.surface || previous.grants.some((grant) => !host.networkGrants.includes(grant))) {
+    documentRef.current = {config: {...config}, dark, grants: [...host.networkGrants], instanceId: instance.id, session: crypto.randomUUID(), latestRequest: 0, pending: new Map()}
   }
   const appDocument = documentRef.current!
   const srcdoc = useMemo(
-    () => buildSrcdoc(appDocument.config, appDocument.grants, appDocument.dark),
+    () => buildSrcdoc(appDocument.config, appDocument.grants, appDocument.dark, appDocument.session),
     [appDocument],
   )
   useEffect(() => setError(''), [config.html, config.css, config.js])
 
   // 主题是宿主上下文，不重启用户程序：同一明暗模式下换颜色/字体也同步。
   const syncTheme = useCallback(() => {
-    frame.current?.contentWindow?.postMessage({tada: 1, op: 'theme', variables: themeVariables(), dark: document.documentElement.dataset.theme === 'dark'}, '*')
+    frame.current?.contentWindow?.postMessage({tada: 1, session: documentRef.current?.session, op: 'theme', variables: themeVariables(), dark: document.documentElement.dataset.theme === 'dark'}, '*')
   }, [])
   useEffect(() => {
     const observer = new MutationObserver(syncTheme)
@@ -302,18 +291,27 @@ function AppBlock({instance, config, host}: ComponentProps<AppConfig>) {
       // 只信任自己这个 iframe 发来的消息
       if (event.source !== frame.current?.contentWindow) return
       const request = event.data as Request
-      if (!request || request.tada !== 1 || typeof request.id !== 'number') return
+      const requestDocument = documentRef.current
+      if (!requestDocument || !request || request.tada !== 1 || request.session !== requestDocument.session || !Number.isSafeInteger(request.id) || request.id < 0) return
       if (request.op === 'error') {
         setError(String(request.message ?? '未知错误').slice(0, 500))
         return
       }
-      const requestDocument = documentRef.current
       const reply = (payload: {result?: unknown; error?: string}) => {
         // 源码或权限变化已重建文档时，旧请求不能回复到新一轮同编号调用。
         if (documentRef.current !== requestDocument) return
-        frame.current?.contentWindow?.postMessage({tada: 1, id: request.id, ...payload}, '*')
+        frame.current?.contentWindow?.postMessage({tada: 1, session: requestDocument.session, id: request.id, ...payload}, '*')
       }
-      handle(request, instance.id, hostRef.current).then(
+      // 重复或迟到的请求不得重新执行写入；同一进行中请求共享结果。
+      let operation = requestDocument.pending.get(request.id)
+      if (!operation) {
+        if (request.id <= requestDocument.latestRequest) return
+        requestDocument.latestRequest = request.id
+        operation = handle(request, instance.id, hostRef.current)
+        requestDocument.pending.set(request.id, operation)
+        void operation.finally(() => requestDocument.pending.delete(request.id)).catch(() => undefined)
+      }
+      operation.then(
         (result) => reply({result}),
         (error: Error) => reply({error: error.message}),
       )

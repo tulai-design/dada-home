@@ -1,3 +1,4 @@
+import {validateApplicationData, validateApplicationDataRecord} from './applicationDataSchema'
 import {db, openDb, type DbOperation} from './db'
 import {canonical, digest, exactKeys, object, type SyncRecord} from './syncProtocol'
 import type {SyncScope} from './syncTypes'
@@ -53,8 +54,9 @@ function target(id: string, scope: SyncScope): {kind: string; name: string; key?
   if (!nonempty(name) || name.length > 1000) return fail()
   if (kind === 'config' && (configNames.includes(name) || (scope === 'full' && name === 'read'))) return {kind, name, key: `fp.${name}`}
   if (scope === 'full' && ['component', 'conversation', 'turn'].includes(kind)) return {kind, name}
-  if (scope === 'full' && kind === 'app' && /^(app|applet):.+/.test(name)) {
-    const part = name.indexOf(':'); return {kind, name, key: `fp.${name.slice(0, part)}.${name.slice(part + 1)}`}
+  if (scope === 'full' && kind === 'app') {
+    validateApplicationDataRecord({k: name, v: {}})
+    return {kind, name}
   }
   return fail()
 }
@@ -116,7 +118,8 @@ export function validateRecord(id: string, value: unknown, deleted: boolean, sco
   const {kind, name} = target(id, scope)
   if (deleted) return
   canonical(value)
-  if (kind === 'component' || kind === 'app') return
+  if (kind === 'component') return
+  if (kind === 'app') {validateApplicationData(value); return}
   if (kind === 'conversation') {
     fields(value, ['id', 'title', 'createdAt', 'updatedAt'])
     if (value.id !== name || typeof value.title !== 'string' || !finite(value.createdAt) || !finite(value.updatedAt)) fail()
@@ -222,7 +225,6 @@ export async function collect(scope: SyncScope, secrets: boolean): Promise<Local
     let id: string | undefined
     if (key.startsWith('fp.') && configNames.includes(key.slice(3))) id = `config:${key.slice(3)}`
     if (scope === 'full' && key === 'fp.read') id = 'config:read'
-    if (scope === 'full' && /^fp\.(app|applet)\..+/.test(key)) {const name = key.slice(3), separator = name.indexOf('.'); id = `app:${name.slice(0, separator)}:${name.slice(separator + 1)}`}
     if (!id) continue
     const text = localStorage.getItem(key); if (text === null) continue
     raw[key] = text
@@ -234,6 +236,7 @@ export async function collect(scope: SyncScope, secrets: boolean): Promise<Local
   if (scope === 'full') {
     if (!await openDb()) throw new Error('此浏览器无法读取本地数据库，同步已停止。')
     const data = await db.snapshot(); database = data
+    for (const row of data.apps) {const app = validateApplicationDataRecord(row); put(`app:${app.k}`, app.v)}
     for (const row of data.kv) put(`component:${row.k}`, row.v)
     for (const row of data.convs) {if (!object(row) || !nonempty(row.id)) fail(); put(`conversation:${row.id}`, row)}
     for (const row of data.turns) {
@@ -273,14 +276,14 @@ export function changes(records: [string, SyncRecord][], local: LocalData, scope
     const {kind, name, key} = target(id, scope)
     const old = local.full.get(id)
     if (key) {
-      const next = kind === 'config' ? applyConfig(name, rec.deleted ? undefined : rec.value, old, scope, secrets) : rec.deleted ? undefined : restoreSecrets(rec.value, old, secrets)
+      const next = applyConfig(name, rec.deleted ? undefined : rec.value, old, scope, secrets)
       patch[key] = next === undefined ? null : JSON.stringify(next)
     } else {
-      const store = kind === 'component' ? 'kv' : kind === 'conversation' ? 'convs' : 'turns'
+      const store = kind === 'app' ? 'apps' : kind === 'component' ? 'kv' : kind === 'conversation' ? 'convs' : 'turns'
       if (rec.deleted) operations.push({store, type: 'delete', key: name})
       else {
         const next = restoreSecrets(rec.value, old, secrets, id === 'component:@shared.icsSubs' ? new Set(['url', ...secretFields]) : secretFields)
-        operations.push({store, type: 'put', value: store === 'kv' ? {k: name, v: next} : next})
+        operations.push({store, type: 'put', value: store === 'apps' ? validateApplicationDataRecord({k: name, v: next}) : store === 'kv' ? {k: name, v: next} : next})
       }
     }
   }

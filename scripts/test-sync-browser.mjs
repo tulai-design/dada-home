@@ -67,13 +67,13 @@ async function configure(page, backend = 'http', patch = {}) {
 }
 async function seed(page, tag) {
   await page.evaluate(async tag => {
-    const {workspace, ops, store, components, database: {db}} = window.syncQA
+    const {workspace, ops, store, components, applications, database: {db}} = window.syncQA
     const home = ops.defaultWorkspace()
     home.pages[0].name = `${tag}-页面设计`
     workspace.commit(home)
     store.writeStored('settings', {name: `${tag}-称呼`, theme: 'light', ai: {model: 'isolated-model', apiKey: `${tag}-已知密钥`, baseUrl: `https://${tag}.device.invalid`}, proxy: `${tag}-本机代理`, monitor: []})
     store.writeStored('persona', {soul: {name: '搭搭', text: `${tag}-当前性格`, aiCanEdit: true, history: [{at: 1, by: 'user', text: `${tag}-性格历史`}]}, profile: {role: `${tag}-私人画像`, interests: '', preferences: '', notes: ''}, memory: {enabled: true, items: [{id: `${tag}-memory`, text: `${tag}-累积记忆`, kind: 'fact', by: 'user', at: 1}]}})
-    store.writeStored(`applet.${tag}`, {value: `${tag}-应用业务状态`})
+    await applications.replaceApplicationData({kind: 'applet', id: tag}, {value: `${tag}-应用业务状态`})
     store.writeStored('page', `${tag}-本机当前页面`)
     components.writeData(`${tag}-component`, {text: `${tag}-组件业务数据`})
     await components.flush()
@@ -113,6 +113,9 @@ try {
       const pulled = await snapshot(b.page)
       assert.ok(pulled.data.kv.some(row => row.k === 'device-a-component' && row.v.text === 'device-a-组件业务数据'))
       assert.ok(pulled.data.kv.some(row => row.k === 'device-b-component'))
+      assert.ok(pulled.data.apps.some(row => row.k === 'applet:device-a' && row.v.value === 'device-a-应用业务状态'))
+      assert.ok(pulled.data.apps.some(row => row.k === 'applet:device-b'))
+      assert.equal(pulled.local['fp.applet.device-a'], undefined)
       assert.ok(pulled.data.turns.some(turn => turn.id === 'device-a-turn' && turn.answer === 'device-a-聊天答案'))
       const settings = JSON.parse(pulled.local['fp.settings'])
       assert.equal(settings.name, 'device-a-称呼'); assert.equal(settings.ai.apiKey, 'device-b-已知密钥'); assert.equal(settings.ai.baseUrl, 'https://device-b.device.invalid')
@@ -143,6 +146,40 @@ try {
     } finally {await a.context.close(); await b.context.close()}
   })
 
+  await check('真实应用仓：大对象跨设备往返与删除，App/Applet/组件同名互不覆盖', async () => {
+    const server = remote(), a = await fresh(server), b = await fresh(server)
+    try {
+      await configure(a.page); await configure(b.page)
+      await a.page.evaluate(async () => {
+        const {applications, components} = window.syncQA
+        await applications.replaceApplicationData({kind: 'app', id: 'same'}, {text: '中文🙂'.repeat(30000)})
+        await applications.replaceApplicationData({kind: 'applet', id: 'same'}, {count: 2})
+        components.writeData('same', {count: 3}); await components.flush()
+      })
+      await sync(a.page); await sync(b.page)
+      await b.page.reload(); await b.page.waitForFunction(() => window.syncQA)
+      const received = await b.page.evaluate(async () => ({
+        app: await window.syncQA.applications.loadApplicationData({kind: 'app', id: 'same'}),
+        applet: await window.syncQA.applications.loadApplicationData({kind: 'applet', id: 'same'}),
+        component: window.syncQA.components.readData('same', null),
+      }))
+      assert.equal(received.app.text, '中文🙂'.repeat(30000)); assert.equal(received.applet.count, 2); assert.equal(received.component.count, 3)
+      await b.page.evaluate(() => window.syncQA.applications.setApplicationValue({kind: 'applet', id: 'same'}, 'count', 4))
+      await sync(b.page); await sync(a.page)
+      await a.page.reload(); await a.page.waitForFunction(() => window.syncQA)
+      assert.equal(await a.page.evaluate(async () => (await window.syncQA.applications.loadApplicationData({kind: 'applet', id: 'same'})).count), 4)
+      await a.page.evaluate(() => window.syncQA.database.db.del('apps', 'app:same'))
+      await sync(a.page); await sync(b.page)
+      const saved = (await snapshot(b.page)).data
+      assert.equal(saved.apps.some(row => row.k === 'app:same'), false)
+      assert.equal(saved.apps.find(row => row.k === 'applet:same').v.count, 4)
+      assert.equal(saved.kv.find(row => row.k === 'same').v.count, 3)
+      const identities = Object.keys(JSON.parse(server.text).records).filter(key => key.includes('same')).sort()
+      assert.deepEqual(identities, ['app:app:same', 'app:applet:same', 'component:same'])
+      assert.deepEqual([...a.errors, ...b.errors], [])
+    } finally {await a.context.close(); await b.context.close()}
+  })
+
   await check('Gist：两个设备只传配置，私人画像、记忆和聊天不进快照', async () => {
     const server = remote(), a = await fresh(server), b = await fresh(server)
     try {
@@ -160,6 +197,7 @@ try {
       assert.equal(persona.profile.role, 'device-b-私人画像'); assert.equal(persona.memory.items[0].text, 'device-b-累积记忆'); assert.equal(persona.soul.history[0].text, 'device-b-性格历史')
       assert.equal(pulled.data.kv.length, 1); assert.equal(pulled.data.turns.length, 2)
       assert.ok(pulled.data.turns.every(turn => turn.convId === 'device-b-conversation'))
+      assert.deepEqual(pulled.data.apps, [{k: 'applet:device-b', v: {value: 'device-b-应用业务状态'}}])
       assert.ok(server.requests.filter(request => request.method === 'PATCH').every(request => !request.headers['if-match']))
       assert.deepEqual([...a.errors, ...b.errors], [])
     } finally {await a.context.close(); await b.context.close()}

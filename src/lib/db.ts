@@ -1,24 +1,28 @@
+import {reportPersistenceError} from './persistence'
+
 /**
- * IndexedDB 事务边界。业务数据保存在 kv/convs/turns；recovery 仅用于本机恢复日志。
+ * IndexedDB 事务边界。业务数据保存在 kv/apps/convs/turns；recovery 仅用于本机恢复日志。
  * 读写失败必须 reject，不能把数据库故障当成空表或成功保存。
  */
 const NAME = 'dada'
-const VERSION = 2
-export type StoreName = 'kv' | 'convs' | 'turns' | 'recovery'
+const VERSION = 3
+export type StoreName = 'kv' | 'apps' | 'convs' | 'turns' | 'recovery'
 export type DbOperation =
   | {store: StoreName; type: 'put'; value: unknown}
   | {store: StoreName; type: 'delete'; key: string}
   | {store: StoreName; type: 'clear'}
-export type DbSnapshot = {kv: {k: string; v: unknown}[]; convs: unknown[]; turns: unknown[]}
+export type DbSnapshot = {kv: {k: string; v: unknown}[]; apps: {k: string; v: unknown}[]; convs: unknown[]; turns: unknown[]}
 
 let opened: Promise<IDBDatabase | null> | null = null
 let connection: IDBDatabase | null = null
+let invalidated: Error | null = null
 
 export function dbReady(): boolean {
   return connection !== null
 }
 
 export function openDb(): Promise<IDBDatabase | null> {
+  if (invalidated) return Promise.reject(invalidated)
   if (opened) return opened
   if (typeof indexedDB === 'undefined') return Promise.resolve(null)
   const attempt = new Promise<IDBDatabase>((resolve, reject) => {
@@ -33,6 +37,7 @@ export function openDb(): Promise<IDBDatabase | null> {
       request.onupgradeneeded = () => {
         const database = request.result
         if (!database.objectStoreNames.contains('kv')) database.createObjectStore('kv', {keyPath: 'k'})
+        if (!database.objectStoreNames.contains('apps')) database.createObjectStore('apps', {keyPath: 'k'})
         if (!database.objectStoreNames.contains('convs')) database.createObjectStore('convs', {keyPath: 'id'})
         if (!database.objectStoreNames.contains('turns')) database.createObjectStore('turns', {keyPath: 'id'}).createIndex('convId', 'convId')
         if (!database.objectStoreNames.contains('recovery')) database.createObjectStore('recovery', {keyPath: 'k'})
@@ -49,7 +54,11 @@ export function openDb(): Promise<IDBDatabase | null> {
           database.close()
           if (connection === database) {connection = null; opened = null}
         }
-        database.onversionchange = disconnected
+        database.onversionchange = () => {
+          invalidated = new Error('本地数据库已在其他页面更新，请重新加载后继续。')
+          disconnected()
+          reportPersistenceError('db-reload', invalidated)
+        }
         database.onclose = disconnected
         resolve(database)
       }
@@ -122,12 +131,13 @@ export const db = {
   delMany: (store: StoreName, keys: string[]) => batch(keys.map(key => ({store, type: 'delete', key}))),
   clear: (store: StoreName) => batch([{store, type: 'clear'}]),
   batch,
-  snapshot: (): Promise<DbSnapshot> => transaction(['kv', 'convs', 'turns'], 'readonly', async tx => {
-    const [kv, convs, turns] = await Promise.all([
+  snapshot: (): Promise<DbSnapshot> => transaction(['kv', 'apps', 'convs', 'turns'], 'readonly', async tx => {
+    const [kv, apps, convs, turns] = await Promise.all([
       wrap(tx.objectStore('kv').getAll()) as Promise<DbSnapshot['kv']>,
+      wrap(tx.objectStore('apps').getAll()) as Promise<DbSnapshot['apps']>,
       wrap(tx.objectStore('convs').getAll()) as Promise<unknown[]>,
       wrap(tx.objectStore('turns').getAll()) as Promise<unknown[]>,
     ])
-    return {kv, convs, turns}
+    return {kv, apps, convs, turns}
   }),
 }

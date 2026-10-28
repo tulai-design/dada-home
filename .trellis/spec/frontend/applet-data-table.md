@@ -4,7 +4,7 @@
 
 DataTable是独立Applet白名单积木，保留简单Table。目录→runner顶层handler→UiTree接线，属性只传JSON标量和稳定行ID；不允许列内render/formatter函数，不透传Lobe/TanStack内部配置。
 
-dataTableData.ts统一unknown校验、500行/8列、每文本500字符、有限数字绝对值≤1e12；列key唯一，行id非空且唯一，声明列必须有自有values字段，null显式缺失，0/false保持。非法/超量局部报错而不是截断；表格限额不能代替Applet既有100KB持久化额度。
+dataTableData.ts统一unknown校验、500行/8列、每文本500字符、有限数字绝对值≤1e12；列key唯一，行id非空且唯一，声明列必须有自有values字段，null显式缺失，0/false保持。非法/超量局部报错而不是截断；表格限额与应用存储的8 MiB UTF-8 JSON预算分开校验。
 
 ## 受控视图
 

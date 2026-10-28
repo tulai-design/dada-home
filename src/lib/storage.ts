@@ -1,6 +1,7 @@
-import {initChat, validateLegacyTurns, type Conv, type Turn} from './chat'
+import {initChat, type Conv, type Turn} from './chat'
 import {initComponentData} from './componentData'
 import {db} from './db'
+import {validateApplicationDataRecord, type ApplicationDataRecord} from './applicationDataSchema'
 import {commitStorage, readLocal, recoverStorage, replaceOperations, saveBarrier} from './storageCommit'
 export {recoverStorage} from './storageCommit'
 import {waitForSyncIdle} from './sync'
@@ -8,11 +9,11 @@ import {waitForSyncIdle} from './sync'
 /** 整包 JSON 备份的读取预算，不是 IndexedDB 或浏览器存储配额。 */
 export const MAX_BACKUP_BYTES = 256 * 1024 * 1024
 const BACKUP_APP = 'dada-backup'
-const BACKUP_VERSION = 1
+const BACKUP_VERSION = 2
 
-type DataSnapshot = {kv: {k: string; v: unknown}[]; convs: Conv[]; turns: Turn[]}
+type DataSnapshot = {apps: ApplicationDataRecord[]; kv: {k: string; v: unknown}[]; convs: Conv[]; turns: Turn[]}
 type LocalSnapshot = Record<string, string>
-export type BackupSummary = {keys: number; convs: number; turns: number; data: number}
+export type BackupSummary = {keys: number; convs: number; turns: number; data: number; apps: number}
 type ValidBackup = {dump: Record<string, unknown>; summary: BackupSummary; local: LocalSnapshot; data: DataSnapshot}
 
 const object = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -20,7 +21,6 @@ const finite = (value: unknown): value is number => typeof value === 'number' &&
 const id = (value: unknown): value is string => typeof value === 'string' && value.length > 0
 const own = (value: object, key: string) => Object.prototype.hasOwnProperty.call(value, key)
 function invalid(message = '这不像完整的搭搭备份文件。'): never {throw new Error(message)}
-const emptyData = (): DataSnapshot => ({kv: [], convs: [], turns: []})
 
 /** JSON.parse 的文件与直接调用 importBackup 的对象共用同一可信边界。 */
 function checkJson(value: unknown, ancestors = new Set<object>(), depth = 0): void {
@@ -41,8 +41,8 @@ function checkJson(value: unknown, ancestors = new Set<object>(), depth = 0): vo
 }
 
 function checkData(raw: unknown): DataSnapshot {
-  if (!object(raw) || !Array.isArray(raw.kv) || !object(raw.chat) || !Array.isArray(raw.chat.convs) || !Array.isArray(raw.chat.turns)) invalid('备份缺少完整的组件数据或对话数据。')
-  const data = {kv: raw.kv, convs: raw.chat.convs, turns: raw.chat.turns}
+  if (!object(raw) || !Array.isArray(raw.kv) || !Array.isArray(raw.apps) || !object(raw.chat) || !Array.isArray(raw.chat.convs) || !Array.isArray(raw.chat.turns)) invalid('备份缺少完整的组件、应用或对话数据。')
+  const data = {kv: raw.kv, apps: raw.apps.map(validateApplicationDataRecord), convs: raw.chat.convs, turns: raw.chat.turns}
   const checkIds = (rows: unknown[], key: 'id' | 'k', label: string) => {
     const seen = new Set<string>()
     for (const row of rows) {
@@ -53,6 +53,7 @@ function checkData(raw: unknown): DataSnapshot {
     return seen
   }
   checkIds(data.kv, 'k', '组件数据')
+  checkIds(data.apps, 'k', '应用数据')
   for (const row of data.kv) if (!object(row) || !own(row, 'v')) invalid('组件数据缺少记录值。')
   const convIds = checkIds(data.convs, 'id', '对话')
   for (const row of data.convs) {
@@ -80,13 +81,17 @@ function checkLocal(raw: Record<string, unknown>): LocalSnapshot {
   const local: LocalSnapshot = Object.create(null)
   for (const [key, value] of Object.entries(raw)) {
     if (!key.startsWith('fp.')) continue
+    // 当前备份只从 indexedDB 接收业务数据。禁止旧键在重载时触发迁移、
+    // 覆盖新仓或使初始化失败；原样导出仍保留它们供人工救援，不是兼容导入。
+    if (key === 'fp.chatTurns.v2' || key.startsWith('fp.data.') || key.startsWith('fp.app.') || key.startsWith('fp.applet.')) {
+      invalid(`备份包含不支持导入的旧业务存储「${key}」。原文可用于救援；当前格式的业务数据必须位于 indexedDB。`)
+    }
     if (typeof value !== 'string') invalid('备份的配置值必须是字符串。')
     let parsed: unknown
     try {parsed = JSON.parse(value)} catch {invalid(`配置「${key}」不是有效 JSON。`)}
     // 工作空间至少要有一个可被现有 migrate 接受的页面，否则会静默回落成默认库。
     // 旧版本、扩展字段与其余领域规整仍由各自的迁移入口处理。
     if (key === 'fp.workspace' && (!object(parsed) || !Array.isArray(parsed.pages) || !parsed.pages.some(page => object(page) && id(page.id) && Array.isArray(page.components)))) invalid('备份的工作空间缺少可恢复的页面。')
-    if (key === 'fp.chatTurns.v2') validateLegacyTurns(parsed)
     local[key] = value
   }
   return local
@@ -97,14 +102,12 @@ function validateBackup(raw: unknown): ValidBackup {
   checkJson(raw)
   const text = JSON.stringify(raw)
   if (new TextEncoder().encode(text).byteLength > MAX_BACKUP_BYTES) invalid('备份超过当前整包读取预算（256 MiB），没有导入任何数据。')
-  const versioned = own(raw, 'app') || own(raw, 'version')
-  if (versioned && (raw.app !== BACKUP_APP || raw.version !== BACKUP_VERSION)) invalid('不支持这个备份版本，请使用兼容的搭搭版本。')
+  if (raw.app !== BACKUP_APP || raw.version !== BACKUP_VERSION) invalid('不支持这个备份版本，请使用当前格式的搭搭备份。')
   const local = checkLocal(raw)
-  const data = own(raw, 'indexedDB') ? checkData(raw.indexedDB) : emptyData()
-  if ((versioned && !own(raw, 'indexedDB')) || (!versioned && !own(raw, 'indexedDB') && !Object.keys(local).length)) invalid()
+  const data = checkData(raw.indexedDB)
   // 复制经校验的 JSON，避免确认弹窗打开后调用者修改对象影响实际替换。
   const dump = JSON.parse(text) as Record<string, unknown>
-  return {dump, local: checkLocal(dump), data: own(dump, 'indexedDB') ? checkData(dump.indexedDB) : data, summary: {keys: Object.keys(local).length, convs: data.convs.length, turns: data.turns.length, data: data.kv.length}}
+  return {dump, local: checkLocal(dump), data: checkData(dump.indexedDB), summary: {keys: Object.keys(local).length, convs: data.convs.length, turns: data.turns.length, data: data.kv.length, apps: data.apps.length}}
 }
 
 /** 先处理上次未完成恢复，再初始化业务数据；失败交给宿主展示和重试。 */
@@ -118,9 +121,9 @@ export async function initStorage(): Promise<void> {
 export async function exportBackupSnapshot(): Promise<Record<string, unknown>> {
   await saveBarrier()
   const data = await db.snapshot()
-  const dump = {app: BACKUP_APP, version: BACKUP_VERSION, ...readLocal(), indexedDB: {kv: data.kv, chat: {convs: data.convs, turns: data.turns}}}
+  const dump = {app: BACKUP_APP, version: BACKUP_VERSION, ...readLocal(), indexedDB: {kv: data.kv, apps: data.apps, chat: {convs: data.convs, turns: data.turns}}}
   // 配置和业务数据库并无共同事务；此快照不声称覆盖屏障之后所有并发改动。
-  // 原样救援也需保留损坏的旧配置；导入时仍严格校验，不把损坏值当有效配置应用。
+  // 原样救援保留损坏配置与旧业务键；这类文件可供人工恢复，不能通过当前格式导入。
   if (new TextEncoder().encode(JSON.stringify(dump)).byteLength > MAX_BACKUP_BYTES) invalid('备份超过当前整包读取预算（256 MiB），没有截断数据。')
   return dump
 }
@@ -129,7 +132,7 @@ export async function exportBackupSnapshot(): Promise<Record<string, unknown>> {
 export async function exportIdb() {
   await saveBarrier()
   const data = await db.snapshot()
-  return {kv: data.kv, chat: {convs: data.convs, turns: data.turns}}
+  return {kv: data.kv, apps: data.apps, chat: {convs: data.convs, turns: data.turns}}
 }
 
 /** 检查格式与完整性；此函数不会修改任何存储。 */
@@ -154,5 +157,5 @@ export async function importBackup(dump: Record<string, unknown>): Promise<void>
 
 /** 重置保留非搭搭存储；排空旧队列后用同样的可恢复替换流程清理。 */
 export async function resetStorage(): Promise<void> {
-  await replaceStorage(validateBackup({app: BACKUP_APP, version: BACKUP_VERSION, indexedDB: {kv: [], chat: {convs: [], turns: []}}}))
+  await replaceStorage(validateBackup({app: BACKUP_APP, version: BACKUP_VERSION, indexedDB: {kv: [], apps: [], chat: {convs: [], turns: []}}}))
 }

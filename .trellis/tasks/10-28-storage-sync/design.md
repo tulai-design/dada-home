@@ -14,7 +14,7 @@ SQLite 存于服务所在机器的本地持久卷，由 HTTP 服务访问；不�
 
 ## 先修可靠性
 
-本节缺陷描述对应基线 `7991440`，已由 [storage-durability](../archive/2026-10/10-28-storage-durability/verification.md) 修复并验收；保留设计依据，现状以运行时契约为准。其余章节仍是后续设计。
+本节缺陷描述对应基线 `7991440`，已由 [storage-durability](../archive/2026-10/10-28-storage-durability/verification.md) 修复并验收；保留设计依据，现状以运行时契约为准。应用存储与快照同步也已分别验收，相关章节保留设计依据；聊天与服务仍是后续设计。
 
 `src/lib/db.ts` 当前读写失败返回 fallback，调用者无法区分空表和读取失败。新边界必须区分成功、不可用、读写失败，并携带可用于中文提示的原因。显式的无 IndexedDB 回落模式与已存在数据库发生错误是不同状态。
 
@@ -25,6 +25,8 @@ SQLite 存于服务所在机器的本地持久卷，由 HTTP 服务访问；不�
 备份读入 `unknown`，完整校验版本、表、ID、值与可接受大小后再操作。IndexedDB 与 localStorage 不能共享原子事务；恢复须采用暂存/恢复日志等协议，覆盖中断后仍能回到原快照或完成目标快照。不得声称简单「先 clear 再 putMany」是原子恢复。
 
 ## 新应用存储与记录身份
+
+已交付：独立 `apps` 仓、8 MiB UTF-8 JSON预算、两类运行时事务确认与重试、备份v2及完整同步；细节见 [运行时契约](../../../docs/specs/runtime-contract.md#ai-应用存储)。
 
 - App/Applet 使用独立应用命名空间或专仓，不能直接借用普通组件裸 ID；取消挂载与卸载的数据保留语义明确。
 - 从 canonical instance ID 定位业务数据；主题、容器、关闭窗口或最小化不改变 ID。

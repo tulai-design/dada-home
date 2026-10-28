@@ -9,6 +9,7 @@ import '../src/widgets'
 import {SyncSettings} from '../src/components/SyncSettings'
 import {PersistenceNotice} from '../src/components/PersistenceNotice'
 import * as database from '../src/lib/db'
+import * as applications from '../src/lib/applicationData'
 import * as components from '../src/lib/componentData'
 import * as chat from '../src/lib/chat'
 import * as storage from '../src/lib/storage'
@@ -20,7 +21,7 @@ import * as sync from '../src/lib/sync'
 
 // Real storage, sync, providers and settings; only the test runner supplies an
 // isolated remote. No App, analytics, auto sync or model provider is started.
-const modules = {database, components, chat, storage, persistence, store, workspace, ops, sync}
+const modules = {database, applications, components, chat, storage, persistence, store, workspace, ops, sync}
 declare global {interface Window {syncQA: typeof modules}}
 async function start() {
   await storage.initStorage()

@@ -21,7 +21,7 @@ function runtime({storage = localStore(), indexedDB, mocks = {}} = {}) {
     localStorage: storage, indexedDB,
     window: {setTimeout() {return 1}, clearTimeout() {}, addEventListener() {}},
     document: {addEventListener() {}, visibilityState: 'visible'},
-    setTimeout, clearTimeout, queueMicrotask, structuredClone,
+    setTimeout, clearTimeout, queueMicrotask, structuredClone, TextEncoder,
   }
   function load(relative) {
     if (modules.has(relative)) return modules.get(relative)
@@ -42,7 +42,7 @@ function runtime({storage = localStore(), indexedDB, mocks = {}} = {}) {
   return {load, storage}
 }
 function backend() {
-  const stores = {kv: new Map(), convs: new Map(), turns: new Map(), recovery: new Map()}
+  const stores = {apps: new Map(), kv: new Map(), convs: new Map(), turns: new Map(), recovery: new Map()}
   return {
     stores, fail: false, gate: undefined,
     async all(store) {return [...stores[store].values()]},
@@ -58,7 +58,7 @@ function backend() {
         else stores[item.store].set(item.value.k ?? item.value.id, structuredClone(item.value))
       }
     },
-    async snapshot() {return {kv: await this.all('kv'), convs: await this.all('convs'), turns: await this.all('turns')}},
+    async snapshot() {return {kv: await this.all('kv'), apps: await this.all('apps'), convs: await this.all('convs'), turns: await this.all('turns')}},
   }
 }
 const deferred = () => {let resolve; const promise = new Promise(done => {resolve = done}); return {promise, resolve}}

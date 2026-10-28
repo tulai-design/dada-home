@@ -1179,7 +1179,7 @@ export const HOME_TOOLS = [
         '  · 库：js 里直接 import，例如 import * as THREE from "https://esm.sh/three"、import gsap from "https://esm.sh/gsap"。只允许 esm.sh / cdn.jsdelivr.net / unpkg.com。',
         '  · 样式：已注入主页的 CSS 变量（var(--bg) --text --text2 --text3 --border --main --font-serif/--font-sans/--font-mono）。',
         '    用这些变量适配浅色/深色，圆角用 --radius/--radius-lg；主题切换会热更新变量、tada.dark，Canvas 等可监听 window 的 tada:themechange 事件（detail.dark）。内置类：.kicker .muted .mono .serif .card .btn .btn.primary（墨色主操作）.row（可换行）.grid（自适应网格）.table-wrap；input/textarea 已有基础样式。',
-        '  · window.tada.store.get(key) / .set(key, value)：本应用私有的持久存储，Promise，值需可 JSON 化，总共约 100KB。',
+        '  · window.tada.store.get(key) / .set(key, value)：本应用私有的 IndexedDB 存储，Promise，值必须是 JSON 值，整个实例总量最多 8 MiB（UTF-8 字节）。set 在事务提交后才成功，必须 await 并捕获失败，不能提前提示已保存；get 读取失败会 reject，不能将错误当空数据覆盖。',
         '  · window.tada.fetch(url)：取数，Promise<{ok,status,text,json}>。域名必须先被用户授权，未授权会自动弹出授权请求。应用自己不能直接 fetch/XHR。',
         '  · window.tada.open(url)：新标签打开 https 链接。window.tada.ask(text)：把一句话发给搭搭助手。window.tada.dark：是否深色。',
         '  · window.tada.settings：只读用户设置；window.tada.surface：当前 widget/modal/drawer/page/status。settingsSchema 定义设置表单，settings 提供值，修改后应用会安全重载，私有持久数据保留。',

@@ -44,14 +44,14 @@ async function check(name, work) {
 const legacyTurn = {id: 'legacy-turn', prompt: '旧浏览器唯一记录', answer: '旧答案', reasoning: '', tools: [], error: '', startedAt: 100, endedAt: 110}
 const turn = {id: 'saved-turn', convId: 'saved-conv', prompt: '原对话', answer: '原答案', reasoning: '', tools: [], error: '', startedAt: 10, endedAt: 20}
 const conv = {id: 'saved-conv', title: '原对话', createdAt: 10, updatedAt: 20}
-const original = {local: {'fp.profile': '{"name":"原配置"}', 'fp.conv': '"saved-conv"'}, data: {kv: [{k: 'saved-data', v: {body: '原业务数据'}}], convs: [conv], turns: [turn]}}
-const target = {app: 'dada-backup', version: 1, 'fp.profile': '{"name":"导入配置"}', indexedDB: {kv: [{k: 'target', v: '目标数据'}], chat: {convs: [], turns: []}}}
+const original = {local: {'fp.profile': '{"name":"原配置"}', 'fp.conv': '"saved-conv"'}, data: {kv: [{k: 'saved-data', v: {body: '原业务数据'}}], apps: [{k: 'app:saved', v: {body: '原应用数据'}}], convs: [conv], turns: [turn]}}
+const target = {app: 'dada-backup', version: 2, 'fp.profile': '{"name":"导入配置"}', indexedDB: {kv: [{k: 'target', v: '目标数据'}], apps: [{k: 'applet:target', v: {body: '目标应用数据'}}], chat: {convs: [], turns: []}}}
 
 async function seed(page, value = original) {
   await page.evaluate(async value => {
     const {db} = window.storageQA.database
     for (const [key, item] of Object.entries(value.local)) localStorage.setItem(key, item)
-    await db.batch([...value.data.kv.map(value => ({store: 'kv', type: 'put', value})), ...value.data.convs.map(value => ({store: 'convs', type: 'put', value})), ...value.data.turns.map(value => ({store: 'turns', type: 'put', value}))])
+    await db.batch([...value.data.apps.map(value => ({store: 'apps', type: 'put', value})), ...value.data.kv.map(value => ({store: 'kv', type: 'put', value})), ...value.data.convs.map(value => ({store: 'convs', type: 'put', value})), ...value.data.turns.map(value => ({store: 'turns', type: 'put', value}))])
   }, value)
 }
 async function snapshot(page) {
@@ -206,7 +206,7 @@ try {
   await check('聊天快速切换：迟到读取不覆盖最新会话，原轮次归属不变', async () => {
     const {page, context, errors} = await fresh()
     try {
-      await seed(page, {local: original.local, data: {kv: [], convs: [conv, {...conv, id: 'conv-b', title: 'B'}, {...conv, id: 'conv-c', title: 'C'}], turns: [turn, {...turn, id: 'turn-b', convId: 'conv-b', answer: 'B原值'}, {...turn, id: 'turn-c', convId: 'conv-c', answer: 'C原值'}]}})
+      await seed(page, {local: original.local, data: {kv: [], apps: [], convs: [conv, {...conv, id: 'conv-b', title: 'B'}, {...conv, id: 'conv-c', title: 'C'}], turns: [turn, {...turn, id: 'turn-b', convId: 'conv-b', answer: 'B原值'}, {...turn, id: 'turn-c', convId: 'conv-c', answer: 'C原值'}]}})
       const result = await page.evaluate(async () => {
         const qa = window.storageQA
         await qa.storage.initStorage()
@@ -309,14 +309,14 @@ try {
     }
   })
 
-  await check('坏备份拒绝：结构/版本/工作空间/旧聊天坏行与重复ID不改原数据', async () => {
+  await check('坏备份拒绝：结构/版本/工作空间/应用坏行与重复ID不改原数据', async () => {
     const {page, context, errors} = await fresh()
     try {
       await seed(page)
       const before = await snapshot(page)
-      const rejected = await page.evaluate(async ({target, legacyTurn}) => {
-        const invalidLegacy = [[{id: 'incomplete', prompt: '缺失字段', startedAt: 1}], [{...legacyTurn, answer: '第一份独有答案'}, {...legacyTurn, answer: '重复身份第二份答案'}]]
-        const variants = [{indexedDB: true}, {...target, version: 999}, {...target, indexedDB: {kv: []}}, {...target, indexedDB: {kv: [{k: 1, v: 'bad'}], chat: {convs: [], turns: []}}}, ...['[]', 'null', '{"pages":[]}'].map(value => ({...target, 'fp.workspace': value})), ...invalidLegacy.map(value => ({...target, 'fp.chatTurns.v2': JSON.stringify(value)}))]
+      const rejected = await page.evaluate(async ({target}) => {
+        const invalidApps = [[{k: 'app:incomplete'}], [{k: 'applet:same', v: {answer: '第一份'}}, {k: 'applet:same', v: {answer: '第二份'}}]]
+        const variants = [{indexedDB: true}, {...target, version: 999}, {...target, indexedDB: {kv: []}}, {...target, indexedDB: {kv: [{k: 1, v: 'bad'}], apps: [], chat: {convs: [], turns: []}}}, ...['[]', 'null', '{"pages":[]}'].map(value => ({...target, 'fp.workspace': value})), ...invalidApps.map(apps => ({...target, indexedDB: {...target.indexedDB, apps}}))]
         const result = []
         for (const candidate of variants) {
           try {const {dump} = window.storageQA.storage.parseBackup(JSON.stringify(candidate)); await window.storageQA.storage.importBackup(dump); result.push(false)} catch {result.push(true)}
@@ -324,6 +324,27 @@ try {
         return result
       }, {target, legacyTurn})
       assert.deepEqual(rejected, Array(9).fill(true)); assert.deepEqual(await snapshot(page), before); assert.deepEqual(errors, [])
+    } finally {await context.close()}
+  })
+
+  await check('新版备份夹带旧业务键：清库前拒绝且不触发重载迁移', async () => {
+    const {page, context, errors} = await fresh()
+    try {
+      await seed(page)
+      const before = await snapshot(page)
+      const result = await page.evaluate(async target => {
+        const rejected = []
+        for (const key of ['fp.chatTurns.v2', 'fp.data.shadow', 'fp.app.saved', 'fp.applet.target']) {
+          const candidate = {...target, [key]: '{}'}
+          let parseError = '', importError = ''
+          try {window.storageQA.storage.parseBackup(JSON.stringify(candidate))} catch (error) {parseError = error.message}
+          try {await window.storageQA.storage.importBackup(candidate)} catch (error) {importError = error.message}
+          rejected.push({parseError, importError})
+        }
+        return {rejected, recovery: await window.storageQA.database.db.all('recovery')}
+      }, target)
+      for (const item of result.rejected) {assert.match(item.parseError, /旧业务存储/); assert.match(item.importError, /旧业务存储/)}
+      assert.deepEqual(result.recovery, []); assert.deepEqual(await snapshot(page), before); assert.deepEqual(errors, [])
     } finally {await context.close()}
   })
 
@@ -348,7 +369,7 @@ try {
       await page.evaluate(async ({original, target}) => {
         localStorage.setItem('fp.profile', target['fp.profile'])
         localStorage.setItem('fp.partial', '"崩溃后的半成品"')
-        await window.storageQA.database.db.batch([{store: 'recovery', type: 'put', value: {k: 'backup-restore', version: 1, before: original}}, {store: 'kv', type: 'put', value: target.indexedDB.kv[0]}])
+        await window.storageQA.database.db.batch([{store: 'recovery', type: 'put', value: {k: 'backup-restore', version: 2, before: original}}, {store: 'kv', type: 'put', value: target.indexedDB.kv[0]}])
       }, {original, target})
       await page.reload(); await page.waitForFunction(() => window.storageQA)
       await page.evaluate(() => window.storageQA.storage.initStorage())
@@ -376,7 +397,7 @@ try {
     } finally {await context.close()}
   })
 
-  await check('数据库升级blocked：失败可见，关闭旧连接后重试与versionchange重开', async () => {
+  await check('数据库升级blocked：失败可见，关闭旧连接后重试，versionchange拒绝旧页继续写入', async () => {
     const {page, context, errors} = await fresh()
     try {
       const result = await page.evaluate(async () => {
@@ -388,10 +409,14 @@ try {
         const version = upgraded.version
         await window.storageQA.database.db.put('kv', {k: 'upgrade', v: '升级后可保存'})
         upgraded.dispatchEvent(new Event('versionchange'))
-        const reopened = await window.storageQA.database.openDb()
-        return {blocked, version, different: reopened !== upgraded, value: await window.storageQA.database.db.get('kv', 'upgrade')}
+        let reopenError = '', writeError = ''
+        try {await window.storageQA.database.openDb()} catch (error) {reopenError = error.message}
+        try {window.storageQA.persistence.assertPersistenceWritable()} catch (error) {writeError = error.message}
+        return {blocked, version, reopenError, writeError, errors: window.storageQA.persistence.getPersistenceStatus().errors}
       })
-      assert.match(result.blocked, /阻挡|标签页/); assert.equal(result.version, 2); assert.equal(result.different, true); assert.equal(result.value.v, '升级后可保存'); assert.deepEqual(errors, [])
+      assert.match(result.blocked, /阻挡|标签页/); assert.equal(result.version, 3); assert.match(result.reopenError, /重新加载/); assert.match(result.writeError, /重新加载/); assert.ok(result.errors.some(error => error.source === 'db-reload'));
+      await page.reload(); await page.waitForFunction(() => window.storageQA)
+      assert.equal(await page.evaluate(async () => (await window.storageQA.database.db.get('kv', 'upgrade')).v), '升级后可保存'); assert.deepEqual(errors, [])
     } finally {await context.close()}
   })
 
@@ -451,7 +476,7 @@ try {
     try {
       await page.evaluate(async ({original, target}) => {
         localStorage.setItem('fp.profile', target['fp.profile'])
-        await window.storageQA.database.db.batch([{store: 'recovery', type: 'put', value: {k: 'backup-restore', version: 1, before: original}}, {store: 'kv', type: 'put', value: target.indexedDB.kv[0]}])
+        await window.storageQA.database.db.batch([{store: 'recovery', type: 'put', value: {k: 'backup-restore', version: 2, before: original}}, {store: 'kv', type: 'put', value: target.indexedDB.kv[0]}])
       }, {original, target})
       await page.addInitScript(() => {
         window.__qaNativeSet = Storage.prototype.setItem
@@ -486,7 +511,7 @@ try {
       assert.match(download.suggestedFilename(), /^dada-backup-\d{4}-\d{2}-\d{2}\.json$/)
       const raw = await readFile(await download.path(), 'utf8')
       const dump = await page.evaluate(async raw => (await import('/src/lib/storage.ts')).parseBackup(raw).dump, raw)
-      assert.equal(dump.app, 'dada-backup'); assert.equal(dump.version, 1)
+      assert.equal(dump.app, 'dada-backup'); assert.equal(dump.version, 2)
       assert.equal(JSON.parse(dump['fp.profile']).name, '导出按钮点击前最新配置')
       assert.deepEqual(dump.indexedDB.kv.find(item => item.k === 'button-export').v, {text: '导出按钮点击前最新组件值'})
       assert.equal(dump.indexedDB.chat.turns.find(item => item.id === turn.id).answer, turn.answer)

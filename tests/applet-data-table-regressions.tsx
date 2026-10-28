@@ -47,7 +47,7 @@ function Runtime({dark,mode,nonce}:{dark:boolean;mode:string;nonce:number}){
  const viewport=useRef({width,compact:width<480});viewport.current={width,compact:width<480}
  const context=useRef({dark,settings:{mode,nonce}});context.current={dark,settings:{mode,nonce}}
  const [tree,setTree]=useState<UiNode|null>(null),doc=useMemo(()=>buildRunnerDoc(source),[])
- const post=(message:Record<string,unknown>)=>frame.current?.contentWindow?.postMessage({applet:1,...message},'*')
+ const post=(message:Record<string,unknown>)=>frame.current?.contentWindow?.postMessage({applet:1,session:'',...message},'*')
  useEffect(()=>{
   const timers=new Set<ReturnType<typeof setTimeout>>()
   sendExternal=post
@@ -59,7 +59,7 @@ function Runtime({dark,mode,nonce}:{dark:boolean;mode:string;nonce:number}){
     const table=findTable(message.tree);snapshot=table?.p??{}
     if(echoDelay){const timer=setTimeout(()=>{timers.delete(timer);setTree(message.tree)},echoDelay);timers.add(timer)}else setTree(message.tree)
    }
-   if(message.k==='save')saveCount++
+   if(message.k==='save'){saveCount++;post({k:'save-reply',id:message.id})}
    if(message.k==='call'){if(message.op==='fetch')fetchCount++;post({k:'reply',id:message.id,result:{ok:true,status:200,text:'{}',json:{}}})}
    if(message.k==='error')errors.push(message.message)
   }

@@ -3,7 +3,7 @@ import {readFileSync} from 'node:fs'
 import ts from 'typescript'
 
 // 真实公开 runSync；合成配置和隔离网络，确保本地故障不会转成云端删除。
-function harness({all = async () => [], flush = async () => {}, fetch = async () => new Response('', {status: 404})} = {}) {
+function harness({all = async () => [], flush = async () => {}, flushApps = async () => {}, fetch = async () => new Response('', {status: 404})} = {}) {
   const rows = new Map()
   const storage = {
     get length() {return rows.size}, key: index => [...rows.keys()][index] ?? null,
@@ -14,8 +14,9 @@ function harness({all = async () => [], flush = async () => {}, fetch = async ()
   let requests = 0
   const dependencies = {
     react: {useSyncExternalStore: (_, get) => get()},
+    './applicationData': {flushApplicationData: flushApps},
     './chat': {flush}, './componentData': {flush, dropPendingData() {}},
-    './db': {db: {all, snapshot: async () => ({kv: await all('kv'), convs: await all('convs'), turns: await all('turns')})}, openDb: async () => ({})}, './rss': {proxied: url => url},
+    './db': {db: {all, snapshot: async () => ({kv: await all('kv'), apps: await all('apps'), convs: await all('convs'), turns: await all('turns')})}, openDb: async () => ({})}, './rss': {proxied: url => url},
   }
   function load(file) {
     if (modules.has(file)) return modules.get(file)
@@ -46,6 +47,11 @@ await test('数据库读取失败不生成删除、不改meta、不请求远端'
 await test('待写失败中止同步，避免内存与磁盘不一致被上传', async () => {
   const h = harness({flush: async () => {throw new Error('模拟保存未完成')}})
   await assert.rejects(h.sync.runSync(), /保存未完成/)
+  assert.equal(h.requests, 0)
+})
+await test('应用保存未确认时同步零网络，不制造远端删除', async () => {
+  const h = harness({flushApps: async () => {throw new Error('应用事务未提交')}})
+  await assert.rejects(h.sync.runSync(), /应用事务未提交/)
   assert.equal(h.requests, 0)
 })
 await test('配置重试仍失败时不对外同步，恢复门禁期间也拒绝同步', async () => {

@@ -1,12 +1,13 @@
+import {flushApplicationData} from './applicationData'
 import {flush as flushChat} from './chat'
 import {flush as flushData} from './componentData'
-import {db, openDb, type DbOperation} from './db'
+import {db, openDb, type DbOperation, type DbSnapshot} from './db'
 import {assertPersistenceHealthy, clearPersistenceError, reportPersistenceError, retryPersistence, withPersistenceExclusive} from './persistence'
 
 const RECOVERY_KEY = 'backup-restore'
-type DataSnapshot = {kv: {k: string; v: unknown}[]; convs: unknown[]; turns: unknown[]}
+type DataSnapshot = DbSnapshot
 type LocalSnapshot = Record<string, string>
-type RestorePoint = {k: typeof RECOVERY_KEY; version: 1; before: {local: LocalSnapshot; data: DataSnapshot | null}}
+type RestorePoint = {k: typeof RECOVERY_KEY; version: 2; before: {local: LocalSnapshot; data: DataSnapshot | null}}
 const object = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value)
 const id = (value: unknown): value is string => typeof value === 'string' && value.length > 0
 const own = (value: object, key: string) => Object.prototype.hasOwnProperty.call(value, key)
@@ -36,7 +37,8 @@ function replaceLocal(local: LocalSnapshot): void {
 
 export function replaceOperations(data: DataSnapshot): DbOperation[] {
   return [
-    {store: 'kv', type: 'clear'}, {store: 'convs', type: 'clear'}, {store: 'turns', type: 'clear'},
+    {store: 'kv', type: 'clear'}, {store: 'apps', type: 'clear'}, {store: 'convs', type: 'clear'}, {store: 'turns', type: 'clear'},
+    ...data.apps.map(value => ({store: 'apps' as const, type: 'put' as const, value})),
     ...data.kv.map(value => ({store: 'kv' as const, type: 'put' as const, value})),
     ...data.convs.map(value => ({store: 'convs' as const, type: 'put' as const, value})),
     ...data.turns.map(value => ({store: 'turns' as const, type: 'put' as const, value})),
@@ -44,13 +46,13 @@ export function replaceOperations(data: DataSnapshot): DbOperation[] {
 }
 
 export async function saveBarrier(): Promise<void> {
-  await Promise.all([flushData(), flushChat()])
+  await Promise.all([flushData(), flushChat(), flushApplicationData()])
   await retryPersistence()
   assertPersistenceHealthy()
 }
 
 function checkRestorePoint(raw: unknown): RestorePoint {
-  if (!object(raw) || raw.k !== RECOVERY_KEY || raw.version !== 1 || !object(raw.before) || !object(raw.before.local) || (raw.before.data !== null && !object(raw.before.data))) invalid('恢复日志损坏，已停止启动，请保留本机数据。')
+  if (!object(raw) || raw.k !== RECOVERY_KEY || raw.version !== 2 || !object(raw.before) || !object(raw.before.local) || (raw.before.data !== null && !object(raw.before.data))) invalid('恢复日志损坏，已停止启动，请保留本机数据。')
   const before = raw.before
   const data = before.data as Record<string, unknown>
   // 日志保留的是替换前原样数据，可能含坏配置或旧孤立轮次。
@@ -60,17 +62,17 @@ function checkRestorePoint(raw: unknown): RestorePoint {
     if (!key.startsWith('fp.') || typeof value !== 'string') invalid('恢复日志中的配置无效，已停止启动。')
     local[key] = value
   }
-  if (before.data !== null) for (const store of ['kv', 'convs', 'turns'] as const) {
+  if (before.data !== null) for (const store of ['kv', 'apps', 'convs', 'turns'] as const) {
     const rows = data[store]
     if (!Array.isArray(rows)) invalid('恢复日志中的数据表无效，已停止启动。')
     const seen = new Set<string>()
     for (const row of rows) {
-      const key = store === 'kv' ? 'k' : 'id'
+      const key = store === 'kv' || store === 'apps' ? 'k' : 'id'
       if (!object(row) || !id(row[key]) || seen.has(row[key])) invalid('恢复日志中的记录无效，已停止启动。')
       seen.add(row[key])
     }
   }
-  return {k: RECOVERY_KEY, version: 1, before: {local, data: before.data === null ? null : data as DataSnapshot}}
+  return {k: RECOVERY_KEY, version: 2, before: {local, data: before.data === null ? null : data as DataSnapshot}}
 }
 
 async function withRestoreLock<T>(work: () => Promise<T>): Promise<T> {
@@ -110,7 +112,7 @@ export async function commitStorage(update: {local: Record<string, string | null
     await saveBarrier()
     await update.validate?.()
     if (await db.get('recovery', RECOVERY_KEY) !== undefined) throw new Error('还有未完成的数据恢复，请刷新页面先完成恢复。')
-    const point: RestorePoint = {k: RECOVERY_KEY, version: 1, before: {local: readLocal(), data: update.operations.length ? await db.snapshot() : null}}
+    const point: RestorePoint = {k: RECOVERY_KEY, version: 2, before: {local: readLocal(), data: update.operations.length ? await db.snapshot() : null}}
     await db.batch([{store: 'recovery', type: 'put', value: point}, ...update.operations])
     try {
       if (update.replace) replaceLocal(update.local as LocalSnapshot)

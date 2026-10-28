@@ -10,7 +10,8 @@ export function PersistenceNotice() {
   const unsaved = errors.some(error => error.blocking)
   const interruptedRestore = errors.some(error => error.source === 'backup-restore')
   const syncReload = errors.some(error => error.source === 'sync-reload')
-  const currentError = errors.find(error => error.source === 'backup-restore') ?? errors.find(error => error.source === 'sync-reload') ?? errors.find(error => error.blocking) ?? errors[0]
+  const databaseReload = errors.some(error => error.source === 'db-reload')
+  const currentError = errors.find(error => error.source === 'backup-restore') ?? errors.find(error => error.source === 'db-reload') ?? errors.find(error => error.source === 'sync-reload') ?? errors.find(error => error.blocking) ?? errors[0]
   if (!errors.length && !busy) return null
   if (busy) return (
     <div className="persistence-restoring" role="status" aria-live="polite">
@@ -18,13 +19,13 @@ export function PersistenceNotice() {
     </div>
   )
   return (
-    <aside className="persistence-notice" role="alert" aria-label={syncReload && !interruptedRestore ? '同步数据待加载' : '本地保存失败'}>
+    <aside className="persistence-notice" role="alert" aria-label={interruptedRestore ? '本地保存失败' : databaseReload ? '本地数据库待加载' : syncReload ? '同步数据待加载' : '本地保存失败'}>
       <div className="persistence-notice-copy">
-        <strong>{interruptedRestore ? '数据恢复尚未完成' : syncReload ? '已拉取新的数据' : unsaved ? '部分更改尚未保存' : '部分旧数据未能读取'}</strong>
+        <strong>{interruptedRestore ? '数据恢复尚未完成' : databaseReload ? '本地数据库已变化' : syncReload ? '已拉取新的数据' : unsaved ? '部分更改尚未保存' : '部分旧数据未能读取'}</strong>
         <span>{currentError.message}</span>
-        <span>{interruptedRestore ? '恢复日志已保留，请重新加载以恢复原数据。' : syncReload ? '当前页面暂停保存，重新加载后可继续编辑。' : unsaved ? '请保留当前页面，重试成功后再关闭。' : '原始数据仍保留，可先导出备份再处理。'}</span>
+        <span>{interruptedRestore ? '恢复日志已保留，请重新加载以恢复原数据。' : syncReload || databaseReload ? '当前页面暂停保存，重新加载后可继续编辑。' : unsaved ? '请保留当前页面，重试成功后再关闭。' : '原始数据仍保留，可先导出备份再处理。'}</span>
       </div>
-      {(interruptedRestore || syncReload) && <Button size="small" onClick={() => location.reload()}>重新加载</Button>}
+      {(interruptedRestore || syncReload || databaseReload) && <Button size="small" onClick={() => location.reload()}>重新加载</Button>}
       {errors.some(error => error.retryable) && <Button size="small" loading={retrying} onClick={async () => {
         setRetrying(true)
         try { await retryPersistence() } catch { /* 失败原因继续由持久化状态显示。 */ }

@@ -71,25 +71,29 @@ App 不具有宿主同源权限，数据与宿主交互经过桥接。Applet 逻
 
 依据：[Applet 目录](../../src/lib/applet/catalog.ts)、[Applet runner](../../src/lib/applet/runner.ts)、[App 运行时](../../src/widgets/app.tsx)、[应用设置](../../src/components/ApplicationSettings.tsx)。
 
-## AI 应用存储现状
+## AI 应用存储
 
-内置组件数据与聊天记录已使用IndexedDB，但AI应用尚未统一到该链路：Applet的persist经store.ts写入localStorage的`fp.applet.<id>`，HTML App的tada.store直接写入`fp.app.<id>`。两者的`MAX_STORE = 100_000`是宿主人为限制，判断依据为JSON字符串长度，并非精确字节数或IndexedDB配额。
+App 和 Applet 业务数据统一进入 IndexedDB 的独立 `apps` 仓：`{k: 'app:<instanceId>' | 'applet:<instanceId>', v: JSON对象}`。身份使用安装实例的 canonical ID，设置与业务状态分开；普通组件同名 ID 的 kv 删除不会影响应用。关闭、切换形态、设置变化、卸载和撤销均不清除应用记录。直接使用新模型，不读取或迁移旧 `fp.app.*` / `fp.applet.*`。
 
-Applet的store.ts在localStorage写入失败时保留最新内存值，同时登记可见失败和重试；尚未保存成功不等于落盘。HTML App仍走独立桥接保存链路。后续将独立处理AI应用IndexedDB存储、逻辑身份、备份及容量策略；用户允许新模型，不要求旧实例迁移或双写。当前数据表能力不改变此存储位置，也不把100KB描述为浏览器容量。
+每实例整个 JSON 对象最多 **8 MiB UTF-8 字节**，不等于浏览器可用配额。校验在入队前完成，非法 JSON 与超预算明确拒绝，不截断；读取失败不发布默认空对象。按需加载并返回隔离副本，写入队列独立于 iframe 生命周期；App 并发单键更新合并最新值，失败保留最新待写版本供重试。
 
-依据：[Applet保存](../../src/widgets/applet.tsx)、[App保存](../../src/widgets/app.tsx)、[旧存储工具](../../src/lib/store.ts)、[组件IndexedDB存储](../../src/lib/componentData.ts)。
+App 的 `tada.store.set` 在事务提交后才成功，读取和保存失败均 reject。Applet 读取成功后才 init；persist 自动保存消息带运行会话与序号，宿主提交后确认，runner 不把发送视为成功。旧会话、重复或过期请求不回写新状态。宿主分别显示读取失败、保存中、未保存与重试，运行错误单独处理。
+
+完整同步按 `app:app:<id>` / `app:applet:<id>` 采样 apps 全部记录，包含卸载后保留的数据；配置同步排除应用业务状态。备份与恢复、reset 和保存屏障均覆盖 apps。
+
+依据：[应用数据契约](../../src/lib/applicationDataSchema.ts)、[应用仓库](../../src/lib/applicationData.ts)、[Applet保存](../../src/widgets/applet.tsx)、[App保存](../../src/widgets/app.tsx)。
 
 ## 本地保存与恢复
 
-- 数据库请求与事务均成功才确认落盘；读取失败会抛错，与真实空值区分。数据库升级被旧标签页阻挡时允许关闭旧页后重试；启动读取失败显示恢复入口，不进入空白或可编辑的默认库。
+- 数据库请求与事务均成功才确认落盘；读取失败会抛错，与真实空值区分。数据库升级被旧标签页阻挡时允许关闭旧页后重试；已连接页面收到 versionchange 会关闭连接、禁止再次打开及业务写入，并显示数据库已变化的重载提示；启动读取失败显示恢复入口，不进入空白或可编辑的默认库。
 - 组件和聊天待写项串行提交，失败保留最新版本，可通过宿主提示重试；聊天轮次在编辑时绑定原会话。旧数据仅在目标提交并读回核验后清除。损坏的旧组件配置保留原文并告警，不阻断其他合法迁移。
-- 完整备份和同步先等待组件、聊天及配置的保存屏障。故障不会被当成空库上传，也不会据此生成删除。导出不中断流式回答，包含屏障前已接受的更改；屏障后的并发改动可能进入此次或下一次快照，localStorage 与 IndexedDB 不具有共同原子快照。
-- 新备份以 `app: dada-backup`、`version: 1` 标识；合法旧格式仍可导入。未知版本、缺表、坏行、重复 ID、孤立聊天轮次、非字符串配置和超过 256 MiB 整包预算的文件在替换前拒绝。该预算与存储配额无关。
+- 完整备份和同步先等待组件、应用、聊天及配置的保存屏障。故障不会被当成空库上传，也不会据此生成删除。导出不中断流式回答，包含屏障前已接受的更改；屏障后的并发改动可能进入此次或下一次快照，localStorage 与 IndexedDB 不具有共同原子快照。
+- 新备份以 `app: dada-backup`、`version: 2` 标识，kv、apps 与 chat 的 convs/turns 均必填，旧格式及 `fp.chatTurns.v2` / `fp.data.*` / `fp.app.*` / `fp.applet.*` 旧业务入口直接拒绝，防止恢复后启动再次解释旧值。未知版本、缺表、坏行、重复 ID、孤立聊天轮次、非字符串配置和超过 256 MiB 整包预算的文件在替换前拒绝。该预算与存储配额无关。
 - 恢复与重置用独立 `recovery` 仓保护原快照，在一个 IDB 事务中写日志并替换业务表，再替换配置，最后删日志并重载。失败尝试回退；回退也失败时保留日志并停止业务编辑，重新加载在业务初始化前重试回退。恢复日志不参加备份或同步。
 - 恢复与启动检查通过同源 Web Lock 协调，防止新标签页误把活跃恢复当中断。已打开标签页的业务写没有跨标签协作保证，恢复前必须停止生成并关闭其他搭搭标签页；无 Web Locks 时拒绝恢复，正常无日志启动仍可用。
-- 原样导出的损坏配置用于救援，不保证直接满足严格导入校验。启动错误页可导出本地配置及未迁移旧值，明确不包含数据库聊天，不作为完整备份导入。
+- 原样导出的损坏配置或残留旧业务键用于救援，不保证直接满足严格导入校验；不会静默丢弃原文。启动错误页可导出本地配置及未迁移旧值，明确不包含数据库聊天，不作为完整备份导入。
 
-依据：[数据库](../../src/lib/db.ts)、[保存状态](../../src/lib/persistence.ts)、[聊天](../../src/lib/chat.ts)、[备份](../../src/lib/storage.ts)、[共用恢复提交](../../src/lib/storageCommit.ts)、[提示与启动恢复](../../src/components/PersistenceNotice.tsx)。聊天分页和 AI 应用搬库仍是后续任务。
+依据：[数据库](../../src/lib/db.ts)、[保存状态](../../src/lib/persistence.ts)、[聊天](../../src/lib/chat.ts)、[备份](../../src/lib/storage.ts)、[共用恢复提交](../../src/lib/storageCommit.ts)、[提示与启动恢复](../../src/components/PersistenceNotice.tsx)。聊天分页仍是后续任务。
 
 ## 快照同步
 
@@ -116,7 +120,7 @@ LineChart以宿主积木提供有界折线展示，沿用目录→沙盒声明�
 
 ## Applet 数据管理
 
-DataTable独立于原有简单Table，复用Lobe表格和控件。列为纯数据定义，行由稳定ID和标量values组成；最多500行、8列，文本≤500字符、有限数值绝对值≤1e12。非法/超量明确局部错误，不静默截断，不扩大既有100KB业务持久化额度。
+DataTable独立于原有简单Table，复用Lobe表格和控件。列为纯数据定义，行由稳定ID和标量values组成；最多500行、8列，文本≤500字符、有限数值绝对值≤1e12。非法/超量明确局部错误，不静默截断，表格渲染限额与每应用8 MiB UTF-8 JSON存储预算分别生效。
 
 应用同时提供state和顶层onChange，回调是局部patch，由应用合并。搜索覆盖全部声明列，包括窄屏隐藏列；先搜索，再稳定单列排序，再分页，null排在末尾。页码从0开始，筛选/排序/页容量变化回到首页；记录删除后有效页码夹到最后一页，选择移除缺失ID，渲染不自动回传修正事件。
 

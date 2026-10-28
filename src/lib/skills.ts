@@ -47,7 +47,7 @@ const FRONTEND_DESIGN = `# 技能：前端设计（frontend-design）
 - 自写交互工具先 use_skill applet，按真实积木目录写 create_applet；不用 HTML/CSS，布局与控件由宿主渲染。先 use_skill design-system 读取主页规范。
 - create_app 只用于上述需要自定义视觉的场景，写 html、css、js 三段。它在隔离沙盒里运行，读不到主页数据；颜色、字体用主页变量：var(--bg) var(--text) var(--text2) var(--text3) var(--border) var(--main) 和 var(--font-serif) var(--font-sans) var(--font-mono)，圆角用 var(--radius) / var(--radius-lg)。背景透明，不给 body 设固定底色；浅色、深色都要可读。
 - 自定义字体、CSS 动效仅适用于 app；默认沿用主页字体，不额外引字体或装饰库。必要动效尊重 prefers-reduced-motion。
-- 数据：Applet 用 persist、ctx.fetch、ctx.ask；App 用 tada.store、tada.fetch、tada.ask。网络域名需要用户授权，设置值与业务数据分开保存。
+- 数据：Applet 用 persist、ctx.fetch、ctx.ask；App 用 tada.store、tada.fetch、tada.ask。网络域名需要用户授权，设置值与业务数据分开保存。两类应用业务 JSON 统一存入 IndexedDB，每实例 8 MiB UTF-8 预算；App 必须 await tada.store.set 并处理失败，Applet 由宿主确认 persist 落盘，不能提前提示已保存。
 - 安装和入口：create_app / create_applet 默认安装到组件市场，不自动建页面、不把每个应用放进 Dock。用 group 分组、openMode 选择弹窗/抽屉/全页面；用户确有需要再固定 dock/status 入口或给 pageId 挂页面小组件。入口管理用 configure_application，用户设置用 settingsSchema 定义并在应用读取 tada.settings / ctx.settings；运行形态为 tada.surface / ctx.surface。
 - 五种运行形态是 widget、modal、drawer、page、status。modal 桌面由宿主提供可拖动窗口与交通灯，支持最小化和最大化；不要在应用里重复绘制窗口按钮或打开方式选项。最小化仍保留当前运行实例，关闭或切换形态则可能重新挂载。应用设置从组件市场或系统设置进入。按容器宽度排版，不能把弹窗或小组件当成全浏览器窗口。Applet 用 ctx.viewport.width / ctx.viewport.compact（容器小于 480px）切换布局；Grid 默认按容器收列，只有计算器键盘等需要固定网格时才用 responsive:false。App 按 iframe 宽度写响应式 CSS，避免固定宽度与 100vw 导致横向溢出。
 - 顶部状态栏：statusMode 默认 launcher 为启动入口；用户需要真实紧凑形态时，先在源码实现 surface === "status" 的分支，再配置 status:true,statusMode:"compact"。只留一行数字、图标或核心状态，不放标题、整页表单、大按钮。高度 32px；Applet 桌面最大宽 200px、手机 140px；App 桌面宽 160px、手机 130px。主窗口或可见小组件运行时宿主自动回退入口，避免同应用并发写状态。
