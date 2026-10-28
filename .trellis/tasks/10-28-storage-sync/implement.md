@@ -5,7 +5,7 @@
 | 顺序 | 子任务 | 可观察交付 | 依赖 |
 | --- | --- | --- | --- |
 | 1 | [storage-durability](../archive/2026-10/10-28-storage-durability/prd.md) | 已交付：保存失败可见并可重试、并发不回退、备份完整可恢复 | 无 |
-| 2 | [sync-v1-hardening](../10-28-sync-v1-hardening/prd.md) | 已交付：严格新快照、Gist配置范围、策略重写、并发/失败提示 | 1 |
+| 2 | [sync-v1-hardening](../archive/2026-10/10-28-sync-v1-hardening/prd.md) | 已交付：严格新快照、Gist配置范围、策略重写、并发/失败提示 | 1 |
 | 3 | [application-storage](../10-28-application-storage/prd.md) | AI 应用统一 IndexedDB，新模型与逻辑同步身份一致 | 1、2 |
 | 4 | [chat-history-storage](../10-28-chat-history-storage/prd.md) | 大会话分页，明细按需读取，完整历史仍可恢复 | 1；可与 2/3 独立推进 |
 | 5 | [incremental-sync](../10-28-incremental-sync/prd.md) | 可选服务+客户端两设备增量闭环，离线/冲突可恢复 | 2、3、4 |

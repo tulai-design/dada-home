@@ -33,4 +33,4 @@
 
 本地可靠性本轮检查：完整 Node 回归、类型检查、生产构建通过；隔离 Chromium 覆盖真实事务/升级、迁移、重载、恢复回退及四宽双主题提示。具体复用入口和边界见 [可靠保存验收](../../../.trellis/tasks/archive/2026-10/10-28-storage-durability/verification.md)；构建有 chunk 体积提示，未在本轮做打包优化。
 
-新快照同步检查：完整 Node/类型/构建通过；提供方13项、公开协议21项、记录codec7项，真实同步浏览器11项及存储浏览器23项通过。范围、失败语义和独立审查证据见[同步验收](../../../.trellis/tasks/10-28-sync-v1-hardening/verification.md)。下一项为 AI 应用统一 IndexedDB；此时仍保留原应用100000字符限制。
+新快照同步检查：完整 Node/类型/构建通过；提供方13项、公开协议21项、记录codec7项，真实同步浏览器11项及存储浏览器23项通过。范围、失败语义和独立审查证据见[同步验收](../../../.trellis/tasks/archive/2026-10/10-28-sync-v1-hardening/verification.md)。下一项为 AI 应用统一 IndexedDB；此时仍保留原应用100000字符限制。

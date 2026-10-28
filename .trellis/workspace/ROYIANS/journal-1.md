@@ -399,3 +399,40 @@
 
 - 推进sync-v1-hardening，细化Gist配置范围、坏包与加密/并发处理，再进行AI应用IndexedDB迁移及聊天分页
 - 共用服务独立协议与部署后续定稿，保持完整纯本地使用，不改aifenjing业务数据
+
+
+## Session 12: 严格快照同步与Gist配置范围
+<!-- trellis-session: v=2 fp=64e2fd85c97cc037 -->
+
+**Date**: 2026-10-28
+**Task**: 严格快照同步与Gist配置范围
+**Branch**: `main`
+
+### Summary
+
+已交付v2快照协议与可恢复同步，Gist只传配置；取消旧实例兼容要求，后续进入AI应用IndexedDB
+
+### Main Changes
+
+- 新协议白名单与逻辑身份、版本收敛、加密轮换、资源规范化、持久checkpoint和只读待重载
+- 更新AGENTS及后续子任务取消旧格式迁移和双写要求
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `2d29511` | feat: 重建快照同步协议并限定Gist配置范围 |
+
+### Testing
+
+- [OK] 完整test、类型与build通过；provider13、protocol21、codec7、backup16、durability18、guard4
+- [OK] 隔离Chromium同步11项及存储23项通过，Standards和Spec独立审查通过
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- AI应用统一IndexedDB存储：新模型、稳定身份、UTF8容量与恢复，不新增旧实例迁移桥
+- 保留聊天分页、共用增量服务、容量管理和父任务组合验收；未推送或部署
