@@ -35,4 +35,4 @@
 
 新快照同步检查：完整 Node/类型/构建通过；提供方13项、公开协议21项、记录codec7项，真实同步浏览器11项及存储浏览器23项通过。范围、失败语义和独立审查证据见[同步验收](../../../.trellis/tasks/archive/2026-10/10-28-sync-v1-hardening/verification.md)。应用存储随后完成：超过原字符限制的中文/emoji、关闭重开、设置/卸载撤销、配额/事务失败重试、备份恢复与同名记录同步均验证。下一项为长期聊天分页和工具明细按需读取。
 
-应用存储验收：核心14项、App6项、Applet10项、备份17项，真实应用12项、存储24项、同步12项通过；全量test、类型和build通过，Standards/Spec最终PASS。见[应用存储验收](../../../.trellis/tasks/10-28-application-storage/verification.md)。
+应用存储验收：核心14项、App6项、Applet10项、备份17项，真实应用12项、存储24项、同步12项通过；全量test、类型和build通过，Standards/Spec最终PASS。见[应用存储验收](../../../.trellis/tasks/archive/2026-10/10-28-application-storage/verification.md)。

@@ -436,3 +436,39 @@
 
 - AI应用统一IndexedDB存储：新模型、稳定身份、UTF8容量与恢复，不新增旧实例迁移桥
 - 保留聊天分页、共用增量服务、容量管理和父任务组合验收；未推送或部署
+
+
+## Session 13: AI应用统一IndexedDB与可靠保存确认
+<!-- trellis-session: v=2 fp=477b09b7416b26a8 -->
+
+**Date**: 2026-10-28
+**Task**: AI应用统一IndexedDB与可靠保存确认
+**Branch**: `main`
+
+### Summary
+
+交付独立apps仓、8MiB UTF8预算、两类运行时提交确认与重试、备份v2及完整同步。
+
+### Main Changes
+
+- App/Applet独立身份，按需加载与最新值重试，versionchange重载门禁；AI说明与规范同步。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `d9d792d` | feat: 统一AI应用IndexedDB存储与可靠保存确认 |
+
+### Testing
+
+- [OK] 完整test、tsc和build通过；应用核心14、App6、Applet10、备份17。
+- [OK] 隔离浏览器应用12、存储24、同步12；图表/数据表/布局回归通过；Standards与Spec最终PASS。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 长期聊天分页与工具大内容按需加载；后续共用增量服务与容量管理，父任务保持进行中。
+- 本轮仅本地提交，未推送或部署。

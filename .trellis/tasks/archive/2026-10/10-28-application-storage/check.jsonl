@@ -4,4 +4,4 @@
 {"file": ".trellis/tasks/10-28-storage-sync/research/local-storage.md", "reason": "应用命名空间与当前数据流研究；不实施旧数据迁移"}
 {"file": ".trellis/tasks/10-28-storage-sync/research/sync.md", "reason": "同步边界背景；实施以当前 design 和新协议为准"}
 {"file": ".trellis/spec/ai/tools-and-apps.md", "reason": "应用协议及AI说明"}
-{"file": ".trellis/tasks/10-28-application-storage/design.md", "reason": "本轮冻结的新存储、确认、预算与集成契约"}
+{"file": ".trellis/tasks/archive/2026-10/10-28-application-storage/design.md", "reason": "本轮冻结的新存储、确认、预算与集成契约"}

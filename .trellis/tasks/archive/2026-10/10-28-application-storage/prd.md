@@ -1,6 +1,6 @@
 # AI应用统一IndexedDB存储
 
-状态：验收通过；证据见 verification.md，具体契约见 design.md。父任务：[存储与同步](../10-28-storage-sync/prd.md)。
+状态：验收通过；证据见 verification.md，具体契约见 design.md。父任务：[存储与同步](../../../10-28-storage-sync/prd.md)。
 
 ## 目标
 
@@ -28,4 +28,4 @@ AI生成的小工具能够保存超过原限制的业务数据，采用统一清
 
 ## 依据
 
-[local-storage](../10-28-storage-sync/research/local-storage.md)、[sync](../10-28-storage-sync/research/sync.md)。具体依赖见 task.json.meta.blocked_by。
+[local-storage](../../../10-28-storage-sync/research/local-storage.md)、[sync](../../../10-28-storage-sync/research/sync.md)。具体依赖见 task.json.meta.blocked_by。
