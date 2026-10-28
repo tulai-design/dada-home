@@ -102,7 +102,19 @@ export async function preflight(config: IncrementalConfig): Promise<string> {
   return `连接正常${capabilities.encryption ? '，服务支持客户端加密' : ''}。`
 }
 
-export function createSpaceKeyring(config: IncrementalConfig): Keyring {return createKeyring({appId: config.appId, spaceId: config.spaceId})}
+/** 服务器上这个空间是否已有数据。已有数据说明密钥在别的设备上，新建一把只会读不了。 */
+export async function serverHasData(config: IncrementalConfig): Promise<boolean> {
+  const page = await clientFor(config).changes({limit: 1})
+  return page.commits.length > 0 || page.hasMore
+}
+
+/** 新建空间密钥：服务器已有数据、或无法确认时一律拒绝，避免生成一把读不了现有数据的密钥。 */
+export async function createSpaceKeyring(config: IncrementalConfig): Promise<Keyring> {
+  let has: boolean
+  try {has = await serverHasData(config)} catch (error) {throw new Error(`无法确认服务器上是否已有数据，没有新建密钥：${messageOf(error)}`)}
+  if (has) throw new Error('服务器上这个空间已有数据，请用另一台设备生成的邀请加入，而不是新建密钥。')
+  return createKeyring({appId: config.appId, spaceId: config.spaceId})
+}
 
 /** 绑定当前设备到这个空间：之后的本机修改才会进入待同步队列。 */
 export async function bindIncremental(config = readIncrementalConfig()): Promise<void> {

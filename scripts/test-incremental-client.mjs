@@ -38,6 +38,12 @@ function load(path) {
 globalThis.crypto ??= (await import('node:crypto')).webcrypto
 const client = load('src/lib/incrementalClient.ts')
 const ADMIN = 'a'.repeat(48)
+// 测试用：空库才允许新建密钥，所以先让模拟服务返回空日志。
+async function keyringFor(config) {
+  const original = globalThis.fetch
+  globalThis.fetch = async () => new Response(JSON.stringify({protocolVersion: 1, commits: [], cursor: 'c', hasMore: false}), {status: 200, headers: {'content-type': 'application/json'}})
+  try {return await client.createSpaceKeyring(config)} finally {globalThis.fetch = original}
+}
 let passed = 0
 async function test(name, work) {await work(); passed++; console.log('通过：' + name)}
 
@@ -51,7 +57,7 @@ await test('默认配置未就绪，并给出下一步提示', () => {
 
 await test('邀请往返：口令正确才兑换，新设备生成自己的令牌与密钥', async () => {
   const admin = {...client.readIncrementalConfig(), endpoint: 'https://sync.example.com', token: ADMIN}
-  admin.keyring = client.createSpaceKeyring(admin)
+  admin.keyring = await keyringFor(admin)
   const text = await client.createInvite('correct horse', 'phone-1', null, admin)
   assert.equal(calls.at(-1).body.scopes[0].spaceId, 'personal')
   assert.equal(calls.at(-1).body.expiresAt, null, '默认长期有效，不能带期限')
@@ -70,12 +76,24 @@ await test('邀请往返：口令正确才兑换，新设备生成自己的令�
 
 await test('邀请参数校验', async () => {
   const config = {...client.readIncrementalConfig(), endpoint: 'https://sync.example.com', token: ADMIN}
-  config.keyring = client.createSpaceKeyring(config)
+  config.keyring = await keyringFor(config)
   await assert.rejects(client.createInvite('short', 'phone-1', null, config), /8 个字符/)
   await assert.rejects(client.createInvite('long enough pass', 'bad id!', null, config), /设备标识/)
   await assert.rejects(client.createInvite('long enough pass', 'phone-2', Date.now() - 1000, config), /到期时间/)
   await assert.rejects(client.createInvite('long enough pass', 'phone-2', Date.now() + 400 * 86_400_000, config), /最长一年/)
   await assert.rejects(client.acceptInvite('{"format":"x"}', 'whatever pass'), /不是搭搭/)
+})
+
+await test('服务器已有数据或无法确认时拒绝新建密钥，空库才允许', async () => {
+  const config = {...client.readIncrementalConfig(), endpoint: 'https://sync.example.com', token: ADMIN}
+  const page = commits => new Response(JSON.stringify({protocolVersion: 1, commits, cursor: 'c', hasMore: false}), {status: 200, headers: {'content-type': 'application/json'}})
+  const original = globalThis.fetch
+  try {
+    globalThis.fetch = async () => page([])
+    assert.equal((await client.createSpaceKeyring(config)).format, 'tulai-keyring')
+    globalThis.fetch = async () => new Response('{}', {status: 500})
+    await assert.rejects(client.createSpaceKeyring(config), /无法确认/)
+  } finally {globalThis.fetch = original}
 })
 
 console.log(`共 ${passed} 项通过`)

@@ -3,7 +3,7 @@ import {Button, Select, Switch, Text, TextArea} from '@lobehub/ui'
 import {ArrowsClockwise, Link, PlugsConnected} from '@phosphor-icons/react'
 import type {Device} from '@tulai-design/sync-sdk'
 import {
-  COLLECTION_LABELS, acceptInvite, applyCollections, bindIncremental, createInvite, createSpaceKeyring, detachIncremental, incrementalConfigProblem,
+  COLLECTION_LABELS, acceptInvite, applyCollections, bindIncremental, createInvite, createSpaceKeyring, detachIncremental, serverHasData, incrementalConfigProblem,
   isBound, listConflicts, listDevices, preflight, readIncrementalConfig, resolveConflict, revokeDevice, runIncremental, useIncrementalConfigVersion,
   useIncrementalStatus, writeIncrementalConfig, type ConflictItem, type IncrementalConfig,
 } from '../lib/incrementalClient'
@@ -12,7 +12,7 @@ import {TextRow, Group, Row} from './ios'
 
 type Note = {kind: 'ok' | 'error'; text: string; group: string} | null
 /** 操作结果显示在被点击的那一组里，而不是固定在页面顶部。 */
-const GROUP_OF: Record<string, string> = {test: 'service', invite: 'invite', join: 'join', scope: 'scope', bind: 'sync', sync: 'sync', resolve: 'conflict', devices: 'device', revoke: 'device', detach: 'detach'}
+const GROUP_OF: Record<string, string> = {test: 'service', key: 'key', invite: 'invite', join: 'join', scope: 'scope', bind: 'sync', sync: 'sync', resolve: 'conflict', devices: 'device', revoke: 'device', detach: 'detach'}
 const messageOf = (error: unknown) => error instanceof Error ? error.message : String(error)
 const preview = (value: unknown) => {const text = JSON.stringify(value) ?? '已删除'; return text.length > 160 ? text.slice(0, 160) + '…' : text}
 
@@ -42,6 +42,7 @@ export function IncrementalSyncSettings() {
   const version = useIncrementalConfigVersion()
   const config = readIncrementalConfig()
   const status = useIncrementalStatus()
+  const [serverData, setServerData] = useState<'unknown' | 'yes' | 'no'>('unknown')
   const [bound, setBound] = useState<boolean | null>(null)
   const [busy, setBusy] = useState('')
   const [note, setNote] = useState<Note>(null)
@@ -58,6 +59,16 @@ export function IncrementalSyncSettings() {
     setConflicts(isBoundNow && !incrementalConfigProblem(readIncrementalConfig()) ? await listConflicts().catch(() => []) : [])
   }, [])
   useEffect(() => {void refresh()}, [refresh, version, status.at])
+
+  // 还没有密钥时先看服务器上是否已有数据；有数据就只能用邀请加入。
+  useEffect(() => {
+    let current = true
+    setServerData('unknown')
+    if (config.keyring || !config.endpoint.trim() || !config.token.trim()) return
+    void serverHasData(config).then(has => {if (current) setServerData(has ? 'yes' : 'no')}, () => {})
+    return () => {current = false}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.keyring, config.endpoint, config.token, config.appId, config.spaceId])
 
   const set = (patch: Partial<IncrementalConfig>) => {writeIncrementalConfig({...config, ...patch}); setNote(null)}
   const act = async (name: string, work: () => Promise<string | void>) => {
@@ -87,9 +98,10 @@ export function IncrementalSyncSettings() {
       </Group>
 
       <Group title="空间密钥" footer="同步内容在本机加密后才上传，服务只看到密文。密钥丢失后无法恢复，请保留另一台已配对的设备或自行备份邀请。">
-        <Row label={config.keyring ? '已保存空间密钥' : '还没有空间密钥'} hint={config.keyring ? `密钥版本 ${config.keyring.keys.length} 把；换设备请用下面的邀请。` : '第一台设备新建；其他设备请用配对邀请加入。'}>
-          {!config.keyring && <Button size="small" disabled={Boolean(busy)} onClick={() => set({keyring: createSpaceKeyring(config)})}>新建密钥</Button>}
+        <Row label={config.keyring ? '已保存空间密钥' : '还没有空间密钥'} hint={config.keyring ? `密钥版本 ${config.keyring.keys.length} 把；换设备请用下面的邀请。` : serverData === 'yes' ? '服务器上这个空间已有数据，需要用另一台设备生成的邀请加入，不能新建密钥。' : serverData === 'no' ? '服务器上还没有数据，可以在这台设备新建密钥。' : '先填好服务地址和访问令牌，确认服务器上是否已有数据。'}>
+          {!config.keyring && <Button size="small" disabled={Boolean(busy) || serverData !== 'no'} onClick={() => void act('key', async () => {set({keyring: await createSpaceKeyring(config)}); return '已新建空间密钥。'})}>新建密钥</Button>}
         </Row>
+        <Notice note={note} group="key" />
       </Group>
 
       <Group title="添加另一台设备" footer="邀请包含一次性配对码和用口令加密的空间密钥。口令请通过另一条渠道告诉对方，配对码本身 10 分钟内有效，请尽快在新设备上加入。">
