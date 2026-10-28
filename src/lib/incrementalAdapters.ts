@@ -2,7 +2,8 @@ import {validateApplicationData, validateApplicationDataRecord, type Application
 import {projectApplicationData, restoreApplicationData} from './applicationSyncProjection'
 import {hydrateTurn, validateConv, validateStoredTurn, validateToolDetail, type StoredTurn, type ToolDetail} from './chatStorageSchema'
 import type {DbOperation, DbRead, StoreName} from './db'
-import {invalid, isObject, type JsonValue, type SyncCollection} from './incrementalRows'
+import {STORE, configApplyKey, invalid, isObject, put, read, type JsonValue, type SyncCollection} from './incrementalRows'
+import {applyConfig, configNames, onlyLocalConfig, project, restoreSecrets, secretFields, validateRecord} from './syncData'
 
 /**
  * 每个集合的本机读写边界：同步引擎不理解业务，只通过它在同一事务里读取当前本机值、写入远端值。
@@ -11,8 +12,8 @@ import {invalid, isObject, type JsonValue, type SyncCollection} from './incremen
 export type SyncAdapter = {
   collection: SyncCollection
   stores: StoreName[]
-  /** 绑定时把已有本机记录播种为待同步草稿。 */
-  seed: {read: DbRead; key(raw: unknown): string}
+  /** 绑定时把已有本机记录播种为待同步草稿；不在事务仓内的集合（配置）由对账补上。 */
+  seed?: {read: DbRead; key(raw: unknown): string}
   /** 规范化并校验身份；非法身份拒绝，不静默改写。 */
   key(raw: string): string
   reads(key: string): DbRead[]
@@ -92,7 +93,85 @@ const turn: SyncAdapter = {
   check: value => value === null ? null : turnValue(value) as unknown as JsonValue,
 }
 
-const ADAPTERS: Partial<Record<SyncCollection, SyncAdapter>> = {applicationData, conversation, turn}
+const VALUE_LIMIT = 8 * 1024 * 1024
+/** 组件与配置的值可能是 null 或原始类型，而 null 在引擎里表示“不存在”，所以统一包成 {v}。 */
+function wrapped(value: unknown): {v: unknown} {
+  if (!isObject(value) || Object.keys(value).length !== 1 || !Object.prototype.hasOwnProperty.call(value, 'v')) return invalid()
+  return value as {v: unknown}
+}
+function bounded(value: unknown): JsonValue {
+  let text: string
+  try {text = JSON.stringify(value)} catch {return invalid()}
+  if (typeof text !== 'string' || new TextEncoder().encode(text).byteLength > VALUE_LIMIT) return invalid()
+  return JSON.parse(text) as JsonValue
+}
+const identity = (raw: unknown): string => typeof raw === 'string' && raw.length > 0 && raw.length <= 1000 ? raw : invalid()
+const componentFields = (key: string) => key === '@shared.icsSubs' ? new Set(['url', ...secretFields]) : secretFields
+
+const component: SyncAdapter = {
+  collection: 'component',
+  stores: ['kv'],
+  seed: {read: {store: 'kv', all: true}, key: raw => isObject(raw) ? identity(raw.k) : invalid()},
+  key: identity,
+  reads: key => [{store: 'kv', key}],
+  value(key, [raw]) {
+    if (raw === undefined) return null
+    if (!isObject(raw) || raw.k !== key || !Object.prototype.hasOwnProperty.call(raw, 'v')) return invalid()
+    return bounded({v: project(`component:${key}`, raw.v, 'full', false) ?? null})
+  },
+  apply(key, incoming, [raw]) {
+    if (incoming === null) return [{store: 'kv', type: 'delete', key}]
+    const local = isObject(raw) ? raw.v : undefined
+    return [{store: 'kv', type: 'put', value: {k: key, v: restoreSecrets(wrapped(incoming).v, local, false, componentFields(key))}}]
+  },
+  check: value => value === null ? null : bounded({v: wrapped(value).v}),
+}
+
+/** 配置在 localStorage：同步读取是事务内允许的纯读取；写入走“待应用”行，提交后再落到 localStorage。 */
+export const CONFIG_NAMES: readonly string[] = [...configNames, 'read']
+const configName = (raw: unknown): string => typeof raw === 'string' && CONFIG_NAMES.includes(raw) ? raw : invalid()
+export type ConfigApply = {k: string; type: 'config-apply'; name: string; value: string | null}
+const pendingOf = (name: string, raw: unknown): ConfigApply | undefined => {
+  if (raw === undefined) return undefined
+  if (!isObject(raw) || raw.type !== 'config-apply' || raw.name !== name || raw.k !== configApplyKey(name) || raw.value !== null && typeof raw.value !== 'string') return invalid()
+  return raw as ConfigApply
+}
+/** 本机当前完整配置；有未落盘的入站值时，以它为基准。undefined 表示不存在。 */
+export function localConfig(name: string, pending?: ConfigApply): unknown {
+  const text = pending ? pending.value : (typeof localStorage === 'undefined' ? null : localStorage.getItem(`fp.${name}`))
+  if (text === null) return undefined
+  try {return JSON.parse(text) as unknown} catch {throw new Error(`本机配置「fp.${name}」不是完整 JSON，同步已停止。`)}
+}
+/** 可携投影：纯本机字段（网络授权等）不算同步内容。 */
+export function configValue(name: string, local: unknown): JsonValue | null {
+  if (local === undefined) return null
+  const id = `config:${name}`, projected = project(id, local, 'full', false)
+  if (onlyLocalConfig(id, projected, local)) return null
+  validateRecord(id, projected, false, 'full')
+  return bounded({v: projected ?? null})
+}
+const config: SyncAdapter = {
+  collection: 'config',
+  stores: [],
+  key: configName,
+  reads: key => [read(configApplyKey(key))],
+  value: (key, [raw]) => configValue(key, localConfig(key, pendingOf(key, raw))),
+  apply(key, incoming, [raw]) {
+    const pending = pendingOf(key, raw), base = localConfig(key, pending)
+    const remote = incoming === null ? undefined : wrapped(incoming).v
+    if (incoming !== null) validateRecord(`config:${key}`, remote, false, 'full')
+    const next = applyConfig(key, remote, base, 'full', false)
+    const row: ConfigApply = {k: configApplyKey(key), type: 'config-apply', name: key, value: next === undefined ? null : JSON.stringify(next)}
+    return [put(row)]
+  },
+  check(value) {
+    if (value === null) return null
+    const inner = wrapped(value).v
+    return bounded({v: inner})
+  },
+}
+
+const ADAPTERS: Partial<Record<SyncCollection, SyncAdapter>> = {applicationData, config, component, conversation, turn}
 
 export function adapterOf(collection: SyncCollection): SyncAdapter {
   const adapter = ADAPTERS[collection]
@@ -102,3 +181,4 @@ export function adapterOf(collection: SyncCollection): SyncAdapter {
 }
 /** 已接入增量同步的本机数据表；绑定期间整包写入这些表会被拒绝。 */
 export const syncedStores = (): StoreName[] => [...new Set(Object.values(ADAPTERS).flatMap(adapter => adapter!.stores))]
+export const syncStoreName = STORE

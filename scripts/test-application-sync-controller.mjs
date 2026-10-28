@@ -48,7 +48,7 @@ function harness() {
       assert.equal(epoch, binding.epoch); assert.equal(cursor, binding.cursor)
       binding.cursor = incoming.cursor; return {changed: applyChanged, conflicts: 0}
     },
-    async inspect() {return {binding, records: intents.map(intent => ({inFlight: intent}))}},
+    async inspect() {return {binding, records: intents.map(intent => ({collection: 'applicationData', inFlight: intent}))}},
     async resolve() {assertLock(); assert.equal(gate, true); events.push('resolve'); return {changed: true}},
     async detach() {assertLock(); assert.equal(gate, true); events.push('detach'); binding = undefined},
   }
@@ -94,6 +94,8 @@ function harness() {
       if (id === './incrementalStore') return {incrementalStore: store}
       if (id === './applicationData') return {async flushApplicationData() {assertLock(); events.push('flush')}}
       if (id === './chat') return {async flush() {assertLock()}}
+      if (id === './componentData') return {async flush() {assertLock()}}
+      if (id === './incrementalConfig') return {async applyPendingConfig() {return 0}, async reconcileConfig() {return 0}}
       if (id === './persistence') return persistence
       if (id.startsWith('.')) return load(new URL(id + '.ts', 'file:///' + path).pathname.slice(1))
       throw new Error('Unknown test import')

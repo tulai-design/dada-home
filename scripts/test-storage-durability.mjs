@@ -90,7 +90,7 @@ await test('组件事务失败后待写保留，重试写入最新值', async ()
       for (const operation of operations) operation.type === 'delete' ? disk.delete(operation.key) : disk.set(operation.value.k, operation.value.v)
     },
   }
-  const app = runtime({mocks: {'./db': {db: backend, openDb: async () => ({})}}})
+  const app = runtime({mocks: {'./db': {db: backend, openDb: async () => ({})}, './incrementalLocal': {commitWithSync: ops => backend.batch(ops)}}})
   const data = app.load('src/lib/componentData.ts')
   await data.initComponentData()
   data.writeData('note', {text: 'first'})

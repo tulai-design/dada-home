@@ -4,7 +4,7 @@ import {adapterOf, type SyncAdapter} from './incrementalAdapters'
 import {
   ACTIVE, STORE, SYNC_COLLECTIONS, bindingChanged, bindingKey, bindingOf, bindingRow, checkRef, freshRecord, generationOf, generationRow, genKey, identifier, integer,
   invalid, isObject, nextGeneration, noWrites, normalizeIdentity, positive, put, putRecord, read, recordKey, recordOf, recordsOf, requireBinding, stale,
-  type JsonValue, type SyncBinding, type SyncBindingIdentity, type SyncConflictVersion, type SyncIncoming, type SyncIntent, type SyncPrepared, type SyncRecordState, type SyncRef,
+  type JsonValue, type SyncBinding, type SyncBindingIdentity, type SyncConflictVersion, type SyncIncoming, type SyncIntent, type SyncPrepared, type SyncCollection, type SyncRecordState, type SyncRef,
 } from './incrementalRows'
 
 const encoder = new TextEncoder()
@@ -48,9 +48,9 @@ export const incrementalStore = {
 
   async bind(rawIdentity: SyncBindingIdentity): Promise<SyncBinding> {
     const identity = normalizeIdentity(rawIdentity), epoch = crypto.randomUUID()
-    const adapters = SYNC_COLLECTIONS.flatMap(collection => { try {return [adapterOf(collection)]} catch {return []} })
+    const adapters = SYNC_COLLECTIONS.flatMap(collection => { try {const adapter = adapterOf(collection); return adapter.seed ? [adapter] : []} catch {return []} })
     const stores = [...new Set([...adapters.flatMap(adapter => adapter.stores), STORE])]
-    const reads: DbRead[] = [read(ACTIVE), {store: STORE, all: true, index: 'type', key: 'generation'}, ...adapters.map(adapter => adapter.seed.read)]
+    const reads: DbRead[] = [read(ACTIVE), {store: STORE, all: true, index: 'type', key: 'generation'}, ...adapters.map(adapter => adapter.seed!.read)]
     return db.atomic(stores, reads, values => {
       const current = bindingOf(values[0])
       if (current) {
@@ -64,7 +64,7 @@ export const incrementalStore = {
         const rows = values[2 + index]
         if (!Array.isArray(rows)) return invalid()
         for (const raw of rows) {
-          const ref = {collection: adapter.collection, key: adapter.seed.key(raw)}, gen = generationOf(metadata.get(genKey(refId(ref))))
+          const ref = {collection: adapter.collection, key: adapter.seed!.key(raw)}, gen = generationOf(metadata.get(genKey(refId(ref))))
           const record = freshRecord(epoch, ref, gen)
           record.draft = {generation: gen}
           operations.push(put(generationRow(refId(ref), gen)), putRecord(record))
@@ -84,16 +84,27 @@ export const incrementalStore = {
     return db.atomic([...adapter.stores, STORE], [read(genKey(refId(ref))), ...adapter.reads(ref.key)], values => noWrites({value: adapter.value(ref.key, values.slice(1)), generation: generationOf(values[0])}))
   },
 
-  async next(epoch: string): Promise<{ref: SyncRef; intent: SyncIntent} | undefined> {
+  /** enabled 缺省为全部集合；已关闭集合的草稿原样保留，不发送也不丢弃。 */
+  async next(epoch: string, enabled?: readonly SyncCollection[]): Promise<{ref: SyncRef; intent: SyncIntent} | undefined> {
     return db.atomic([STORE], [read(ACTIVE), {store: STORE, all: true, index: 'epoch', key: epoch}], values => {
       requireBinding(values[0], epoch)
-      const records = recordsOf(values[1], epoch), row = records.find(record => record.inFlight && !record.conflict) ?? records.find(record => record.draft && !record.conflict)
+      const on = (record: SyncRecordState) => enabled === undefined || enabled.includes(record.collection)
+      const records = recordsOf(values[1], epoch), row = records.find(record => record.inFlight && !record.conflict && on(record)) ?? records.find(record => record.draft && !record.conflict && on(record))
       if (!row) return noWrites(undefined)
       const ref = {collection: row.collection, key: row.key}
       if (row.inFlight) return noWrites({ref, intent: row.inFlight})
       const draft = row.draft!
       row.inFlight = {generation: draft.generation, operationId: crypto.randomUUID(), baseRevision: row.remoteRevision}
       return {operations: [putRecord(row)], result: {ref, intent: row.inFlight}}
+    })
+  },
+
+  /** 重新开启被关闭的同步范围后，从头核对远端；已应用的记录会按 revision 跳过。 */
+  async rewind(epoch: string): Promise<void> {
+    await db.atomic([STORE], [read(ACTIVE)], values => {
+      const binding = requireBinding(values[0], epoch)
+      delete binding.cursor
+      return {operations: [put(bindingRow(binding)), put(bindingRow(binding, bindingKey(epoch)))], result: undefined}
     })
   },
 

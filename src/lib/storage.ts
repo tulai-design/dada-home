@@ -1,6 +1,7 @@
 import {initChat} from './chat'
 import {validateStoredChat, type Conv, type StoredTurn, type ToolDetail} from './chatStorageSchema'
 import {initComponentData} from './componentData'
+import {applyPendingConfig} from './incrementalConfig'
 import {db} from './db'
 import {validateApplicationDataRecord, type ApplicationDataRecord} from './applicationDataSchema'
 import {commitStorage, readLocal, recoverStorage, replaceOperations, saveBarrier} from './storageCommit'
@@ -95,6 +96,8 @@ function validateBackup(raw: unknown): ValidBackup {
 /** 先处理上次未完成恢复，再初始化业务数据；失败交给宿主展示和重试。 */
 export async function initStorage(): Promise<void> {
   await recoverStorage()
+  // 已提交的入站配置必须在任何模块读取配置之前落到 localStorage。
+  await applyPendingConfig()
   await initComponentData()
   await initChat()
 }

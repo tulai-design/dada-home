@@ -1,5 +1,6 @@
 import {useCallback, useEffect, useState} from 'react'
 import {db, openDb, type DbOperation} from './db'
+import {commitWithSync} from './incrementalLocal'
 import {assertPersistenceWritable, clearPersistenceError, reportPersistenceError} from './persistence'
 
 /**
@@ -47,7 +48,7 @@ export function flush(): Promise<void> {
           const operations: DbOperation[] = batch.map(([id, item]) => item.deleted
             ? {store: 'kv', type: 'delete', key: id}
             : {store: 'kv', type: 'put', value: {k: id, v: item.value}})
-          await db.batch(operations)
+          await commitWithSync(operations, batch.map(([id]) => ({collection: 'component' as const, key: id})))
         } else {
           for (const [id, item] of batch) persistFallback(id, item)
         }
@@ -92,7 +93,7 @@ export async function initComponentData(): Promise<void> {
     try {toMigrate.push({k: name.slice(PREFIX.length), v: JSON.parse(raw) as unknown}); clearPersistenceError(`legacy-component:${name}`)}
     catch (error) {reportPersistenceError(`legacy-component:${name}`, new Error('有一份旧组件数据无法解析，原数据已保留。'), undefined, false)}
   }
-  if (toMigrate.length) await db.putMany('kv', toMigrate)
+  if (toMigrate.length) await commitWithSync(toMigrate.map(value => ({store: 'kv' as const, type: 'put' as const, value})), toMigrate.map(row => ({collection: 'component' as const, key: row.k})))
   // 重新读取已提交的记录，避免请求完成但事务失败时删除唯一来源。
   const saved = await db.all<{k: string; v: unknown}>('kv')
   for (const row of saved) loaded.set(key(row.k), row.v)

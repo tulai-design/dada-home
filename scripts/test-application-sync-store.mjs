@@ -6,7 +6,7 @@ import ts from 'typescript'
 
 // 测真实状态机；数据库替身只供状态转换单测，真实IDB事务另由浏览器QA验收。
 function runtime() {
-  const tables = {apps: new Map(), convs: new Map(), turns: new Map(), toolDetails: new Map(), incrementalSync: new Map()}, modules = new Map(), readsLog = []
+  const tables = {kv: new Map(), apps: new Map(), convs: new Map(), turns: new Map(), toolDetails: new Map(), incrementalSync: new Map()}, modules = new Map(), readsLog = []
   const db = {
     async get(store, key) {return structuredClone(tables[store].get(key))},
     async batch(operations) {return this.atomic([], [], () => ({operations, result: undefined}))},

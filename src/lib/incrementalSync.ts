@@ -2,21 +2,25 @@ import {createSyncClient, type CommitReceipt} from '@tulai-design/sync-sdk'
 import {encryptRecord, type Keyring} from '@tulai-design/sync-sdk/crypto'
 import {flushApplicationData} from './applicationData'
 import {flush as flushChat} from './chat'
+import {flush as flushComponents} from './componentData'
+import {applyPendingConfig, reconcileConfig} from './incrementalConfig'
 import {decodeSyncRecord, prepareSyncRecord} from './incrementalCodec'
 import {incrementalStore} from './incrementalStore'
-import type {SyncBinding, SyncBindingIdentity, SyncConflictVersion, SyncIncoming, SyncRef} from './incrementalRows'
+import {SYNC_COLLECTIONS, type SyncBinding, type SyncBindingIdentity, type SyncCollection, type SyncConflictVersion, type SyncIncoming, type SyncRef} from './incrementalRows'
 import {assertPersistenceWritable, reportPersistenceError, withPersistenceExclusive} from './persistence'
 import {canonical, digest} from './syncProtocol'
 
 export type IncrementalSyncControllerOptions = {
   endpoint: string; appId: string; spaceId: string; deviceId: string; token: string; keyring: Keyring
+  /** 参与同步的集合；缺省为全部。关闭的集合保留本机与远端数据，只是不发送也不应用。 */
+  collections?: readonly SyncCollection[]
   fetchImpl?: typeof fetch; retries?: number; timeoutMs?: number
 }
 export type IncrementalSyncRunOptions = {signal?: AbortSignal; maxPush?: number}
 export type IncrementalSyncRunResult = {pushed: number; pulled: number; conflicts: number; hasMore: boolean; needsReload: boolean}
 
 /** 已接受的应用与聊天写入都排空后，才能绑定、入站或解决冲突。 */
-const flushSources = () => Promise.all([flushApplicationData(), flushChat()])
+const flushSources = () => Promise.all([flushApplicationData(), flushChat(), flushComponents()])
 const cancelled = (signal: AbortSignal) => {if (signal.aborted) throw new DOMException('增量同步已取消。', 'AbortError')}
 const bindingMismatch = () => new Error('增量同步目标或设备密钥与本机绑定不同，请先明确解绑；旧队列未被修改。')
 function reloadRequired() {reportPersistenceError('sync-reload', new Error('应用数据已同步到本机，请重新加载后继续编辑。'))}
@@ -27,6 +31,8 @@ export function createIncrementalSyncController(options: IncrementalSyncControll
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(options.deviceId)) throw new Error('同步设备标识无效。')
   const client = createSyncClient({baseUrl: endpoint, appId: options.appId, spaceId: options.spaceId, token: options.token, ...(options.fetchImpl ? {fetchImpl: options.fetchImpl} : {}), ...(options.retries !== undefined ? {retries: options.retries} : {}), ...(options.timeoutMs !== undefined ? {timeoutMs: options.timeoutMs} : {})})
   const scope = {appId: options.appId, spaceId: options.spaceId}, deviceId = options.deviceId
+  const enabled: readonly SyncCollection[] = options.collections ?? SYNC_COLLECTIONS
+  if (!Array.isArray(enabled) || enabled.some(item => !SYNC_COLLECTIONS.includes(item))) throw new Error('同步范围包含未知的集合。')
   let keyring: Keyring
   try {keyring = JSON.parse(JSON.stringify(options.keyring)) as Keyring} catch {throw new Error('同步空间密钥格式无效。')}
   let identityPromise: Promise<SyncBindingIdentity> | undefined, closed = false
@@ -74,11 +80,14 @@ export function createIncrementalSyncController(options: IncrementalSyncControll
         assertPersistenceWritable()
         const binding = await checkBinding(), result: IncrementalSyncRunResult = {pushed: 0, pulled: 0, conflicts: 0, hasMore: false, needsReload: false}
         await flushSources(); cancelled(signal)
+        // 上次崩溃留下的入站配置先落盘，再对账本机配置的修改。
+        if (await applyPendingConfig()) {reloadRequired(); result.needsReload = true}
+        await reconcileConfig(binding.epoch); cancelled(signal)
         const capabilities = await client.capabilities({signal})
         if (!capabilities.records || !capabilities.atomicBatch || !capabilities.idempotency || !capabilities.changeLog || !capabilities.objects) throw new Error('目标服务没有提供所需的增量同步能力。')
         for (let index = 0; index < maxPush; index++) {
           cancelled(signal)
-          const head = await incrementalStore.next(binding.epoch)
+          const head = await incrementalStore.next(binding.epoch, enabled)
           if (!head) break
           let intent = head.intent
           if (!intent.prepared) {
@@ -115,6 +124,8 @@ export function createIncrementalSyncController(options: IncrementalSyncControll
         // Dada此版本每次只提交一条记录；在下载前拒绝更大的事务，限制单次明文驻留量。
         if (page.commits.length > 1 || page.commits.some(commit => commit.records.length !== 1)) throw new Error('此版本仅支持每次提交一条同步记录，远端游标未推进。')
         for (const commit of page.commits) for (const record of commit.records) {
+          // 已关闭的集合不下载也不应用；游标照常前进，重新开启时由 rewind() 回补。
+          if (!enabled.includes(record.collection as SyncCollection)) continue
           const decoded = await decodeSyncRecord(record, {scope, keyring, signal, client})
           records.push({...decoded, deviceId: commit.deviceId, operationId: commit.operationId})
         }
@@ -122,13 +133,13 @@ export function createIncrementalSyncController(options: IncrementalSyncControll
         const applied = await withPersistenceExclusive(async () => {
           await flushSources(); cancelled(signal)
           const applied = await incrementalStore.applyPage(binding.epoch, current.cursor, {cursor: page.cursor, records})
-          if (applied.changed) reloadRequired()
+          if (applied.changed) {await applyPendingConfig(); reloadRequired()}
           return applied
         })
         result.pulled = records.length; result.conflicts += applied.conflicts
         const pending = await incrementalStore.inspect(binding.epoch)
-        result.hasMore = page.hasMore || pending.records.some(record => !record.conflict && Boolean(record.draft || record.inFlight))
-        result.needsReload = applied.changed
+        result.hasMore = page.hasMore || pending.records.some(record => enabled.includes(record.collection) && !record.conflict && Boolean(record.draft || record.inFlight))
+        result.needsReload = result.needsReload || applied.changed
         return result
       })
     },
@@ -140,9 +151,16 @@ export function createIncrementalSyncController(options: IncrementalSyncControll
         return withPersistenceExclusive(async () => {
           await flushSources(); cancelled(signal)
           const result = await incrementalStore.resolve(binding.epoch, ref, version, choice)
-          if (result.changed) reloadRequired()
+          if (result.changed) {await applyPendingConfig(); reloadRequired()}
           return {...result, needsReload: result.changed}
         })
+      })
+    },
+    /** 重新开启同步范围之后调用：从头核对远端，补上关闭期间跳过的记录。 */
+    async rewind(settings: {signal?: AbortSignal} = {}) {
+      return locked(settings.signal, async () => {
+        const binding = await checkBinding()
+        await withPersistenceExclusive(() => incrementalStore.rewind(binding.epoch))
       })
     },
     async detach(settings: {signal?: AbortSignal} = {}) {

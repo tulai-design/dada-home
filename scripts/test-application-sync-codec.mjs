@@ -13,6 +13,7 @@ function load(path) {
   const require = id => {
     if (id === '@tulai-design/sync-sdk') return sdk
     if (id === '@tulai-design/sync-sdk/crypto') return encryption
+    if (id === './db') return {db: {}, openDb: async () => null}
     if (id.startsWith('.')) return load(new URL(id + '.ts', 'file:///' + path).pathname.slice(1))
     throw new Error('Unknown test import')
   }

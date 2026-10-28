@@ -47,6 +47,7 @@ function harness({activeBinding=false,existing}={}) {
     './applicationSyncStore':{applicationSyncStore:{active:async()=>activeBinding ? {epoch:'active'} : undefined,async commitExternal(operations){if(activeBinding && operations.some(operation=>operation.store==='apps'))throw new Error('先显式解绑');await db.batch(operations)}}},
     './db':{db,openDb:async()=>({})},
     './chat':{initChat:async()=>log.push('initChat'),flush:async()=>{log.push('flushChat');await flushChat()},clearChat:async()=>{},exportChat:async()=>({convs:[...tables.convs.values()],turns:[...tables.turns.values()]})},
+    './incrementalConfig':{applyPendingConfig:async()=>0},
     './componentData':{initComponentData:async()=>log.push('initData'),flush:async()=>{log.push('flushData');await flushData()},dropPendingData(){}},
     './applicationDataSchema':schemaModule.exports,
     './chatStorageSchema':chatSchemaModule.exports,
