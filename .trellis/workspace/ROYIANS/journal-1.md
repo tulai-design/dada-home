@@ -544,3 +544,39 @@
 ### Next Steps
 
 - 确定新仓库创建信息，完成服务协议设计和独立仓库基线；当前子任务planning，父任务4/6。
+
+
+## Session 16: 使用gh创建Tulai Sync独立仓库
+<!-- trellis-session: v=2 fp=6b5edceff10e715a -->
+
+**Date**: 2026-10-28
+**Task**: 使用gh创建Tulai Sync独立仓库
+**Branch**: `main`
+
+### Summary
+
+按授权用gh创建tulai-design/sync私有仓库，本地tulai-sync，初始文档40b7799已推送main。
+
+### Main Changes
+
+- 服务仓库包含README、AGENTS、忽略规则和架构说明；搭搭ADR转accepted并更新任务创建事实。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `2db028c` | docs: 记录Tulai Sync独立仓库创建与初始化 |
+
+### Testing
+
+- [OK] gh验证仓库PRIVATE、默认main及远端40b7799；新仓工作区与origin一致。
+- [OK] 文档链接、忽略规则、diff检查与Trellis JSONL通过；本轮无运行时代码，不运行产品测试。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 在服务仓库建立Trellis及具体协议设计，再实现最小HTTP增量闭环；本仓增量服务任务仍planning。
+- 仅服务仓库初始提交已推送，搭搭本轮文档保持本地提交；没有发布镜像或部署。
