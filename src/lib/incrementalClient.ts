@@ -67,16 +67,18 @@ let status: IncrementalStatus = {phase: 'idle'}
 const setStatus = (next: IncrementalStatus) => {status = next; emit()}
 export const useIncrementalStatus = () => useSyncExternalStore(subscribe, () => status)
 
-/** 记录最近一次响应的关键信息，报 invalid_response 时附在提示里，方便定位代理或网关改写了响应。 */
-let lastResponse = ''
-const tracedFetch: typeof fetch = async (input, init) => {
-  const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-  try {
-    const res = await fetch(input, init)
-    const header = (name: string) => res.headers.get(name) ?? '-'
-    lastResponse = `${init?.method ?? 'GET'} ${new URL(url).pathname} → ${res.status}，类型 ${header('content-type')}，长度 ${header('content-length')}，编码 ${header('content-encoding')}`
-    return res
-  } catch (error) {lastResponse = `${init?.method ?? 'GET'} ${new URL(url).pathname} → 网络错误`; throw error}
+/**
+ * 浏览器 fetch 会自动解压响应，但反向代理（Coolify 的 Traefik/Caddy 等）压缩后写的 Content-Length 是压缩后的大小，
+ * SDK 严格比对「响应头长度 = 读到的字节数」，会把这种正常响应判成 invalid_response。
+ * 这里读出已解压的正文，去掉失真的长度头再交给 SDK；正文大小仍由 SDK 按实际读到的字节数限制。
+ */
+const NO_BODY = new Set([101, 204, 205, 304])
+const normalizedFetch: typeof fetch = async (input, init) => {
+  const res = await fetch(input, init)
+  if (NO_BODY.has(res.status) || res.body === null) return res
+  const headers = new Headers(res.headers)
+  headers.delete('content-length'); headers.delete('content-encoding')
+  return new Response(await res.arrayBuffer(), {status: res.status, statusText: res.statusText, headers})
 }
 
 const controllerFor = (config: IncrementalConfig) => {
@@ -84,15 +86,12 @@ const controllerFor = (config: IncrementalConfig) => {
   if (problem) throw new Error(problem)
   return createIncrementalSyncController({
     endpoint: config.endpoint.trim(), appId: config.appId, spaceId: config.spaceId, deviceId: config.deviceId, token: config.token.trim(),
-    keyring: config.keyring!, collections: config.collections, fetchImpl: tracedFetch,
+    keyring: config.keyring!, collections: config.collections, fetchImpl: normalizedFetch,
   })
 }
 const clientFor = (config: Pick<IncrementalConfig, 'endpoint' | 'appId' | 'spaceId' | 'token'>) =>
-  createSyncClient({baseUrl: config.endpoint.trim(), appId: config.appId, spaceId: config.spaceId, token: config.token.trim(), retries: 1, timeoutMs: 15000, fetchImpl: tracedFetch})
-const messageOf = (error: unknown) => {
-  const message = error instanceof Error ? error.message : String(error)
-  return message.includes('invalid_response') && lastResponse ? `${message}。最近响应：${lastResponse}` : message
-}
+  createSyncClient({baseUrl: config.endpoint.trim(), appId: config.appId, spaceId: config.spaceId, token: config.token.trim(), retries: 1, timeoutMs: 15000, fetchImpl: normalizedFetch})
+const messageOf = (error: unknown) => error instanceof Error ? error.message : String(error)
 
 /** 只读预检：确认服务可达、令牌有效、协议能力齐全；不上传也不应用任何数据。 */
 export async function preflight(config: IncrementalConfig): Promise<string> {
