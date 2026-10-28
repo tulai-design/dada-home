@@ -1,9 +1,9 @@
 {
   "id": "sync-v1-hardening",
   "name": "sync-v1-hardening",
-  "title": "兼容同步可靠性与Gist边界",
-  "description": "保持现有同步格式，修复加密策略、损坏输入、存储错误与供应商边界，明确Gist并发限制。",
-  "status": "planning",
+  "title": "同步协议与配置范围",
+  "description": "按测试阶段全新方案实现v2同步协议、Gist配置范围与供应商可靠性，无旧格式兼容。",
+  "status": "completed",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -11,8 +11,8 @@
   "creator": "ROYIANS",
   "assignee": "ROYIANS",
   "createdAt": "2026-10-28",
-  "completedAt": null,
-  "branch": null,
+  "completedAt": "2026-10-28",
+  "branch": "main",
   "base_branch": "main",
   "worktree_path": null,
   "commit": null,
@@ -20,10 +20,17 @@
   "subtasks": [],
   "children": [],
   "parent": "10-28-storage-sync",
-  "relatedFiles": [],
-  "notes": "",
+  "relatedFiles": [
+    "src/lib/sync.ts",
+    "src/lib/syncProtocol.ts",
+    "src/lib/syncData.ts",
+    "src/lib/syncProviders.ts",
+    "src/lib/storageCommit.ts",
+    "src/components/SyncSettings.tsx"
+  ],
+  "notes": "严格v2快照、Gist配置范围、策略重写与可恢复提交已验收；详见verification.md；未推送或部署。",
   "meta": {
-    "planning_depth": "behavior-specified",
+    "planning_depth": "design-specified",
     "blocked_by": [
       "10-28-storage-durability"
     ]

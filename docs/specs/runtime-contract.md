@@ -75,7 +75,7 @@ App 不具有宿主同源权限，数据与宿主交互经过桥接。Applet 逻
 
 内置组件数据与聊天记录已使用IndexedDB，但AI应用尚未统一到该链路：Applet的persist经store.ts写入localStorage的`fp.applet.<id>`，HTML App的tada.store直接写入`fp.app.<id>`。两者的`MAX_STORE = 100_000`是宿主人为限制，判断依据为JSON字符串长度，并非精确字节数或IndexedDB配额。
 
-Applet的store.ts在localStorage写入失败时保留最新内存值，同时登记可见失败和重试；尚未保存成功不等于落盘。HTML App仍走独立桥接保存链路。后续应独立处理AI应用IndexedDB存储、统一迁移、备份兼容及容量策略。当前数据表能力不改变此存储位置，也不把100KB描述为浏览器容量。
+Applet的store.ts在localStorage写入失败时保留最新内存值，同时登记可见失败和重试；尚未保存成功不等于落盘。HTML App仍走独立桥接保存链路。后续将独立处理AI应用IndexedDB存储、逻辑身份、备份及容量策略；用户允许新模型，不要求旧实例迁移或双写。当前数据表能力不改变此存储位置，也不把100KB描述为浏览器容量。
 
 依据：[Applet保存](../../src/widgets/applet.tsx)、[App保存](../../src/widgets/app.tsx)、[旧存储工具](../../src/lib/store.ts)、[组件IndexedDB存储](../../src/lib/componentData.ts)。
 
@@ -89,7 +89,20 @@ Applet的store.ts在localStorage写入失败时保留最新内存值，同时登
 - 恢复与启动检查通过同源 Web Lock 协调，防止新标签页误把活跃恢复当中断。已打开标签页的业务写没有跨标签协作保证，恢复前必须停止生成并关闭其他搭搭标签页；无 Web Locks 时拒绝恢复，正常无日志启动仍可用。
 - 原样导出的损坏配置用于救援，不保证直接满足严格导入校验。启动错误页可导出本地配置及未迁移旧值，明确不包含数据库聊天，不作为完整备份导入。
 
-依据：[数据库](../../src/lib/db.ts)、[保存状态](../../src/lib/persistence.ts)、[聊天](../../src/lib/chat.ts)、[备份与恢复](../../src/lib/storage.ts)、[提示与启动恢复](../../src/components/PersistenceNotice.tsx)。聊天分页、AI 应用搬库和同步范围调整仍是后续任务。
+依据：[数据库](../../src/lib/db.ts)、[保存状态](../../src/lib/persistence.ts)、[聊天](../../src/lib/chat.ts)、[备份](../../src/lib/storage.ts)、[共用恢复提交](../../src/lib/storageCommit.ts)、[提示与启动恢复](../../src/components/PersistenceNotice.tsx)。聊天分页和 AI 应用搬库仍是后续任务。
+
+## 快照同步
+
+- 当前格式为 `dada-sync-v2.json`，正文标识 `app: dada-sync`、`version: 2`，明确 `scope`、密钥策略和逻辑记录。未知版本、范围、目标、值或聊天关联在提交前拒绝；不读取旧同步文件或迁移旧 meta。
+- Gist 固定配置范围，包括页面设计、应用源码和设置、宿主偏好与当前性格。聊天、画像、累积记忆、组件与应用业务状态不进入配置快照，也不能借伪造记录入站。WebDAV / HTTP 为完整范围，包含可携业务数据与已结束轮次；生成中轮次延后处理，不把暂缺的结束状态当删除。
+- 记录身份包括 config、component、app、conversation、turn；App 与 Applet 同名实例隔离。逻辑计数和设备标识比较版本，同版本不同内容以摘要确定排序；墓碑不按时间自动清理。首次连接时远端同身份优先，本机独有记录保留并上传。元数据按资源、范围和协议隔离，不绑定当前物理存储 key。
+- 本机网络授权、连接与运行状态始终排除，入站保留本机值。默认排除已知凭据；同步凭据必须加密。应用源码、业务 JSON 和自由文本可能含用户手写敏感内容，不承诺自动识别。添加、轮换或移除加密、关闭密钥同步会改写最新快照表示；原云端口令仅在本次内存中用于解密，不保证擦除供应商历史。
+- 加密信封使用 PBKDF2-SHA256、210000 次迭代、16 字节盐、AES-256-GCM、12 字节 IV 和 128 位标签，信封版本与算法/参数严格校验。口令错误或密文损坏时不改本机或远端。
+- 网络期间本机数据或连接变更会停止旧操作；首次上传前持久化采样基线，确保上传期间的新编辑在失败后重试或重载后重试也不被旧云端值覆盖。入站在保存门禁内复查，借用独立恢复日志提交；仅配置提交的恢复点不读取聊天和组件业务仓。拉取成功后在释放门禁前进入只读待重载状态；由用户明确刷新，防止旧缓存写回，也避免自动重载清掉输入。
+- WebDAV / HTTP 初次创建使用 `If-None-Match: *`，更新仅以强 ETag 发送 `If-Match`。Gist 及没有强 ETag 的服务标为无并发保护。冲突有界重试；限流和服务失败给出重试时间，冷却期零网络，不长时间阻塞本机保存。
+- 自动同步仅定期上传；完整拉取由手动同步触发。每次读取完整快照，有变更时完整写回，尚无增量服务。UTF-8 正文预算 Gist 8 MiB、WebDAV / HTTP 64 MiB，不是供应商或浏览器配额。Gist metadata、raw、出站 JSON 包装均校验；显示 Fetch 可见正文字节，不包含 HTTP 头或压缩后的物理流量。连接测试只读；Gist 无 ID 时未验证令牌，首次同步才创建。
+
+依据：[同步协调](../../src/lib/sync.ts)、[协议](../../src/lib/syncProtocol.ts)、[记录投影](../../src/lib/syncData.ts)、[网络提供方](../../src/lib/syncProviders.ts)、[同步设置](../../src/components/SyncSettings.tsx)。可供其他项目共用的增量服务属于后续独立阶段。
 
 ## Applet 趋势图
 

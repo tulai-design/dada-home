@@ -1,18 +1,17 @@
-import {flush as flushChat, initChat, validateLegacyTurns, type Conv, type Turn} from './chat'
-import {flush as flushData, initComponentData} from './componentData'
-import {db, openDb, type DbOperation} from './db'
-import {assertPersistenceHealthy, clearPersistenceError, reportPersistenceError, retryPersistence, withPersistenceExclusive} from './persistence'
+import {initChat, validateLegacyTurns, type Conv, type Turn} from './chat'
+import {initComponentData} from './componentData'
+import {db} from './db'
+import {commitStorage, readLocal, recoverStorage, replaceOperations, saveBarrier} from './storageCommit'
+export {recoverStorage} from './storageCommit'
 import {waitForSyncIdle} from './sync'
 
 /** 整包 JSON 备份的读取预算，不是 IndexedDB 或浏览器存储配额。 */
 export const MAX_BACKUP_BYTES = 256 * 1024 * 1024
 const BACKUP_APP = 'dada-backup'
 const BACKUP_VERSION = 1
-const RECOVERY_KEY = 'backup-restore'
 
 type DataSnapshot = {kv: {k: string; v: unknown}[]; convs: Conv[]; turns: Turn[]}
 type LocalSnapshot = Record<string, string>
-type RestorePoint = {k: typeof RECOVERY_KEY; version: 1; before: {local: LocalSnapshot; data: DataSnapshot}}
 export type BackupSummary = {keys: number; convs: number; turns: number; data: number}
 type ValidBackup = {dump: Record<string, unknown>; summary: BackupSummary; local: LocalSnapshot; data: DataSnapshot}
 
@@ -108,97 +107,6 @@ function validateBackup(raw: unknown): ValidBackup {
   return {dump, local: checkLocal(dump), data: own(dump, 'indexedDB') ? checkData(dump.indexedDB) : data, summary: {keys: Object.keys(local).length, convs: data.convs.length, turns: data.turns.length, data: data.kv.length}}
 }
 
-function readLocal(): LocalSnapshot {
-  const result: LocalSnapshot = Object.create(null)
-  for (let index = 0; index < localStorage.length; index += 1) {
-    const key = localStorage.key(index)
-    if (!key?.startsWith('fp.')) continue
-    const value = localStorage.getItem(key)
-    if (value !== null) result[key] = value
-  }
-  return result
-}
-
-function replaceLocal(local: LocalSnapshot): void {
-  const keys: string[] = []
-  for (let index = 0; index < localStorage.length; index += 1) {
-    const key = localStorage.key(index)
-    if (key?.startsWith('fp.')) keys.push(key)
-  }
-  // 先删目标中不存在的项，给正常写入和失败回退留出可用空间。
-  for (const key of keys) if (!own(local, key)) localStorage.removeItem(key)
-  for (const [key, value] of Object.entries(local)) localStorage.setItem(key, value)
-}
-
-function replaceOperations(data: DataSnapshot): DbOperation[] {
-  return [
-    {store: 'kv', type: 'clear'}, {store: 'convs', type: 'clear'}, {store: 'turns', type: 'clear'},
-    ...data.kv.map(value => ({store: 'kv' as const, type: 'put' as const, value})),
-    ...data.convs.map(value => ({store: 'convs' as const, type: 'put' as const, value})),
-    ...data.turns.map(value => ({store: 'turns' as const, type: 'put' as const, value})),
-  ]
-}
-
-async function saveBarrier(): Promise<void> {
-  await Promise.all([flushData(), flushChat()])
-  await retryPersistence()
-  assertPersistenceHealthy()
-}
-
-function checkRestorePoint(raw: unknown): RestorePoint {
-  if (!object(raw) || raw.k !== RECOVERY_KEY || raw.version !== 1 || !object(raw.before) || !object(raw.before.local) || !object(raw.before.data)) invalid('恢复日志损坏，已停止启动，请保留本机数据。')
-  const before = raw.before
-  const data = before.data as Record<string, unknown>
-  // 日志保留的是替换前原样数据，可能含坏配置或旧孤立轮次。
-  // 不能套用导入文件的领域校验，否则会拒绝恢复唯一的旧状态。
-  const local: LocalSnapshot = Object.create(null)
-  for (const [key, value] of Object.entries(before.local as Record<string, unknown>)) {
-    if (!key.startsWith('fp.') || typeof value !== 'string') invalid('恢复日志中的配置无效，已停止启动。')
-    local[key] = value
-  }
-  for (const store of ['kv', 'convs', 'turns'] as const) {
-    const rows = data[store]
-    if (!Array.isArray(rows)) invalid('恢复日志中的数据表无效，已停止启动。')
-    const seen = new Set<string>()
-    for (const row of rows) {
-      const key = store === 'kv' ? 'k' : 'id'
-      if (!object(row) || !id(row[key]) || seen.has(row[key])) invalid('恢复日志中的记录无效，已停止启动。')
-      seen.add(row[key])
-    }
-  }
-  return {k: RECOVERY_KEY, version: 1, before: {local, data: data as DataSnapshot}}
-}
-
-async function withRestoreLock<T>(work: () => Promise<T>): Promise<T> {
-  if (typeof navigator === 'undefined' || !navigator.locks) throw new Error('此浏览器不支持安全恢复锁，请使用支持 Web Locks 的浏览器恢复数据。')
-  return await navigator.locks.request('dada-storage-restore', {mode: 'exclusive'}, work)
-}
-
-async function rollback(point: RestorePoint): Promise<void> {
-  // 日志最后删除。任一阶段失败，下一次启动仍可重试同一份旧快照。
-  await db.batch(replaceOperations(point.before.data))
-  replaceLocal(point.before.local)
-  await db.del('recovery', RECOVERY_KEY)
-  clearPersistenceError('backup-restore')
-}
-
-/** 启动在业务初始化前检查恢复日志；有未完成替换就回到替换前的快照。 */
-export async function recoverStorage(): Promise<void> {
-  if (!await openDb()) return
-  if ((typeof navigator === 'undefined' || !navigator.locks) && await db.get('recovery', RECOVERY_KEY) === undefined) return
-  // 活跃替换持有同源锁；新标签页等待它结束后再判断是否真的中断。
-  await withRestoreLock(async () => {
-    const raw = await db.get<unknown>('recovery', RECOVERY_KEY)
-    if (raw === undefined) {clearPersistenceError('backup-restore'); return}
-    await withPersistenceExclusive(async () => {
-      try {await rollback(checkRestorePoint(raw))} catch (error) {
-        reportPersistenceError('backup-restore', error)
-        throw error
-      }
-    }, {recovering: true})
-  })
-}
-
 /** 先处理上次未完成恢复，再初始化业务数据；失败交给宿主展示和重试。 */
 export async function initStorage(): Promise<void> {
   await recoverStorage()
@@ -235,25 +143,8 @@ export function parseBackup(text: string): {dump: Record<string, unknown>; summa
 
 async function replaceStorage(target: ValidBackup): Promise<void> {
   await waitForSyncIdle()
-  await withRestoreLock(() => withPersistenceExclusive(async () => {
-    await saveBarrier()
-    // 先检查旧恢复日志，绝不以新恢复点覆盖唯一的旧恢复信息。
-    const previous = await db.get<unknown>('recovery', RECOVERY_KEY)
-    if (previous !== undefined) throw new Error('还有未完成的数据恢复，请刷新页面先完成恢复。')
-    const point: RestorePoint = {k: RECOVERY_KEY, version: 1, before: {local: readLocal(), data: await db.snapshot() as DataSnapshot}}
-    await db.batch([{store: 'recovery', type: 'put', value: point}, ...replaceOperations(target.data)])
-    try {
-      replaceLocal(target.local)
-      await db.del('recovery', RECOVERY_KEY)
-    } catch (error) {
-      try {await rollback(point)} catch (rollbackError) {
-        reportPersistenceError('backup-restore', rollbackError)
-        throw new Error('导入没有完成，原数据的恢复日志已保留。请刷新页面重试恢复，暂勿继续编辑。', {cause: error})
-      }
-      throw error
-    }
-    location.reload()
-  }))
+  await commitStorage({local: target.local, operations: replaceOperations(target.data), replace: true})
+  location.reload()
 }
 
 /** 整体替换，而不是合并；再次校验直接调用的输入，清库前无副作用。 */

@@ -51,8 +51,11 @@ function harness() {
       reportPersistenceError(s,e){errors.set(s,e)},clearPersistenceError(s){errors.delete(s)},
     },
   }
+  const commitModule={exports:{}}
+  vm.runInNewContext(ts.transpileModule(readFileSync(new URL('../src/lib/storageCommit.ts', import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{module:commitModule,exports:commitModule.exports,require:id=>mocks[id]??{},localStorage:storage,navigator,TextEncoder,structuredClone,console})
+  mocks['./storageCommit']=commitModule.exports
   vm.runInNewContext(source,{module,exports:module.exports,require:id=>mocks[id]??{},localStorage:storage,navigator,location:{reload(){reloads++}},TextEncoder,structuredClone,console},{filename:'storage.ts'})
-  return {api:module.exports,ls,tables,log,failures,navigator,get reloads(){return reloads},get exclusive(){return exclusive},errors,setFlushData(fn){flushData=fn},setFlushChat(fn){flushChat=fn},setRetry(fn){retry=fn}}
+  return {api:module.exports,commit:commitModule.exports,ls,tables,log,failures,navigator,get reloads(){return reloads},get exclusive(){return exclusive},errors,setFlushData(fn){flushData=fn},setFlushChat(fn){flushChat=fn},setRetry(fn){retry=fn}}
 }
 let passed=0
 async function test(name,run){await run();passed++;console.log(`通过：${name}`)}
@@ -199,5 +202,20 @@ await test('缺少同源安全锁时可普通启动，但恢复拒绝且原数�
   await h.api.initStorage()
   await assert.rejects(()=>h.api.importBackup(makeBackup()),/Web Locks/)
   assert.equal(h.tables.kv.get('note').v,'原便签');assert.equal(h.reloads,0)
+})
+await test('仅配置提交的quota回退不读取或清空业务表',async()=>{
+  const h=harness();h.failures.set=true
+  await assert.rejects(()=>h.commit.commitStorage({local:{'fp.settings':'{"name":"远端"}'},operations:[]}),/quota/)
+  assert.equal(h.ls.get('fp.settings'),'{"name":"原配置"}')
+  assert.equal(h.tables.kv.get('note').v,'原便签');assert.equal(h.tables.recovery.size,0)
+  assert.equal(h.log.includes('snapshot'),false)
+})
+await test('仅配置中断日志重新启动只恢复配置，保留期间的业务表',async()=>{
+  const h=harness();h.ls.set('fp.settings','{"name":"中断"}')
+  h.tables.kv.set('new',{k:'new',v:'业务继续保留'})
+  h.tables.recovery.set('backup-restore',{k:'backup-restore',version:1,before:{local:{'fp.settings':'{"name":"原配置"}'},data:null}})
+  await h.api.recoverStorage()
+  assert.equal(h.ls.get('fp.settings'),'{"name":"原配置"}');assert.equal(h.tables.kv.get('new').v,'业务继续保留')
+  assert.equal(h.tables.recovery.size,0);assert.equal(h.log.includes('batch'),false)
 })
 console.log(`备份公开行为 ${passed} 项通过`)

@@ -48,6 +48,7 @@ export async function retryPersistence(): Promise<void> {
 
 /** 恢复期间阻止新的同步业务写入；排队 flush 不经过此门禁。 */
 export function assertPersistenceWritable() {
+  if (failures.has('sync-reload')) throw new Error('已拉取新的数据，请重新加载后继续编辑。')
   if (failures.has('backup-restore')) throw new Error('数据恢复尚未完成，请重新加载后继续。')
   if (exclusive) throw new Error('正在恢复数据，请完成后再编辑。')
 }

@@ -15,7 +15,7 @@ function harness({all = async () => [], flush = async () => {}, fetch = async ()
   const dependencies = {
     react: {useSyncExternalStore: (_, get) => get()},
     './chat': {flush}, './componentData': {flush, dropPendingData() {}},
-    './db': {db: {all}, openDb: async () => ({})}, './rss': {proxied: url => url},
+    './db': {db: {all, snapshot: async () => ({kv: await all('kv'), convs: await all('convs'), turns: await all('turns')})}, openDb: async () => ({})}, './rss': {proxied: url => url},
   }
   function load(file) {
     if (modules.has(file)) return modules.get(file)
@@ -38,10 +38,10 @@ async function test(name, run) {await run();passed++;console.log('通过：' + n
 await test('数据库读取失败不生成删除、不改meta、不请求远端', async () => {
   const h = harness({all: async () => {throw new Error('模拟事务读取失败')}})
   const meta = JSON.stringify({mode: 0, recs: {'turn:existing': {h: 'old', t: 1}}})
-  h.storage.setItem('fp.sync.meta', meta)
+  h.storage.setItem('fp.sync.meta.v2', meta)
   await assert.rejects(h.sync.runSync(), /读取失败/)
   assert.equal(h.requests, 0)
-  assert.equal(h.storage.getItem('fp.sync.meta'), meta)
+  assert.equal(h.storage.getItem('fp.sync.meta.v2'), meta)
 })
 await test('待写失败中止同步，避免内存与磁盘不一致被上传', async () => {
   const h = harness({flush: async () => {throw new Error('模拟保存未完成')}})
