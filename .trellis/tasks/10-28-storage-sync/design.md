@@ -12,7 +12,7 @@
 
 SQLite 存于服务所在机器的本地持久卷，由 HTTP 服务访问；不把 SQLite 文件放进 Gist/WebDAV 让多设备直接修改。其适用范围与来源见研究文档。
 
-仓库归属建议为 `tulai-design/sync` 独立组织仓库，服务、协议与SDK同仓；两个产品各自拥有本地适配器。当前仍是提案，具体职责和版本边界见[ADR 0004](../../../docs/decisions/0004-shared-sync-repository.md)，没有创建远端仓库或实现服务。
+仓库归属已采用 `tulai-design/sync` 独立组织仓库，服务、协议与SDK同仓；两个产品各自拥有本地适配器。用户已授权 gh 创建，具体职责和版本边界见[ADR 0004](../../../docs/decisions/0004-shared-sync-repository.md)；初始化状态见增量同步子任务，服务实现尚未交付。
 
 ## 先修可靠性
 

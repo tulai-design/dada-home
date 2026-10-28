@@ -5,4 +5,4 @@
 - [0001：受控能力目录](0001-curated-ai-capabilities.md)：为什么 AI 使用宿主能力，而不是任意引入整套 UI/特效库。
 - [0002：统一任务与文档归属](0002-workflow-ownership.md)：Matt 方法与 Trellis 如何共用一套任务状态。
 - [0003：首页草稿隔离](0003-homepage-draft-isolation.md)：为何布局预览不启动第二份业务实例，应用只提交首页布局。
-- [0004：共用同步服务独立仓库](0004-shared-sync-repository.md)（提案）：服务/协议/SDK同仓，搭搭和aifenjing各自接入，发布与部署独立。
+- [0004：共用同步服务独立仓库](0004-shared-sync-repository.md)：服务/协议/SDK同仓，搭搭和aifenjing各自接入，发布与部署独立。

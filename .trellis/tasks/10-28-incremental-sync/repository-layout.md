@@ -1,17 +1,17 @@
 # 共用同步服务仓库与接入计划
 
-日期：2026-10-28。状态：planning；本文件确定建议的归属与实施顺序，不代替尚未完成的协议design，也不宣称服务或SDK已实现。对应[架构提案](../../../docs/decisions/0004-shared-sync-repository.md)。
+日期：2026-10-28。状态：planning；仓库归属已落实，本文件记录职责与后续实施顺序，不代替尚未完成的协议design，也不宣称服务或SDK已实现。对应[架构决策](../../../docs/decisions/0004-shared-sync-repository.md)。
 
 ## 本轮范围
 
 问题是共用服务代码放在哪里、与两个产品怎样协作。当前两端没有接入可部署的共同增量服务。服务必须能够独立测试和发布，产品继续拥有本地数据和业务规则。
 
-本轮只读核对组织仓库和aifenjing关键端口，写仓库归属、发布边界与实施拆分；不修改产品运行时代码、不创建远端仓库或发布依赖。GitHub仓库名建议`tulai-design/sync`，本地目录建议`/Users/xiaomengdao/WebstormProjects/tulai-sync`；名称和可见性是待定的仓库创建信息。
+用户授权用 gh 后，已创建 [tulai-design/sync](https://github.com/tulai-design/sync) 私有仓库，本地目录 `/Users/xiaomengdao/WebstormProjects/tulai-sync`，默认开发分支 main。初始化内容为README、AGENTS、忽略规则和架构说明，服务自身的Trellis与协议设计在开始实现前建立；当前没有运行时代码、SDK包、镜像或部署。初始文档提交 `40b7799` 已推送到服务仓库 `main`，远端创建和提交均经 gh/Git 确认。
 
 ## 仓库结构建议
 
 ```text
-tulai-design/sync                  # 拟建独立仓库
+tulai-design/sync                  # 已建独立仓库；下列模块布局待实现
   apps/server/                    # 服务、持久化和管理命令
   packages/protocol/              # 协议类型、输入校验、错误与能力声明
   packages/client/                # 无产品依赖的轻量传输SDK
@@ -48,13 +48,13 @@ tulai-design/momoki               # 本地目录 aifenjing
 - aifenjing `packages/studio/src/platform/product/store.ts`在启动选择本地owner；同步应用应通过其业务事务，而非服务直接操作Dexie/SQLite文件。
 - aifenjing `packages/studio/src/app/workflows/syncProvider.ts`已有不可变对象、manifest/head CAS原则，但类型依赖该产品的CheckpointManifest/WorkspaceId；不能原样搬到通用SDK。
 - aifenjing `packages/studio/src/app/workflows/checkpoint.ts`仍是`momoki.protocol-fixture.v1`、partial project/media投影；`.trellis/spec/frontend/checkpoint-protocol.md`明确缺少完整生产codec、真实鉴权和native落盘验收。本轮只读复核，不声称已经具备完整同步产品。
-- GitHub CLI本次列出的组织仓库有`dada-home`、`momoki`、`ai-platform`等，未见`sync`；远端状态仅代表本次读取。
+- GitHub CLI创建前核对组织已有`dada-home`、`momoki`、`ai-platform`等，确认无`sync`后按用户授权创建私有仓库；本轮没有改动其他仓库的可见性或发布配置。
 
 上述入口的详细研究见[跨项目存储与服务研究](../10-28-storage-sync/research/shared-service.md)。其中旧兼容/迁移建议已被用户后续“无需旧实例兼容”的授权取代，不在新服务引入旧协议桥。
 
 ## 可验证的实施顺序
 
-1. **协议与服务仓库基线**：确定仓库创建信息，建立独立文档/Trellis与最小模块；补齐服务协议design、运行时/数据库驱动依据、批次及对象预算、鉴权初始化和错误码。先让两个合成应用经真实HTTP写入/读回并证明隔离。
+1. **协议与服务仓库基线**：仓库和初始文档已建立；接下来建立服务自身Trellis与最小模块，补齐服务协议design、运行时/数据库驱动依据、批次及对象预算、鉴权初始化和错误码。先让两个合成应用经真实HTTP写入/读回并证明隔离。
 2. **可靠增量纵向闭环**：持久化版本/去重回执/变更日志、分页引导、引用发布、设备撤销；模拟丢响应、重启、并发更新、删除/修改冲突，证明原子性与可恢复性。
 3. **搭搭客户端接入**：本地写入/outbox一致、入站事务/cursor、离线重试、服务配置与冲突入口；沿用完整配置/应用/聊天投影，拆大工具正文，不把UI加载范围当数据范围。完成两个隔离浏览器实测新增一轮的请求/字节。
 4. **发布与部署验收**：固定SDK/镜像版本，持久卷备份恢复、客户端加密/轮换、同机编排及独立域名场景，确认代理与PWA缓存边界。此阶段验收不等于未经授权实际发布或部署。
