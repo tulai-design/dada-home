@@ -37,4 +37,4 @@
 
 应用存储验收：核心14项、App6项、Applet10项、备份17项，真实应用12项、存储24项、同步12项通过；全量test、类型和build通过，Standards/Spec最终PASS。见[应用存储验收](../../../.trellis/tasks/archive/2026-10/10-28-application-storage/verification.md)。
 
-聊天历史验收：真实 1000 会话/单会话 10000 轮，启动返回对象从 29686140 降为 14791 JSON UTF-8 字节，零工具正文预读；未裁剪历史。聊天核心20项、真实聊天10项、存储24项、同步13项通过；全量test、类型、build和双轴审查通过。见[聊天验收](../../../.trellis/tasks/10-28-chat-history-storage/verification.md)。
+聊天历史验收：真实 1000 会话/单会话 10000 轮，启动返回对象从 29686140 降为 14791 JSON UTF-8 字节，零工具正文预读；未裁剪历史。聊天核心20项、真实聊天10项、存储24项、同步13项通过；全量test、类型、build和双轴审查通过。见[聊天验收](../../../.trellis/tasks/archive/2026-10/10-28-chat-history-storage/verification.md)。

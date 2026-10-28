@@ -7,7 +7,7 @@
 | 1 | [storage-durability](../archive/2026-10/10-28-storage-durability/prd.md) | 已交付：保存失败可见并可重试、并发不回退、备份完整可恢复 | 无 |
 | 2 | [sync-v1-hardening](../archive/2026-10/10-28-sync-v1-hardening/prd.md) | 已交付：严格新快照、Gist配置范围、策略重写、并发/失败提示 | 1 |
 | 3 | [application-storage](../archive/2026-10/10-28-application-storage/prd.md) | 已交付：AI 应用统一 IndexedDB、8 MiB UTF-8预算、提交确认与新备份/同步身份一致 | 1、2 |
-| 4 | [chat-history-storage](../10-28-chat-history-storage/prd.md) | 已交付：40轮/50会话索引分页、工具正文按需读取、独立模型上下文、完整备份与同步 | 1；可与 2/3 独立推进 |
+| 4 | [chat-history-storage](../archive/2026-10/10-28-chat-history-storage/prd.md) | 已交付：40轮/50会话索引分页、工具正文按需读取、独立模型上下文、完整备份与同步 | 1；可与 2/3 独立推进 |
 | 5 | [incremental-sync](../10-28-incremental-sync/prd.md) | 可选服务+客户端两设备增量闭环，离线/冲突可恢复 | 2、3、4 |
 | 6 | [storage-management](../10-28-storage-management/prd.md) | 容量、同步范围、清理/导出和迁移状态可管理 | 3、4、5 |
 

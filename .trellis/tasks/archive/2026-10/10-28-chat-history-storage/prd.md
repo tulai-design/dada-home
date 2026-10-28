@@ -1,6 +1,6 @@
 # 聊天历史按需加载与大内容分离
 
-状态：已验收；接口与边界见 design.md，实施步骤见 implement.md，证据见 [verification.md](verification.md)。父任务：[存储与同步](../10-28-storage-sync/prd.md)。
+状态：已验收；接口与边界见 design.md，实施步骤见 implement.md，证据见 [verification.md](verification.md)。父任务：[存储与同步](../../../10-28-storage-sync/prd.md)。
 
 ## 目标
 
@@ -28,4 +28,4 @@
 
 ## 依据
 
-[chat-growth](../10-28-storage-sync/research/chat-growth.md)、[local-storage](../10-28-storage-sync/research/local-storage.md)、[sync](../10-28-storage-sync/research/sync.md)。具体依赖见 task.json.meta.blocked_by。
+[chat-growth](../../../10-28-storage-sync/research/chat-growth.md)、[local-storage](../../../10-28-storage-sync/research/local-storage.md)、[sync](../../../10-28-storage-sync/research/sync.md)。具体依赖见 task.json.meta.blocked_by。
