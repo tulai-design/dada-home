@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 16
+- **Total Sessions**: 17
 - **Last Active**: 2026-10-28
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~582 | Active |
+| `journal-1.md` | ~612 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 17 | 2026-10-28 | 应用业务数据加密增量同步接入 | `3d87afd` | `main` |
 | 16 | 2026-10-28 | 使用gh创建Tulai Sync独立仓库 | `2db028c` | `main` |
 | 15 | 2026-10-28 | 共用同步服务仓库归属与接入提案 | `eab3cf4` | `main` |
 | 14 | 2026-10-28 | 长期聊天分页与工具正文按需加载 | `9cd67ef` | `main` |

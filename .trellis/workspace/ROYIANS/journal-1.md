@@ -580,3 +580,33 @@
 
 - 在服务仓库建立Trellis及具体协议设计，再实现最小HTTP增量闭环；本仓增量服务任务仍planning。
 - 仅服务仓库初始提交已推送，搭搭本轮文档保持本地提交；没有发布镜像或部署。
+
+
+## Session 17: 应用业务数据加密增量同步接入
+<!-- trellis-session: v=2 fp=fae45c4ec7d6fd46 -->
+
+**Date**: 2026-10-28
+**Task**: 应用业务数据加密增量同步接入
+**Branch**: `main`
+
+### Summary
+
+完成真实apps持久队列、加密对象、冲突双方与双版本选择、原子入站游标及恢复保护。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `3d87afd` | feat: 接入应用业务数据加密增量同步 |
+
+### Testing
+
+- [OK] 完整test、tsc、build通过；新增23项同步测试、真实浏览器10组通过；Docker daemon不可用未构建镜像。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 接入聊天增量数据，再补服务设置、设备和冲突界面；完整父任务保持进行中。
