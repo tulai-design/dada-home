@@ -1,5 +1,5 @@
 import {memo, useEffect, useLayoutEffect, useRef, useState} from 'react'
-import {ActionIcon, Button, Drawer, Empty, Flexbox, Markdown, Modal, Text} from '@lobehub/ui'
+import {ActionIcon, Button, CopyButton, Drawer, Empty, Flexbox, Markdown, Modal, Text} from '@lobehub/ui'
 import {ArrowDown, ClockCounterClockwise as History, ArrowsOut as Maximize2, Chat as MessageSquare, Columns, SidebarSimple, Plus, Gear as Settings, Square, Trash as Trash2, X} from '@phosphor-icons/react'
 import type {AiConfig} from '../lib/types'
 import type {AssistantMode} from '../lib/assistantLayout'
@@ -358,7 +358,10 @@ const TurnView = memo(function TurnView({turn, active, onApprovalAnswer}: {turn:
   return (
     <div className="turn" id={`turn-${turn.id}`}>
       {turn.article && <div className="turn-article">参考文章：{turn.article.title}</div>}
-      <p className="turn-ask">{turn.prompt}</p>
+      <div className="turn-ask-row">
+        <CopyButton className="turn-copy" content={turn.prompt} title="复制提问" size="small" />
+        <p className="turn-ask">{turn.prompt}</p>
+      </div>
 
       {turn.reasoning && (
         <ThinkingPanel
@@ -393,6 +396,16 @@ const TurnView = memo(function TurnView({turn, active, onApprovalAnswer}: {turn:
       {turn.error && <p className="turn-error">{turn.error}</p>}
 
       {turn.aborted && <Text className="turn-note" type="secondary">已停止</Text>}
+
+      {!active && turn.answer && (
+        <div className="turn-footer">
+          <CopyButton content={turn.answer} title="复制回答" size="small" />
+          <span className="turn-meta">
+            {new Date(turn.startedAt).toLocaleString()}
+            {seconds !== undefined && ` · 用时 ${seconds < 1000 ? '<1' : Math.round(seconds / 1000)} 秒`}
+          </span>
+        </div>
+      )}
     </div>
   )
 }, (prev, next) => prev.turn === next.turn && prev.active === next.active && (!next.active || prev.onApprovalAnswer === next.onApprovalAnswer)) // 流式输出时每个片段都会刷新列表；已结束的历史轮次引用不变，跳过重渲染和 Markdown 解析

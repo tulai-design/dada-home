@@ -3755,6 +3755,54 @@ kbd {
   overflow-wrap: anywhere;
 }
 
+.turn-ask-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 4px;
+  margin: 0 0 12px;
+}
+
+.turn-ask-row .turn-ask {
+  margin: 0;
+}
+
+.turn-copy {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.turn-ask-row:hover .turn-copy,
+.turn-copy:focus-visible {
+  opacity: 1;
+}
+
+.turn-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.turn-meta {
+  font-size: 12px;
+  color: var(--text3, var(--text2));
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.turn:hover .turn-meta,
+.turn-footer:focus-within .turn-meta {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .turn-copy,
+  .turn-meta {
+    opacity: 1;
+  }
+}
+
 .turn-answer {
   font-size: 14px;
   line-height: 1.72;
