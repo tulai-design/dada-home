@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 8
+- **Total Sessions**: 9
 - **Last Active**: 2026-10-28
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~295 | Active |
+| `journal-1.md` | ~330 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 9 | 2026-10-28 | Applet 数据管理与存储现状核对 | `9d02e42` | `main` |
 | 8 | 2026-10-28 | Applet 趋势图与真实应用闭环 | `f6d53a4` | `main` |
 | 7 | 2026-10-27 | 修复长页面底部遮挡与窄屏外壳布局 | `2f78a16` | `main` |
 | 6 | 2026-10-27 | 首页组合与草稿预览应用 | `8aaa9bb` | `main` |

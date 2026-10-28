@@ -293,3 +293,38 @@
 ### Next Steps
 
 - 推进10-27-applet-data-table：筛选、排序、分页、选择与窄屏详情；之后执行父任务组合验收。
+
+
+## Session 9: Applet 数据管理与存储现状核对
+<!-- trellis-session: v=2 fp=c72d02d3ad79b169 -->
+
+**Date**: 2026-10-28
+**Task**: Applet 数据管理与存储现状核对
+**Branch**: `main`
+
+### Summary
+
+交付受控DataTable及共享开销记录示例，完成真实App与多尺寸主题回归；修复同内容回声阻挡外部状态、特殊ID详情及选择框视觉。核实AI应用仍用localStorage，记录后续IndexedDB改造。
+
+### Main Changes
+
+- 搜索隐藏字段、稳定单列排序、分页、跨页ID选择和完整窄屏详情；复用Lobe，不新增依赖。
+- 业务records/nextId持久化，临时视图分离，AI目录/规范与可执行示例同源。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `9d02e42` | feat: 为 Applet 添加受控数据管理与窄屏详情 |
+
+### Testing
+
+- [OK] 完整test/tsc/build通过，协议11/11与SSR7/7；四宽双主题、280/360/600容器、真实App闭环及合并回声新增回归通过；双轴审查未解决0。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 完成父任务首页草稿/检查器/特效/新数据积木组合验收。随后独立设计AI应用IndexedDB接入、旧数据迁移、失败反馈、备份兼容与容量策略。

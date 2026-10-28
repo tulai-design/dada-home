@@ -5,5 +5,5 @@
 {"file": ".trellis/spec/frontend/hook-guidelines.md", "reason": "回声与生命周期"}
 {"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "行为与浏览器验证"}
 {"file": "docs/design-system.md", "reason": "AI运行时设计规范"}
-{"file": ".trellis/tasks/10-27-applet-data-table/research/implementation.md", "reason": "版本与选型证据"}
+{"file": ".trellis/tasks/archive/2026-10/10-27-applet-data-table/research/implementation.md", "reason": "版本与选型证据"}
 {"file": ".trellis/spec/frontend/applet-data-table.md", "reason": "受控表格状态与真实容器合同"}

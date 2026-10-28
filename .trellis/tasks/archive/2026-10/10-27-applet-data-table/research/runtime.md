@@ -79,7 +79,7 @@ UI展示用有效页码夹到`1..max(1,pageCount)`，但不修改记录、不在
 
 ## Related Specs
 
-- 当前PRD：`.trellis/tasks/10-27-applet-data-table/prd.md`。
+- 当前PRD：`.trellis/tasks/archive/2026-10/10-27-applet-data-table/prd.md`。
 - `.trellis/spec/ai/tools-and-apps.md`：目录和宿主必须贯通，保留沙盒与形态边界。
 - `.trellis/spec/frontend/type-safety.md`：unknown运行时验证。
 - `.trellis/spec/frontend/state-management.md`：业务数据、应用设置、工作空间分离。
