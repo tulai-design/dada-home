@@ -154,7 +154,7 @@ docker build -t dada-home .
 docker run -d --name dada-home -p 8080:80 dada-home
 ```
 
-Coolify 部署使用 [docker-compose.coolify.yml](docker-compose.coolify.yml)，在服务上配置域名与 HTTPS。镜像内由 Nginx 托管静态页面，Node 提供同源取数代理，`/healthz` 同时验证代理进程；任一进程退出都会结束容器，交给部署平台重启。GitHub Actions 已配置类型检查、前端构建、代理回归测试、容器冒烟测试，以及向 GHCR 发布 amd64 / arm64 镜像的工作流。
+Coolify 部署使用 [docker-compose.coolify.yml](docker-compose.coolify.yml)，其中包含 `web`（搭搭）和 `sync`（自建增量同步服务，不用可删），两个服务各绑定一个域名并自动 HTTPS；`sync` 必填 `TULAI_SYNC_ADMIN_TOKEN` 和 `DADA_ORIGIN`。镜像内由 Nginx 托管静态页面，Node 提供同源取数代理，`/healthz` 同时验证代理进程；任一进程退出都会结束容器，交给部署平台重启。GitHub Actions 已配置类型检查、前端构建、代理回归测试、容器冒烟测试，以及向 GHCR 发布 amd64 / arm64 镜像的工作流。
 
 容器可通过 `UMAMI_WEBSITE_ID`、`UMAMI_SRC`、`UMAMI_DOMAINS` 配置可选的 Umami 访问统计；未设置网站 ID 时不加载统计脚本，用户也可以在设置中关闭统计。
 
