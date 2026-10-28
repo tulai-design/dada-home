@@ -2,7 +2,7 @@
 
 状态：planning；行为范围已拆分，激活前补具体 design/implement。父任务：[存储与同步](../10-28-storage-sync/prd.md)。
 
-2026-10-28 用户授权使用 gh 后，已创建私有仓库 [tulai-design/sync](https://github.com/tulai-design/sync)，本地目录 `/Users/xiaomengdao/WebstormProjects/tulai-sync`；服务/协议/轻量SDK同仓，两个产品各自保留适配器。职责、源码核对与接入顺序见 [repository-layout.md](repository-layout.md)。后续已在服务仓库完成首个HTTP记录闭环与39项测试；对象/加密/SDK/部署和本仓产品接入尚未完成，不把合成投影验证当成产品已接入。
+2026-10-28 用户授权使用 gh 后，已创建私有仓库 [tulai-design/sync](https://github.com/tulai-design/sync)，本地目录 `/Users/xiaomengdao/WebstormProjects/tulai-sync`；服务/协议/轻量SDK同仓，两个产品各自保留适配器。职责、源码核对与接入顺序见 [repository-layout.md](repository-layout.md)。后续已在服务仓库完成记录、分块对象与可撤销配对设备，76项真实存储/HTTP/进程测试通过；加密/SDK/部署和本仓产品接入尚未完成，不把合成投影验证当成产品已接入。
 
 ## 目标
 
