@@ -1,6 +1,6 @@
 # 可靠本地写入与可恢复备份
 
-状态：completed；实现、双轴审查与质量门禁已通过，见 verification.md。父任务：[存储与同步](../10-28-storage-sync/prd.md)。
+状态：completed；实现、双轴审查与质量门禁已通过，见 verification.md。父任务：[存储与同步](../../../10-28-storage-sync/prd.md)。
 
 ## 目标
 
@@ -29,4 +29,4 @@
 
 ## 依据
 
-[local-storage](../10-28-storage-sync/research/local-storage.md)、[chat-growth](../10-28-storage-sync/research/chat-growth.md)、[sync](../10-28-storage-sync/research/sync.md)。具体依赖见 task.json.meta.blocked_by。
+[local-storage](../../../10-28-storage-sync/research/local-storage.md)、[chat-growth](../../../10-28-storage-sync/research/chat-growth.md)、[sync](../../../10-28-storage-sync/research/sync.md)。具体依赖见 task.json.meta.blocked_by。

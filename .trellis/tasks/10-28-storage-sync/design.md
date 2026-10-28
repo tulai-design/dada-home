@@ -12,7 +12,7 @@ SQLite 存于服务所在机器的本地持久卷，由 HTTP 服务访问；不�
 
 ## 先修可靠性
 
-本节缺陷描述对应基线 `7991440`，已由 [storage-durability](../10-28-storage-durability/verification.md) 修复并验收；保留设计依据，现状以运行时契约为准。其余章节仍是后续设计。
+本节缺陷描述对应基线 `7991440`，已由 [storage-durability](../archive/2026-10/10-28-storage-durability/verification.md) 修复并验收；保留设计依据，现状以运行时契约为准。其余章节仍是后续设计。
 
 `src/lib/db.ts` 当前读写失败返回 fallback，调用者无法区分空表和读取失败。新边界必须区分成功、不可用、读写失败，并携带可用于中文提示的原因。显式的无 IndexedDB 回落模式与已存在数据库发生错误是不同状态。
 
