@@ -610,3 +610,39 @@
 ### Next Steps
 
 - 接入聊天增量数据，再补服务设置、设备和冲突界面；完整父任务保持进行中。
+
+
+## Session 18: 完整加密同步与重复同步崩溃修复
+<!-- trellis-session: v=2 fp=4eab2e5914f1a33f -->
+
+**Date**: 2026-10-28
+**Task**: 完整加密同步与重复同步崩溃修复
+**Branch**: `main`
+
+### Summary
+
+默认完整加密同步业务凭据与端点；修复多页刷新门禁、tavily读取和统计偏好恢复，真实双设备63条记录及二次空同步通过。
+
+### Main Changes
+
+- 保留用户搜索配置补丁，统一unknown规整并覆盖设置首页与工具入口。
+- 完整配置/组件/应用值保留业务密钥，权限和设备身份仍本机。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `0e35a08` | fix: 完整加密同步业务配置并修复多页拉取与搜索崩溃 |
+
+### Testing
+
+- [OK] 全量test、tsc、build、diff检查和Standards/Spec审查通过。
+- [OK] 真实双origin/HTTP/IndexedDB六组通过，未触碰真实数据。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 用户更新前端后验收真实设备同步；本轮未推送或部署。
