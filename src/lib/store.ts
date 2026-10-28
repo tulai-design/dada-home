@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import {assertPersistenceWritable, clearPersistenceError, reportPersistenceError} from './persistence'
 
 type Listener = () => void
 
@@ -9,29 +10,48 @@ function notify(key: string) {
   listeners.get(key)?.forEach((fn) => fn())
 }
 
+function readUncached<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(`fp.${key}`)
+    const parsed = raw ? JSON.parse(raw) as T : fallback
+    clearPersistenceError(`settings-read:${key}`)
+    return parsed
+  } catch (error) {
+    reportPersistenceError(`settings-read:${key}`, error, error instanceof SyntaxError ? undefined : () => {
+      // 实际重读权限；缓存中的未保存编辑不能被磁盘旧值覆盖。
+      const value = readUncached(key, fallback)
+      if (!memory.has(key)) memory.set(key, value)
+      notify(key)
+    }, !(error instanceof SyntaxError))
+    throw error
+  }
+}
+
 export function readStored<T>(key: string, fallback: T): T {
   if (memory.has(key)) return memory.get(key) as T
   try {
-    const raw = localStorage.getItem(`fp.${key}`)
-    if (raw) {
-      const parsed = JSON.parse(raw) as T
-      memory.set(key, parsed)
-      return parsed
-    }
-  } catch {
-    /* 存储不可用时静默回落到默认值 */
+    const value = readUncached(key, fallback)
+    memory.set(key, value)
+    return value
+  } catch {return fallback}
+}
+
+function persistStored(key: string) {
+  const source = `settings:${key}`
+  try {
+    localStorage.setItem(`fp.${key}`, JSON.stringify(memory.get(key)))
+    clearPersistenceError(source)
+    clearPersistenceError(`settings-read:${key}`)
+  } catch (error) {
+    reportPersistenceError(source, error, () => persistStored(key))
+    throw error
   }
-  memory.set(key, fallback)
-  return fallback
 }
 
 export function writeStored<T>(key: string, value: T) {
+  assertPersistenceWritable()
   memory.set(key, value)
-  try {
-    localStorage.setItem(`fp.${key}`, JSON.stringify(value))
-  } catch {
-    /* 无痕模式或超额，只在内存里保留 */
-  }
+  try {persistStored(key)} catch { /* 错误已登记，保留当前编辑值供用户重试。 */ }
   notify(key)
 }
 

@@ -3,6 +3,7 @@ import {flush as flushChat} from './chat'
 import {flush as flushData, dropPendingData} from './componentData'
 import {db, openDb} from './db'
 import {proxied} from './rss'
+import {assertPersistenceHealthy, assertPersistenceWritable, retryPersistence} from './persistence'
 
 /**
  * 跨设备同步。纯前端：把数据整份放到用户自己的存储里（WebDAV / GitHub Gist / 自建 HTTP），
@@ -399,6 +400,11 @@ export type SyncMode = 'full' | 'push'
 
 let running: Promise<SyncResult> | null = null
 
+/** 恢复本机数据前，等待已经开始的同步结束；未开始的新同步由保存门禁阻止。 */
+export async function waitForSyncIdle(): Promise<void> {
+  if (running) await running.catch(() => undefined)
+}
+
 /**
  * 同步一次。
  * full：拉、合并、写回本机、推。写回本机之后需要刷新页面才生效，所以只在启动、手动、页面在后台时用。
@@ -417,7 +423,10 @@ async function doSync(mode: SyncMode, attempt: number): Promise<SyncResult> {
   if (problem) throw new Error(problem)
   setStatus({phase: 'syncing', at: status.at})
   try {
+    assertPersistenceWritable()
+    await retryPersistence()
     await Promise.all([flushData(), flushChat()])
+    assertPersistenceHealthy()
     const now = Date.now()
     const withSecrets = config.secrets
     const local = await collectLocal(withSecrets)
@@ -476,6 +485,7 @@ async function doSync(mode: SyncMode, attempt: number): Promise<SyncResult> {
     // 4) 写回本机（页面正开着时不写）
     let pulled = 0
     if (mode === 'full' && toApply.length) {
+      assertPersistenceWritable()
       dropPendingData()
       for (const [id, rec] of toApply) {
         await applyOne(id, rec, local.get(id)?.full, withSecrets)
@@ -489,6 +499,7 @@ async function doSync(mode: SyncMode, attempt: number): Promise<SyncResult> {
 
     // 5) 推送
     if (pushed || text === null) {
+      assertPersistenceWritable()
       const cutoff = now - TOMBSTONE_DAYS * 86_400_000
       for (const [id, rec] of Object.entries(out)) if (rec.d && rec.t < cutoff) delete out[id]
       const body = JSON.stringify({app: 'dada', v: 1, at: now, device: config.device, recs: out})

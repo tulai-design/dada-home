@@ -1,4 +1,5 @@
 import {useCallback, useSyncExternalStore} from 'react'
+import {assertPersistenceWritable, clearPersistenceError, reportPersistenceError} from './persistence'
 import {defaultWorkspace} from './ops'
 import {getDefinition, normalizeConfig} from './registry'
 import {DEFAULT_THEME, DEFAULT_THEME_ID, FROZEN_PAGE_ID, MAX_STATUS_ITEMS, MAX_TEMPLATES, WORKSPACE_VERSION, type StatusItem, type TemplateEntry, type ThemeEntry, type ThemeConfig, type CustomWidget, type Layer, type Page, type Wallpaper, type Workspace} from './workspace'
@@ -246,15 +247,24 @@ function readWallpaper(raw: unknown): Wallpaper | undefined {
   return undefined
 }
 
-function load(): Workspace {
+function load(rethrow = false, failedAt = stamp): Workspace {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
       const migrated = migrate(JSON.parse(raw))
-      if (migrated) return migrated
+      if (migrated) {
+        clearPersistenceError('workspace-read')
+        return migrated
+      }
     }
-  } catch {
-    /* 存储损坏时回落到默认 */
+    clearPersistenceError('workspace-read')
+  } catch (error) {
+    reportPersistenceError('workspace-read', error, error instanceof SyntaxError ? undefined : () => {
+      // 绕过 current 缓存重读；有后续编辑时保留当前值，让保存重试写最新快照。
+      const loaded = load(true, failedAt)
+      if (stamp === failedAt) {current = loaded; emit()}
+    }, !(error instanceof SyntaxError))
+    if (rethrow) throw error
   }
   return defaultWorkspace()
 }
@@ -262,8 +272,15 @@ function load(): Workspace {
 function persist(workspace: Workspace) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(workspace))
-  } catch {
-    /* 无痕模式或超额，只在内存里保留 */
+    clearPersistenceError('workspace')
+    clearPersistenceError('workspace-read')
+  } catch (error) {
+    reportPersistenceError('workspace', error, () => {
+      // 重试时读取当前状态，不能把失败时的旧快照写回。
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(getWorkspace()))
+      clearPersistenceError('workspace')
+      clearPersistenceError('workspace-read')
+    })
   }
 }
 
@@ -274,6 +291,7 @@ export function getWorkspace(): Workspace {
 
 /** 提交一个新的工作空间；进入撤销栈。 */
 export function commit(next: Workspace) {
+  assertPersistenceWritable()
   const prev = getWorkspace()
   if (next === prev) return
   past = [...past.slice(-(HISTORY_LIMIT - 1)), prev]
@@ -289,6 +307,7 @@ export function replaceWorkspace(next: Workspace) {
 }
 
 export function undo(): boolean {
+  assertPersistenceWritable()
   const prev = past[past.length - 1]
   if (!prev) return false
   future = [getWorkspace(), ...future]
@@ -300,6 +319,7 @@ export function undo(): boolean {
 }
 
 export function redo(): boolean {
+  assertPersistenceWritable()
   const next = future[0]
   if (!next) return false
   past = [...past, getWorkspace()]

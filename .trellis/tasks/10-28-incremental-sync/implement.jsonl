@@ -4,3 +4,4 @@
 {"file": ".trellis/tasks/10-28-storage-sync/research/sync.md", "reason": "增量与并发契约"}
 {"file": ".trellis/tasks/10-28-storage-sync/research/provider-limits.md", "reason": "服务端选型边界"}
 {"file": ".trellis/spec/backend/data-proxy.md", "reason": "保留取数代理与部署边界"}
+{"file": ".trellis/tasks/10-28-storage-sync/research/shared-service.md", "reason": "两项目存储与共用服务边界"}

@@ -11,7 +11,7 @@ import {useStored} from '../lib/store'
 import {SEARCH_KEY, defaultSearchConfig, providerInfo, searchReady, type SearchConfig} from '../lib/webSearch'
 import {Group, Row, TextRow, Tile} from './ios'
 import {SidebarSettings, StatusbarSettings} from './LayoutSettings'
-import {exportIdb, importBackup, parseBackup, type BackupSummary} from '../lib/storage'
+import {exportBackupSnapshot, importBackup, MAX_BACKUP_BYTES, parseBackup, type BackupSummary} from '../lib/storage'
 import {useIsMobile} from '../lib/useMedia'
 import {AiSettings} from './AiSettings'
 import {SyncSettings} from './SyncSettings'
@@ -51,16 +51,12 @@ type Props = {
   openRequest: number
   onSection: (id: string) => void
   onReset: () => void
+  generating?: boolean
 }
 
 async function exportBackup() {
-  const dump: Record<string, unknown> = {}
-  for (let i = 0; i < localStorage.length; i += 1) {
-    const key = localStorage.key(i)
-    if (key?.startsWith('fp.')) dump[key] = localStorage.getItem(key)
-  }
-  dump.indexedDB = await exportIdb()
-  const blob = new Blob([JSON.stringify(dump, null, 2)], {type: 'application/json'})
+  const dump = await exportBackupSnapshot()
+  const blob = new Blob([JSON.stringify(dump)], {type: 'application/json'})
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
   a.download = `dada-backup-${new Date().toISOString().slice(0, 10)}.json`
@@ -68,7 +64,7 @@ async function exportBackup() {
   URL.revokeObjectURL(a.href)
 }
 
-export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest, onSection, onReset}: Props) {
+export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest, onSection, onReset, generating = false}: Props) {
   const {settings, patch} = ctx
   const mobile = useIsMobile()
   const persona = usePersona()
@@ -84,10 +80,20 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest,
   const [pendingImport, setPendingImport] = useState<{dump: Record<string, unknown>; summary: BackupSummary; name: string} | null>(null)
   const [importError, setImportError] = useState('')
   const [importing, setImporting] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const runExport = async () => {
+    if (exporting) return
+    setExporting(true)
+    setImportError('')
+    try {await exportBackup()} catch (error) {
+      setImportError(error instanceof Error ? error.message : String(error))
+    } finally {setExporting(false)}
+  }
   const pickBackup = async (file: File | undefined) => {
     if (!file) return
     setImportError('')
     try {
+      if (file.size > MAX_BACKUP_BYTES) throw new Error('备份超过当前整包读取预算（256 MiB），请选择较小的备份。')
       const {dump, summary} = parseBackup(await file.text())
       setPendingImport({dump, summary, name: file.name})
     } catch (error) {
@@ -253,14 +259,17 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest,
       render: () => (
         <>
           <Group footer={importError ? <span style={{color: 'var(--lobe-color-error, #d4380d)'}}>{importError}</span> : '导出订阅、书签、待办、页面、对话和配置，密钥也在其中，请妥善保管。导入会用备份整体替换现在的数据。'}>
-            <Row label="导出备份" icon={<Download size={16} />} chevron onClick={exportBackup} />
+            <Row label={exporting ? '正在导出…' : '导出备份'} icon={<Download size={16} />} chevron onClick={() => void runExport()} />
             <Row label="导入备份" icon={<Upload size={16} />} chevron onClick={() => fileRef.current?.click()} />
           </Group>
           <Group footer="只把页面、侧栏、状态条和已装的组件恢复成初始状态；订阅、书签、待办、密钥和已存的模板都保留。">
             <Row label="恢复默认布局" icon={<LayoutTemplate size={16} />} onClick={() => ctx.edit((ws) => ({...defaultWorkspace(), theme: ws.theme, themes: ws.themes, templates: ws.templates, applications: listApplications(ws)}))} />
           </Group>
           <Group footer="会清掉订阅、书签、待办、页面、模板和密钥，回到初始状态。">
-            <Row label="恢复默认" icon={<RotateCcw size={16} />} danger onClick={() => setResetOpen(true)} />
+            <Row label="恢复默认" icon={<RotateCcw size={16} />} danger onClick={() => {
+              if (generating) {setImportError('请先停止回答，再恢复数据。'); return}
+              setResetOpen(true)
+            }} />
           </Group>
         </>
       ),
@@ -359,6 +368,7 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest,
         confirmLoading={importing}
         onOk={async () => {
           if (!pendingImport) return
+          if (generating) {setImportError('请先停止回答，再恢复数据。'); setPendingImport(null); return}
           setImporting(true)
           try {
             await importBackup(pendingImport.dump)
@@ -372,7 +382,7 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest,
         {pendingImport && (
           <Text>
             {pendingImport.name}：{pendingImport.summary.keys} 项配置，{pendingImport.summary.data} 份组件数据，{pendingImport.summary.convs} 段对话。
-            导入会替换现在的订阅、书签、待办、页面、对话和配置，不能撤销，建议先导出一份当前的备份。完成后页面会自动刷新。
+            导入会替换现在的订阅、书签、待办、页面、对话和配置，建议先导出一份当前的备份。请先停止回答，并关闭其他搭搭标签页，再恢复数据。完成后页面会自动刷新。
           </Text>
         )}
       </Modal>
@@ -383,11 +393,12 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest,
         okText="确定"
         cancelText="取消"
         onOk={() => {
+          if (generating) {setImportError('请先停止回答，再恢复数据。'); setResetOpen(false); return}
           setResetOpen(false)
           onReset()
         }}
       >
-        <Text>会清掉订阅、书签、待办、页面和密钥，确定吗？</Text>
+        <Text>会清掉订阅、书签、待办、页面和密钥。请先停止回答，并关闭其他搭搭标签页，再恢复默认。</Text>
       </Modal>
     </AppSettingsCtx.Provider>
   )

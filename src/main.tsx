@@ -8,6 +8,7 @@ import App from './App'
 import { initAnalytics } from './lib/analytics'
 import { initStorage } from './lib/storage'
 import { startAutoSync } from './lib/sync'
+import {StorageStartupError} from './components/PersistenceNotice'
 import './styles.css'
 import './theme.css'
 import './page-sections.css'
@@ -58,14 +59,21 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
 }
 
 // 先把 IndexedDB 里的数据读进内存再渲染：组件一挂载就要同步拿到自己的数据。
-void initStorage().then(() => {
-  startAutoSync()
-  createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <ConfigProvider motion={motion}>
-      <ToastHost position="top-right" />
-      <App />
-    </ConfigProvider>
-  </StrictMode>,
-  )
-})
+const root = createRoot(document.getElementById('root')!)
+async function start() {
+  try {
+    await initStorage()
+    startAutoSync()
+    root.render(
+      <StrictMode>
+        <ConfigProvider motion={motion}>
+          <ToastHost position="top-right" />
+          <App />
+        </ConfigProvider>
+      </StrictMode>,
+    )
+  } catch (error) {
+    root.render(<ConfigProvider motion={motion}><StorageStartupError error={error} onRetry={start} /></ConfigProvider>)
+  }
+}
+void start()

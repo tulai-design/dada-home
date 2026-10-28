@@ -3,7 +3,7 @@ import {readFileSync} from 'node:fs'
 import vm from 'node:vm'
 import ts from 'typescript'
 
-// 执行真实 buildSrcdoc 的 SDK；不加载应用存储，不发网络请求。
+// 执行真实 SDK 和宿主消息入口；持久存储只使用合成替身，不发网络请求。
 const hostVariables = {
   '--bg': '#f4f0e6', '--bg2': '#ebe5d8', '--bg3': '#ddd5c4',
   '--text': '#1c1815', '--text2': '#5a5248', '--text3': '#8d8478', '--text4': '#cbc2b2',
@@ -38,6 +38,37 @@ function runner() {
   vm.runInNewContext(sdk,scope)
   const send=(message,source=parent)=>{for(const fn of listeners.get('message')??[])fn({data:message,source})}
   return {scope,root,variables,parent,posted,events,send}
+}
+function bridgeRunner() {
+  const rows=new Map([['fp.app.fixture',JSON.stringify({counter:1})]])
+  const effects=[],listeners=new Set(),waiting=new Map();let definition,sequence=0
+  const frame={postMessage(message){waiting.get(message.id)?.(message);waiting.delete(message.id)}}
+  const react={useRef:value=>({current:value}),useCallback:fn=>fn,useMemo:fn=>fn(),useState:value=>[value,()=>{}],useEffect:fn=>effects.push(fn),useSyncExternalStore(){}}
+  const persistenceModule={exports:{}}
+  const persistenceSource=ts.transpileModule(readFileSync(new URL('../src/lib/persistence.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText
+  vm.runInNewContext(persistenceSource,{module:persistenceModule,exports:persistenceModule.exports,require:()=>react})
+  const persistence=persistenceModule.exports
+  const jsx=(type,props)=>{if(type==='iframe')props.ref.current={contentWindow:frame};return {type,props}}
+  const appModule={exports:{}}
+  vm.runInNewContext(compiled,{
+    module:appModule,exports:appModule.exports,
+    require:id=>({
+      react,'react/jsx-runtime':{jsx,jsxs:jsx},'../lib/persistence':persistence,
+      '../lib/registry':{registerComponent:value=>{definition=value}},'../fx/Fx':{useDark:()=>false},
+    })[id]??{},
+    window:{addEventListener:(name,fn)=>{if(name==='message')listeners.add(fn)},removeEventListener(){}},
+    document:{documentElement:{dataset:{theme:'light'}}},
+    getComputedStyle:()=>({getPropertyValue:name=>hostVariables[name]??''}),
+    MutationObserver:class{observe(){}disconnect(){}},
+    localStorage:{getItem:key=>rows.get(key)??null,setItem:(key,value)=>rows.set(key,String(value))},
+  })
+  definition.component({instance:{id:'fixture'},config,host:{networkGrants:[]}})
+  for(const effect of effects)effect()
+  const send=payload=>new Promise(resolve=>{
+    const id=++sequence;waiting.set(id,resolve)
+    for(const listener of listeners)listener({source:frame,data:{tada:1,id,...payload}})
+  })
+  return {rows,persistence,send}
 }
 let passed=0
 async function test(name,run){await run();passed+=1;console.log(`通过：${name}`)}
@@ -86,5 +117,21 @@ await test('非父来源不能修改主题或伪造RPC回复，真正父回复�
   r.send({tada:1,id,result:3})
   await request
   assert.equal(result,3)
+})
+await test('HTML应用后台持久写在恢复和回退失败时拒绝，恢复后仍可正常保存',async()=>{
+  const h=bridgeRunner()
+  await h.persistence.withPersistenceExclusive(async()=>{
+    const reply=await h.send({op:'set',key:'counter',value:2})
+    assert.match(reply.error,/正在恢复数据/)
+    assert.equal(JSON.parse(h.rows.get('fp.app.fixture')).counter,1)
+  })
+  h.persistence.reportPersistenceError('backup-restore',new Error('模拟回退失败'))
+  const rejected=await h.send({op:'set',key:'counter',value:3})
+  assert.match(rejected.error,/恢复尚未完成/)
+  assert.equal(JSON.parse(h.rows.get('fp.app.fixture')).counter,1)
+  h.persistence.clearPersistenceError('backup-restore')
+  const saved=await h.send({op:'set',key:'counter',value:4})
+  assert.equal(saved.result,true)
+  assert.equal(JSON.parse(h.rows.get('fp.app.fixture')).counter,4)
 })
 console.log(`HTML应用运行时回归全部通过：${passed}/${passed}`)

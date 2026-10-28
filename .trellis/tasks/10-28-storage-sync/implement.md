@@ -1,10 +1,10 @@
 # 实施顺序
 
-2026-10-28：本轮完成源码审查、官方边界核对和任务拆分。全部子任务仍为 planning，未改产品存储、未迁移用户数据、未部署服务。
+2026-10-28：前轮完成源码审查、官方边界核对和任务拆分；本轮已完成 storage-durability 并通过验收，后续子任务未实施。用户进一步要求搭搭与 aifenjing 共用独立同步服务，后续服务按通用对象/版本模型设计。未迁移用户真实数据或部署服务。
 
 | 顺序 | 子任务 | 可观察交付 | 依赖 |
 | --- | --- | --- | --- |
-| 1 | [storage-durability](../10-28-storage-durability/prd.md) | 保存失败可见并可重试、并发不回退、备份完整可恢复 | 无 |
+| 1 | [storage-durability](../10-28-storage-durability/prd.md) | 已交付：保存失败可见并可重试、并发不回退、备份完整可恢复 | 无 |
 | 2 | [sync-v1-hardening](../10-28-sync-v1-hardening/prd.md) | 现有同步不把故障当删除，策略变更确实重写，坏包不覆盖 | 1 |
 | 3 | [application-storage](../10-28-application-storage/prd.md) | AI 应用安全迁入 IndexedDB，原应用和旧设备同步继续可用 | 1、2 |
 | 4 | [chat-history-storage](../10-28-chat-history-storage/prd.md) | 大会话分页，明细按需读取，完整历史仍可恢复 | 1；可与 2/3 独立推进 |
@@ -13,9 +13,9 @@
 
 ## 执行边界
 
-每个复杂子任务激活前补其 design/implement、读取并验证 jsonl；父设计只约定职责，不冒充完整实现方案。遵循已获授权推进，不重复询问已确认的本地优先+可选服务路线。具体新依赖与部署变更须有选型依据；发布仍单独授权。
+每个复杂子任务激活前补其 design/implement、读取并验证 jsonl；父设计只约定职责，不冒充完整实现方案。遵循已获授权推进，不重复询问已确认的本地优先+可选共用服务路线。具体新依赖与部署变更须有选型依据；发布仍单独授权。Gist 仅配置范围在 v1 子任务实施，WebDAV保留全数据；S3已有技术可行性依据但不声称仓库已支持。
 
-源码入口：`src/lib/db.ts`、`componentData.ts`、`chat.ts`、`storage.ts`、`sync.ts`，应用宿主 `src/widgets/app.tsx` / `applet.tsx`，同步 UI `src/components/SyncSettings.tsx`。服务阶段再读 `server/start.mjs`、Docker/nginx/compose/Vite/PWA。不要直接把应用接到当前会吞错的 componentData 就宣称迁移完成。
+源码入口：`src/lib/db.ts`、`componentData.ts`、`chat.ts`、`storage.ts`、`sync.ts`，应用宿主 `src/widgets/app.tsx` / `applet.tsx`，同步 UI `src/components/SyncSettings.tsx`。服务阶段再读 `server/start.mjs`、Docker/nginx/compose/Vite/PWA。应用迁移仍须沿用新保存屏障和错误状态，并覆盖兼容身份、容量与回退，不能只更换 API 就宣称迁移完成。
 
 ## 检查
 

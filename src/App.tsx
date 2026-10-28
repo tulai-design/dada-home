@@ -40,6 +40,8 @@ import { normalizeHost } from './lib/customWidget'
 import type { Article, BookmarkGroup, Feed, Settings as SettingsShape } from './lib/types'
 import type { ComponentHost } from './lib/registry'
 import { getWorkspace, useWorkspace } from './lib/workspaceStore'
+import {PersistenceNotice} from './components/PersistenceNotice'
+import {usePersistenceStatus} from './lib/persistence'
 import {createPageInspectionHost, type MountedInspectionPage} from './lib/pageInspectionHost'
 import { grantHost, removeComponent, updateComponent } from './lib/ops'
 import { removeData, useComponentData, SHARED } from './lib/componentData'
@@ -134,6 +136,7 @@ export default function App() {
   const [settingsRequest, setSettingsRequest] = useState(0)
 
   const { workspace, edit, undo, redo, canUndo, canRedo } = useWorkspace()
+  const persistence = usePersistenceStatus()
   const homepageDraft = useHomepageDraft()
   const homepageDraftWorkspace = getHomepageDraftWorkspace()
   const mountedDraftInspection = useRef<MountedInspectionPage | null>(null)
@@ -660,7 +663,8 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <div className="app" data-fx={view === 'page' && hasBackdrop(currentPage?.layers) ? 'on' : undefined}>
+      <PersistenceNotice />
+      <div className="app" inert={persistence.busy || persistence.errors.some(error => error.source === 'backup-restore') || undefined} data-fx={view === 'page' && hasBackdrop(currentPage?.layers) ? 'on' : undefined}>
         {/* 页面背景特效铺在最底层，覆盖整个窗口，侧栏和顶栏透明地叠在上面 */}
         <div className="fx-root" ref={setFxRoot} aria-hidden="true" />
         {/* 外框：四条红边进场时从各自的方向滑进来（来自 anyway.fm 的做法） */}
@@ -705,9 +709,9 @@ export default function App() {
               ready={chat.ready}
               convs={chat.convs}
               convId={chat.convId}
-              onNewConv={() => { clearArticleDraft(); void chat.newConv() }}
-              onOpenConv={(id) => { clearArticleDraft(); void chat.openConv(id) }}
-              onDeleteConv={(id) => { if (id === chat.convId) clearArticleDraft(); void chat.deleteConv(id) }}
+              onNewConv={() => { void chat.newConv().then(clearArticleDraft).catch(error => toast.error(error instanceof Error ? error.message : String(error))) }}
+              onOpenConv={(id) => { void chat.openConv(id).then(clearArticleDraft).catch(error => toast.error(error instanceof Error ? error.message : String(error))) }}
+              onDeleteConv={(id) => { void chat.deleteConv(id).then(() => { if (id === chat.convId) clearArticleDraft() }).catch(error => toast.error(error instanceof Error ? error.message : String(error))) }}
               busy={busy}
               seed={assistantSeed}
               articleTitle={draftArticle?.title}
@@ -786,8 +790,9 @@ export default function App() {
                   onThemeMode={(mode) => edit((ws) => setMode(ws, mode))}
                   section={section}
                   openRequest={settingsRequest}
+                  generating={busy}
                   onSection={setSection}
-                  onReset={() => void resetStorage()}
+                  onReset={() => { void resetStorage().catch(error => toast.error(error instanceof Error ? error.message : String(error))) }}
                 />
               </div>
             )}

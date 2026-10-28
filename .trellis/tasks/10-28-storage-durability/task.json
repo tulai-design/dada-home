@@ -3,7 +3,7 @@
   "name": "storage-durability",
   "title": "可靠本地写入与可恢复备份",
   "description": "修复写入失败、并发flush顺序和备份导入校验，杜绝失败冒充保存成功或读取为空。",
-  "status": "planning",
+  "status": "completed",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -11,8 +11,8 @@
   "creator": "ROYIANS",
   "assignee": "ROYIANS",
   "createdAt": "2026-10-28",
-  "completedAt": null,
-  "branch": null,
+  "completedAt": "2026-10-28",
+  "branch": "main",
   "base_branch": "main",
   "worktree_path": null,
   "commit": null,
@@ -23,7 +23,7 @@
   "relatedFiles": [],
   "notes": "",
   "meta": {
-    "planning_depth": "behavior-specified",
+    "planning_depth": "implemented-and-verified",
     "blocked_by": []
   }
 }

@@ -1,5 +1,6 @@
 import {useSyncExternalStore} from 'react'
-import {db} from './db'
+import {db, type DbOperation} from './db'
+import {assertPersistenceWritable, clearPersistenceError, reportPersistenceError} from './persistence'
 import {readStored, writeStored} from './store'
 
 /**
@@ -69,7 +70,7 @@ export type Conv = {
 /**
  * 对话 store。
  *
- * 数据放在 IndexedDB：对话可以无限增长，不再受 localStorage 约 5MB 的限制。
+ * 数据放在 IndexedDB；仍受浏览器额度和实际持久化结果约束。
  * 内存里只放「当前打开的那个对话」的全部轮次，以及所有对话的标题列表；
  * 切到别的对话才去读它的轮次。
  *
@@ -84,8 +85,11 @@ const FLUSH_MS = 400
 
 let state: State = {ready: false, convs: [], convId: newId(), turns: []}
 const listeners = new Set<() => void>()
-const dirty = new Set<string>()
-const removed = new Set<string>()
+type TurnWrite = {turn: Turn; deleted: false} | {id: string; deleted: true}
+const dirty = new Map<string, TurnWrite>()
+const dirtyConvs = new Map<string, Conv>()
+let flushing: Promise<void> | undefined
+let navigation = 0
 let timer: number | undefined
 let initPromise: Promise<void> | undefined
 
@@ -113,98 +117,141 @@ async function load(convId: string): Promise<Turn[]> {
   return rows.sort(byStart).map(settle)
 }
 
-/** 旧版把所有轮次放在 localStorage 一个键里：一次性搬进 IndexedDB，成为一个「之前的对话」。 */
+const record = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+const timestamp = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0
+function legacyTurn(value: unknown): value is Turn {
+  if (!record(value) || typeof value.id !== 'string' || !value.id.trim()) return false
+  if (['prompt', 'answer', 'reasoning', 'error'].some(key => typeof value[key] !== 'string')) return false
+  if (!timestamp(value.startedAt) || (value.endedAt !== undefined && !timestamp(value.endedAt))) return false
+  if (value.aborted !== undefined && typeof value.aborted !== 'boolean') return false
+  if (value.convId !== undefined && (typeof value.convId !== 'string' || !value.convId.trim())) return false
+  if (!Array.isArray(value.tools) || value.tools.some(tool => !record(tool) || typeof tool.name !== 'string' || typeof tool.title !== 'string' || typeof tool.text !== 'string' || typeof tool.ok !== 'boolean')) return false
+  const article = value.article
+  if (article !== undefined && (!record(article) || ['title', 'link', 'context'].some(key => typeof article[key] !== 'string'))) return false
+  if (value.pending !== undefined && (!record(value.pending) || !record(value.pending.request) || typeof value.pending.request.tool !== 'string' || typeof value.pending.request.summary !== 'string')) return false
+  return true
+}
+
+/** 旧备份和启动迁移共用纯校验；坏输入不可替换现有数据或被迁移成默认值。 */
+export function validateLegacyTurns(value: unknown): Turn[] {
+  if (!Array.isArray(value) || !value.every(legacyTurn) || new Set(value.map(turn => turn.id)).size !== value.length) {
+    throw new Error('旧聊天数据格式损坏，原始记录已保留，请先导出备份。')
+  }
+  return value
+}
+
+/** 旧聊天只有在目标事务和读回成功后才清理；固定归属避免清旧键失败后重复迁移。 */
 async function migrateLegacy(): Promise<void> {
-  let raw: string | null = null
-  try {
-    raw = localStorage.getItem(LEGACY_KEY)
-  } catch {
+  const raw = localStorage.getItem(LEGACY_KEY)
+  if (!raw) return
+  const turns = validateLegacyTurns(JSON.parse(raw))
+  if (!turns.length) {
+    // 连空旧记录也只在确认目标可读取后删除。
+    await db.all('convs')
+    localStorage.removeItem(LEGACY_KEY)
     return
   }
-  if (!raw) return
-  try {
-    const parsed = JSON.parse(raw) as Turn[]
-    const turns = Array.isArray(parsed) ? parsed.filter((t) => t && typeof t.prompt === 'string' && typeof t.id === 'string') : []
-    if (turns.length) {
-      const id = `legacy-${newId()}`
-      const stamped = turns.map((t) => ({...t, convId: id}))
-      await db.putMany('turns', stamped)
-      const last = turns[turns.length - 1]
-      await db.put('convs', {id, title: titleOf(turns), createdAt: turns[0].startedAt, updatedAt: last.endedAt ?? last.startedAt} satisfies Conv)
-    }
-    localStorage.removeItem(LEGACY_KEY)
-  } catch {
-    /* 解析失败就保留原数据不动，下次再试 */
+  const existing = await Promise.all(turns.map(turn => db.get<Turn>('turns', turn.id)))
+  const id = existing.find(turn => turn?.convId)?.convId ?? `legacy-${turns[0].id}`
+  const operations: DbOperation[] = []
+  turns.forEach((turn, index) => {
+    if (!existing[index]) operations.push({store: 'turns', type: 'put', value: {...turn, convId: id}})
+  })
+  if (!await db.get<Conv>('convs', id)) {
+    const last = turns[turns.length - 1]
+    operations.push({store: 'convs', type: 'put', value: {id, title: titleOf(turns), createdAt: turns[0].startedAt, updatedAt: last.endedAt ?? last.startedAt} satisfies Conv})
   }
+  await db.batch(operations)
+  const confirmed = await Promise.all(turns.map(turn => db.get<Turn>('turns', turn.id)))
+  if (confirmed.some(turn => !turn) || !await db.get('convs', id)) throw new Error('旧聊天尚未完整写入，原数据已保留。')
+  localStorage.removeItem(LEGACY_KEY)
 }
 
 export function initChat(): Promise<void> {
-  initPromise ??= (async () => {
+  if (initPromise) return initPromise
+  const run = (async () => {
     await migrateLegacy()
     const convs = (await db.all<Conv>('convs')).sort(byRecent)
     const saved = readStored<string>(CONV_KEY, '')
-    const current = convs.find((c) => c.id === saved)
+    const current = convs.find(conv => conv.id === saved)
     const convId = current ? current.id : state.convId
     const turns = current ? await load(current.id) : state.turns
     set({ready: true, convs, convId, turns})
+    clearPersistenceError('chat-init')
   })()
+  initPromise = run.catch(error => {
+    initPromise = undefined
+    reportPersistenceError('chat-init', error, initChat)
+    throw error
+  })
   return initPromise
 }
 
-/** 把脏的轮次写进库，并更新对话的标题和时间。 */
-export async function flush() {
+/** 快照在编辑发生时就绑定 convId；旧批次提交只确认自己对应的操作。 */
+export function flush(): Promise<void> {
   window.clearTimeout(timer)
   timer = undefined
-  const {turns, convId} = state
-  const ids = [...dirty]
-  const gone = [...removed]
-  dirty.clear()
-  removed.clear()
-  if (!ids.length && !gone.length) return
-
-  const rows = turns.filter((t) => ids.includes(t.id)).map((t) => ({...t, convId}))
-  if (rows.length) await db.putMany('turns', rows)
-  if (gone.length) await db.delMany('turns', gone)
-
-  if (turns.length) {
-    const known = state.convs.find((c) => c.id === convId)
-    const conv: Conv = {id: convId, title: known?.title ?? titleOf(turns), createdAt: known?.createdAt ?? turns[0].startedAt, updatedAt: Date.now()}
-    await db.put('convs', conv)
-    set({convs: [conv, ...state.convs.filter((c) => c.id !== convId)].sort(byRecent)})
+  if (flushing) return flushing.then(() => dirty.size || dirtyConvs.size ? flush() : undefined)
+  const work = async () => {
+    try {
+      while (dirty.size || dirtyConvs.size) {
+        const turns = [...dirty]
+        const convs = [...dirtyConvs]
+        const operations: DbOperation[] = turns.map(([id, item]) => item.deleted
+          ? {store: 'turns', type: 'delete', key: id}
+          : {store: 'turns', type: 'put', value: item.turn})
+        operations.push(...convs.map(([, value]) => ({store: 'convs' as const, type: 'put' as const, value})))
+        await db.batch(operations)
+        for (const [id, item] of turns) if (dirty.get(id) === item) dirty.delete(id)
+        for (const [id, item] of convs) if (dirtyConvs.get(id) === item) dirtyConvs.delete(id)
+      }
+      clearPersistenceError('chat-data')
+    } catch (error) {
+      reportPersistenceError('chat-data', error, flush)
+      throw error
+    }
   }
+  const run = work().finally(() => {if (flushing === run) flushing = undefined})
+  flushing = run
+  return run
 }
 
-function schedule() {
-  if (timer === undefined) timer = window.setTimeout(() => void flush(), FLUSH_MS)
-}
-
+function backgroundFlush() {void flush().catch(() => undefined)}
+function schedule() {if (timer === undefined) timer = window.setTimeout(backgroundFlush, FLUSH_MS)}
 if (typeof window !== 'undefined') {
-  window.addEventListener('pagehide', () => void flush())
-  document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && void flush())
+  window.addEventListener('pagehide', backgroundFlush)
+  document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && backgroundFlush())
 }
 
-/** 改当前对话的轮次。用法和 useState 的 setter 一样，可以传函数。 */
 function setTurns(next: Turn[] | ((prev: Turn[]) => Turn[])) {
+  assertPersistenceWritable()
   const prev = state.turns
   const value = typeof next === 'function' ? next(prev) : next
   if (value === prev) return
-  const before = new Map(prev.map((t) => [t.id, t]))
+  const convId = state.convId
+  const before = new Map(prev.map(turn => [turn.id, turn]))
   for (const turn of value) {
-    if (before.get(turn.id) !== turn) dirty.add(turn.id)
+    if (before.get(turn.id) !== turn) dirty.set(turn.id, {deleted: false, turn: {...turn, convId}})
     before.delete(turn.id)
   }
-  // 剩下的就是被删掉的
-  for (const id of before.keys()) {
-    removed.add(id)
-    dirty.delete(id)
+  for (const id of before.keys()) dirty.set(id, {deleted: true, id})
+  let convs = state.convs
+  if (value.length) {
+    const known = convs.find(conv => conv.id === convId)
+    const conv: Conv = {id: convId, title: known?.title ?? titleOf(value), createdAt: known?.createdAt ?? value[0].startedAt, updatedAt: Date.now()}
+    dirtyConvs.set(convId, conv)
+    convs = [conv, ...convs.filter(item => item.id !== convId)].sort(byRecent)
   }
-  set({turns: value})
+  set({turns: value, convs})
   schedule()
 }
 
-/** 新开一个对话。当前这个是空的就不重复开。 */
 async function newConv() {
+  assertPersistenceWritable()
+  const request = ++navigation
   await flush()
+  if (request !== navigation) return
+  assertPersistenceWritable()
   if (!state.turns.length) return
   const id = newId()
   writeStored(CONV_KEY, id)
@@ -212,27 +259,30 @@ async function newConv() {
 }
 
 async function openConv(id: string) {
+  assertPersistenceWritable()
+  const request = ++navigation
   if (id === state.convId) return
   await flush()
   const turns = await load(id)
+  if (request !== navigation) return
+  assertPersistenceWritable()
   writeStored(CONV_KEY, id)
   set({convId: id, turns})
 }
 
-/** 删掉一个对话和它所有轮次。删的是当前的就回到一个空白新对话。 */
 async function deleteConv(id: string) {
+  assertPersistenceWritable()
+  ++navigation
   await flush()
   const rows = await db.byIndex<Turn>('turns', 'convId', id)
-  await db.delMany('turns', rows.map((t) => t.id))
-  await db.del('convs', id)
-  const convs = state.convs.filter((c) => c.id !== id)
+  assertPersistenceWritable()
+  await db.batch([...rows.map(turn => ({store: 'turns' as const, type: 'delete' as const, key: turn.id})), {store: 'convs', type: 'delete', key: id}])
+  const convs = state.convs.filter(conv => conv.id !== id)
   if (id === state.convId) {
     const fresh = newId()
     writeStored(CONV_KEY, fresh)
     set({convs, convId: fresh, turns: []})
-  } else {
-    set({convs})
-  }
+  } else set({convs})
 }
 
 function subscribe(fn: () => void) {
@@ -268,14 +318,18 @@ export function contextTurns(turns: Turn[], limit = CONTEXT_TURNS): Turn[] {
 
 /** 导出全部对话，给「导出备份」用。 */
 export async function exportChat() {
-  return {convs: await db.all<Conv>('convs'), turns: await db.all<Turn>('turns')}
+  await flush()
+  const snapshot = await db.snapshot()
+  return {convs: snapshot.convs as Conv[], turns: snapshot.turns as Turn[]}
 }
 
 /** 清空所有对话（恢复默认时用）。 */
 export async function clearChat() {
+  await flush()
+  await db.batch([{store: 'convs', type: 'clear'}, {store: 'turns', type: 'clear'}])
+  ++navigation
   dirty.clear()
-  removed.clear()
-  await Promise.all([db.clear('convs'), db.clear('turns')])
+  dirtyConvs.clear()
   set({convs: [], turns: [], convId: newId()})
 }
 

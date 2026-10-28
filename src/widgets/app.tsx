@@ -4,6 +4,7 @@ import {MagicWand as Wand2} from '@phosphor-icons/react'
 import {useDark} from '../fx/Fx'
 import {checkUrl} from '../lib/customWidget'
 import {proxied} from '../lib/rss'
+import {assertPersistenceWritable} from '../lib/persistence'
 import {registerComponent, type ComponentHost, type ComponentProps} from '../lib/registry'
 
 /**
@@ -232,6 +233,7 @@ async function handle(request: Request, instanceId: string, host: ComponentHost)
       return read()[key] ?? null
     }
     case 'set': {
+      assertPersistenceWritable()
       const key = String(request.key ?? '')
       if (!/^[\w.-]{1,64}$/.test(key)) throw new Error('键名只能是字母数字和 _ . -，最长 64 位')
       const data = read()

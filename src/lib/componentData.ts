@@ -1,5 +1,6 @@
 import {useCallback, useEffect, useState} from 'react'
-import {db, openDb} from './db'
+import {db, openDb, type DbOperation} from './db'
+import {assertPersistenceWritable, clearPersistenceError, reportPersistenceError} from './persistence'
 
 /**
  * 组件数据存储。
@@ -19,160 +20,151 @@ const listeners = new Map<string, Set<Listener>>()
 const cache = new Map<string, unknown>()
 /** IndexedDB 可用时为 true；不可用就继续用 localStorage。 */
 let useIdb = false
-const pending = new Map<string, unknown>()
-const gone = new Set<string>()
+type Pending = {version: number; value?: unknown; deleted: boolean}
+const pending = new Map<string, Pending>()
+let version = 0
 let timer: number | undefined
+let flushing: Promise<void> | undefined
 
-function key(instanceId: string): string {
-  return `${PREFIX}${instanceId}`
+function key(instanceId: string): string {return `${PREFIX}${instanceId}`}
+function notify(instanceId: string) {listeners.get(instanceId)?.forEach(fn => fn())}
+
+function persistFallback(id: string, item: Pending) {
+  if (item.deleted) localStorage.removeItem(key(id))
+  else localStorage.setItem(key(id), JSON.stringify(item.value))
 }
 
-function notify(instanceId: string) {
-  listeners.get(instanceId)?.forEach((fn) => fn())
-}
-
-/** 合并短时间内对同一个实例的多次写入（比如在便签里打字），一次落库。 */
-export async function flush() {
+/** 串行排空已接受的改动；只有事务提交后才确认对应版本。 */
+export function flush(): Promise<void> {
   window.clearTimeout(timer)
   timer = undefined
-  const rows = [...pending].map(([k, v]) => ({k, v}))
-  const dels = [...gone]
-  pending.clear()
-  gone.clear()
-  if (rows.length) await db.putMany('kv', rows)
-  if (dels.length) await db.delMany('kv', dels)
+  if (flushing) return flushing.then(() => pending.size ? flush() : undefined)
+  const work = async () => {
+    try {
+      while (pending.size) {
+        const batch = [...pending]
+        if (useIdb) {
+          const operations: DbOperation[] = batch.map(([id, item]) => item.deleted
+            ? {store: 'kv', type: 'delete', key: id}
+            : {store: 'kv', type: 'put', value: {k: id, v: item.value}})
+          await db.batch(operations)
+        } else {
+          for (const [id, item] of batch) persistFallback(id, item)
+        }
+        for (const [id, item] of batch) if (pending.get(id) === item) pending.delete(id)
+      }
+      clearPersistenceError('component-data')
+    } catch (error) {
+      reportPersistenceError('component-data', error, flush)
+      throw error
+    }
+  }
+  const run = work().finally(() => {if (flushing === run) flushing = undefined})
+  flushing = run
+  return run
 }
 
+function backgroundFlush() {void flush().catch(() => undefined)}
 function schedule() {
-  if (timer === undefined) timer = window.setTimeout(() => void flush(), 300)
+  if (timer === undefined) timer = window.setTimeout(backgroundFlush, 300)
 }
-
 if (typeof window !== 'undefined') {
-  window.addEventListener('pagehide', () => void flush())
-  document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && void flush())
+  window.addEventListener('pagehide', backgroundFlush)
+  document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && backgroundFlush())
 }
 
-/**
- * 启动时调用一次（渲染前）：把组件数据读进内存。
- * 旧版放在 localStorage 的 `fp.data.*` 会被搬进 IndexedDB，搬完删掉旧的。
- */
+/** 初始化失败不会发布空缓存；单条损坏的旧 JSON 保留，其他合法记录继续迁移。 */
 export async function initComponentData(): Promise<void> {
   const handle = await openDb()
-  if (!handle) return
-  useIdb = true
-  for (const row of await db.all<{k: string; v: unknown}>('kv')) cache.set(key(row.k), row.v)
-
-  try {
-    const legacy: string[] = []
-    for (let i = 0; i < localStorage.length; i += 1) {
-      const k = localStorage.key(i)
-      if (k?.startsWith(PREFIX)) legacy.push(k)
-    }
-    const rows: {k: string; v: unknown}[] = []
-    for (const k of legacy) {
-      const raw = localStorage.getItem(k)
-      if (raw === null) continue
-      // 库里已有同 id 的就以库里的为准（不应该发生，但别覆盖较新的数据）
-      if (!cache.has(k)) {
-        const v = JSON.parse(raw) as unknown
-        cache.set(k, v)
-        rows.push({k: k.slice(PREFIX.length), v})
-      }
-    }
-    if (rows.length) await db.putMany('kv', rows)
-    // 确认写入库后再删旧的；没写成功（库返回空）就留着，下次再搬
-    const saved = new Set((await db.all<{k: string}>('kv')).map((row) => key(row.k)))
-    for (const k of legacy) if (saved.has(k)) localStorage.removeItem(k)
-  } catch {
-    /* 旧数据解析失败就留在原处 */
+  if (!handle) {useIdb = false; return}
+  const rows = await db.all<{k: string; v: unknown}>('kv')
+  const loaded = new Map(rows.map(row => [key(row.k), row.v]))
+  const legacy: string[] = []
+  for (let i = 0; i < localStorage.length; i += 1) {
+    const name = localStorage.key(i)
+    if (name?.startsWith(PREFIX)) legacy.push(name)
   }
+  const toMigrate: {k: string; v: unknown}[] = []
+  for (const name of legacy) {
+    if (loaded.has(name)) {clearPersistenceError(`legacy-component:${name}`); continue}
+    const raw = localStorage.getItem(name)
+    if (raw === null) continue
+    try {toMigrate.push({k: name.slice(PREFIX.length), v: JSON.parse(raw) as unknown}); clearPersistenceError(`legacy-component:${name}`)}
+    catch (error) {reportPersistenceError(`legacy-component:${name}`, new Error('有一份旧组件数据无法解析，原数据已保留。'), undefined, false)}
+  }
+  if (toMigrate.length) await db.putMany('kv', toMigrate)
+  // 重新读取已提交的记录，避免请求完成但事务失败时删除唯一来源。
+  const saved = await db.all<{k: string; v: unknown}>('kv')
+  for (const row of saved) loaded.set(key(row.k), row.v)
+  for (const name of legacy) if (loaded.has(name)) localStorage.removeItem(name)
+  cache.clear()
+  for (const [name, value] of loaded) cache.set(name, value)
+  useIdb = true
 }
 
-/** 恢复出厂：丢掉还没落库的写入，免得清库之后又被写回去。 */
+/** 仅在调用方已等待 flush 后用于替换生命周期；不能取消正在提交的事务。 */
 export function dropPendingData() {
   window.clearTimeout(timer)
   timer = undefined
   pending.clear()
-  gone.clear()
 }
 
 export function readData<T>(instanceId: string, fallback: T): T {
-  const k = key(instanceId)
-  if (cache.has(k)) return cache.get(k) as T
+  const name = key(instanceId)
+  if (cache.has(name)) return cache.get(name) as T
   if (!useIdb) {
     try {
-      const raw = localStorage.getItem(k)
-      if (raw !== null) {
-        const parsed = JSON.parse(raw) as T
-        cache.set(k, parsed)
-        return parsed
-      }
-    } catch {
-      /* 存储不可用时回落到默认值 */
-    }
+      const raw = localStorage.getItem(name)
+      if (raw !== null) {const value = JSON.parse(raw) as T; cache.set(name, value); return value}
+    } catch (error) {reportPersistenceError(`component-read:${instanceId}`, error, undefined, !(error instanceof SyntaxError))}
   }
-  cache.set(k, fallback)
+  cache.set(name, fallback)
   return fallback
 }
 
 export function writeData<T>(instanceId: string, value: T) {
-  const k = key(instanceId)
-  cache.set(k, value)
-  if (useIdb) {
-    gone.delete(instanceId)
-    pending.set(instanceId, value)
-    schedule()
-  } else {
-    try {
-      localStorage.setItem(k, JSON.stringify(value))
-    } catch {
-      /* 无痕模式或超额，只在内存里保留 */
-    }
+  assertPersistenceWritable()
+  cache.set(key(instanceId), value)
+  const item: Pending = {version: ++version, value, deleted: false}
+  pending.set(instanceId, item)
+  if (useIdb) schedule()
+  else {
+    try {persistFallback(instanceId, item); pending.delete(instanceId); if (!pending.size) clearPersistenceError('component-data')}
+    catch (error) {reportPersistenceError('component-data', error, flush)}
   }
   notify(instanceId)
 }
 
 export function removeData(instanceId: string) {
-  const k = key(instanceId)
-  cache.delete(k)
-  if (useIdb) {
-    pending.delete(instanceId)
-    gone.add(instanceId)
-    schedule()
-  } else {
-    try {
-      localStorage.removeItem(k)
-    } catch {
-      /* 忽略 */
-    }
+  assertPersistenceWritable()
+  cache.delete(key(instanceId))
+  const item: Pending = {version: ++version, deleted: true}
+  pending.set(instanceId, item)
+  if (useIdb) schedule()
+  else {
+    try {persistFallback(instanceId, item); pending.delete(instanceId); if (!pending.size) clearPersistenceError('component-data')}
+    catch (error) {reportPersistenceError('component-data', error, flush)}
   }
   notify(instanceId)
 }
 
-/** 导出全部组件数据：{实例id: 数据}。 */
+/** 导出不隐瞒无法读取的回落数据；备份调用方另需等待 flush。 */
 export function exportAllData(): Record<string, unknown> {
   const result: Record<string, unknown> = {}
   if (!useIdb) {
-    try {
-      for (let i = 0; i < localStorage.length; i += 1) {
-        const k = localStorage.key(i)
-        if (!k || !k.startsWith(PREFIX)) continue
-        const raw = localStorage.getItem(k)
-        if (raw !== null) result[k.slice(PREFIX.length)] = JSON.parse(raw)
-      }
-    } catch {
-      /* 读不到就导出已缓存的部分 */
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const name = localStorage.key(i)
+      if (!name?.startsWith(PREFIX)) continue
+      const raw = localStorage.getItem(name)
+      if (raw !== null) result[name.slice(PREFIX.length)] = JSON.parse(raw) as unknown
     }
   }
-  for (const [k, value] of cache) {
-    if (k.startsWith(PREFIX)) result[k.slice(PREFIX.length)] = value
-  }
+  for (const [name, value] of cache) if (name.startsWith(PREFIX)) result[name.slice(PREFIX.length)] = value
   return result
 }
 
-/** 导入组件数据，覆盖同 id 的现有数据。 */
 export function importAllData(data: Record<string, unknown>) {
-  for (const [instanceId, value] of Object.entries(data)) writeData(instanceId, value)
+  for (const [id, value] of Object.entries(data)) writeData(id, value)
 }
 
 /**

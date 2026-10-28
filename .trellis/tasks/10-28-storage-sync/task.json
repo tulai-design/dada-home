@@ -2,8 +2,8 @@
   "id": "storage-sync",
   "name": "storage-sync",
   "title": "统一应用存储与可持续数据同步",
-  "description": "统一AI应用IndexedDB持久化，评估并改进增长中的聊天与应用数据跨设备同步，保持旧数据和备份兼容。",
-  "status": "planning",
+  "description": "先完善本地可靠保存，再统一AI应用IndexedDB持久化、长期聊天与可持续同步；可选独立服务供搭搭及aifenjing共用。",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -12,7 +12,7 @@
   "assignee": "ROYIANS",
   "createdAt": "2026-10-28",
   "completedAt": null,
-  "branch": null,
+  "branch": "main",
   "base_branch": "main",
   "worktree_path": null,
   "commit": null,
@@ -29,5 +29,7 @@
   "parent": null,
   "relatedFiles": [],
   "notes": "",
-  "meta": {}
+  "meta": {
+    "planning_depth": "implementation-started"
+  }
 }

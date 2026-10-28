@@ -21,10 +21,12 @@ function moduleOf(relative, dependencies) {
   return module.exports
 }
 const model=moduleOf('../src/lib/workspace.ts',{})
+const persistence=moduleOf('../src/lib/persistence.ts',{react:{useSyncExternalStore(){}}})
 const store=moduleOf('../src/lib/workspaceStore.ts',{
   react:{useCallback:fn=>fn,useSyncExternalStore(){}},
   './workspace':model,
   './ops':{defaultWorkspace:()=>({applications:[{id:'app-demo'}]})},
+  './persistence':persistence,
 })
 const h={
   edit(next){store.commit({...store.getWorkspace(),applications:next==='installed'?[{id:'app-demo'}]:[]})},
