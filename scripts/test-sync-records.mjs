@@ -6,7 +6,7 @@ import ts from 'typescript'
 // 真实记录codec，隔离物理存储；协议/网络协调另由公开runSync回归覆盖。
 function runtime(seed = {}) {
   const entries = new Map(Object.entries(seed).map(([key, value]) => [key, JSON.stringify(value)]))
-  const modules = new Map(), data = {kv: [], apps: [], convs: [], turns: []}
+  const modules = new Map(), data = {kv: [], apps: [], convs: [], turns: [], toolDetails: []}
   let reads = 0
   const localStorage = {get length() {return entries.size}, key: index => [...entries.keys()][index] ?? null, getItem: key => entries.get(key) ?? null}
   function load(path) {
@@ -19,7 +19,7 @@ function runtime(seed = {}) {
     return module.exports
   }
   const api = load('src/lib/syncData.ts')
-  return {api, data, entries, get reads() {return reads}, apply(patch) {for (const [key, value] of Object.entries(patch)) value === null ? entries.delete(key) : entries.set(key, value)}}
+  return {api, schema:load('src/lib/chatStorageSchema.ts'), data, entries, get reads() {return reads}, apply(patch) {for (const [key, value] of Object.entries(patch)) value === null ? entries.delete(key) : entries.set(key, value)}}
 }
 const clone = value => JSON.parse(JSON.stringify(value))
 const workspace = () => ({version: 6, pages: [{id: 'home', name: '首页', label: '首页', components: [{id: 'clock', type: 'clock', config: {}}]}], theme: {active: 'default', mode: 'light', base: 'light'}, themes: [{id: 'default', name: '默认', description: '', overrides: {}}], layout: {columns: 12, maxWidth: 1480}, widgets: [], statusbar: [], addons: [], templates: [], applications: [], network: [{host: 'local.example', grantedAt: 1}]})
@@ -122,4 +122,40 @@ await test('应用codec双向校验对象与UTF8预算，合回本机凭据仍�
   const local = {full: new Map([['app:app:a', {token: 'x'.repeat(8 * 1024 * 1024 - 20)}]])}
   assert.throws(() => h.api.changes([['app:app:a', {value: {text: '新'.repeat(20)}}]], local, 'full', false))
 })
+const conversation={id:'history',title:'完整历史',createdAt:1,updatedAt:10}
+const completeTurn=(id='old',convId='history')=>({id,convId,prompt:'完整提问',answer:'完整回答',reasoning:'完整推理',article:{title:'文章',link:'https://example.invalid/article',context:'文章正文'},tools:[{name:'inspect',title:'读取',ok:true,text:'工具正文中文🙂'.repeat(30000)},{name:'verify',title:'核验',ok:false,text:''}],error:'',startedAt:1,endedAt:2})
+function seedTurn(h,turn){const split=h.schema.splitTurn(turn);h.data.turns.push(split.turn);h.data.toolDetails.push(...split.details)}
+function applyOperations(h,operations){for(const op of operations){const rows=h.data[op.store],key=op.value?.id??op.key,index=rows.findIndex(row=>row.id===key);if(index>=0)rows.splice(index,1);if(op.type==='put')rows.push(op.value)}}
+await test('完整聊天采样join所有正文且不暴露本地引用；缺正文阻止采样',async()=>{
+  const h=runtime();h.data.convs.push(conversation);const original=completeTurn();seedTurn(h,original)
+  const local=await h.api.collect('full',false)
+  assert.deepEqual(local.values.get('turn:old'),original)
+  assert.equal([...local.values.keys()].some(id=>id.includes('toolDetail')),false)
+  assert.equal(JSON.stringify(local.values.get('turn:old')).includes('detailId'),false)
+  h.data.toolDetails.pop();await assert.rejects(h.api.collect('full',false),/正文缺失/)
+})
+await test('同步替换完整轮次原子生成头与正文，旧正文清除且墓碑仅清关联记录',async()=>{
+  const h=runtime();h.data.convs.push(conversation,{...conversation,id:'other'});seedTurn(h,completeTurn());seedTurn(h,completeTurn('keep','other'))
+  let local=await h.api.collect('full',false)
+  const next={...completeTurn(),tools:[{name:'new',title:'新工具',ok:true,text:'新正文'}]}
+  const record={revision:{counter:3,device:'remote'},hash:'unused',value:next}
+  const update=h.api.changes([['turn:old',record]],local,'full',false);applyOperations(h,update.operations)
+  h.schema.validateStoredChat(h.data.convs,h.data.turns,h.data.toolDetails)
+  assert.equal(h.data.toolDetails.filter(row=>row.turnId==='old').length,1)
+  assert.deepEqual((await h.api.collect('full',false)).values.get('turn:old'),next)
+  local=await h.api.collect('full',false);applyOperations(h,h.api.changes([['conversation:history',tombstone]],local,'full',false).operations)
+  h.schema.validateStoredChat(h.data.convs,h.data.turns,h.data.toolDetails)
+  assert.deepEqual(h.data.turns.map(row=>row.id),['keep']);assert.equal(h.data.toolDetails.length,2)
+})
+await test('轮次换会话与原会话墓碑不受入站顺序影响，不能删除新正文',async()=>{
+  for(const reverse of [false,true]){
+    const h=runtime();h.data.convs.push(conversation,{...conversation,id:'other'});seedTurn(h,completeTurn())
+    const local=await h.api.collect('full',false),next={...completeTurn(),convId:'other'}
+    const records=[['turn:old',{revision:{counter:3,device:'remote'},hash:'unused',value:next}],['conversation:history',tombstone]]
+    applyOperations(h,h.api.changes(reverse?records.reverse():records,local,'full',false).operations)
+    h.schema.validateStoredChat(h.data.convs,h.data.turns,h.data.toolDetails)
+    assert.deepEqual((await h.api.collect('full',false)).values.get('turn:old'),next)
+  }
+})
+
 console.log(`同步记录codec回归全部通过：${passed}/${passed}`)

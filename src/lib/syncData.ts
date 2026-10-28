@@ -1,3 +1,4 @@
+import {hydrateTurn, splitTurn, validateStoredChat, validateStoredTurn, validateToolDetail, validateTurn} from './chatStorageSchema'
 import {validateApplicationData, validateApplicationDataRecord} from './applicationDataSchema'
 import {db, openDb, type DbOperation} from './db'
 import {canonical, digest, exactKeys, object, type SyncRecord} from './syncProtocol'
@@ -236,11 +237,14 @@ export async function collect(scope: SyncScope, secrets: boolean): Promise<Local
   if (scope === 'full') {
     if (!await openDb()) throw new Error('此浏览器无法读取本地数据库，同步已停止。')
     const data = await db.snapshot(); database = data
+    validateStoredChat(data.convs, data.turns, data.toolDetails)
+    const details = new Map(data.toolDetails.map(value => {const row = validateToolDetail(value); return [row.id, row]}))
     for (const row of data.apps) {const app = validateApplicationDataRecord(row); put(`app:${app.k}`, app.v)}
     for (const row of data.kv) put(`component:${row.k}`, row.v)
     for (const row of data.convs) {if (!object(row) || !nonempty(row.id)) fail(); put(`conversation:${row.id}`, row)}
-    for (const row of data.turns) {
-      if (!object(row) || !nonempty(row.id)) fail()
+    for (const stored of data.turns) {
+      const row = hydrateTurn(validateStoredTurn(stored), details)
+      full.set(`turn:${row.id}`, row)
       if (row.endedAt === undefined) {deferred.add(`turn:${row.id}`); if (nonempty(row.convId)) deferred.add(`conversation:${row.convId}`); continue}
       put(`turn:${row.id}`, row)
     }
@@ -272,14 +276,33 @@ function applyConfig(name: string, incoming: unknown, local: unknown, scope: Syn
 }
 export function changes(records: [string, SyncRecord][], local: LocalData, scope: SyncScope, secrets: boolean): {local: Record<string, string | null>; operations: DbOperation[]} {
   const patch: Record<string, string | null> = Object.create(null), operations: DbOperation[] = []
+  const replacedTurns = new Set(records.filter(([id]) => id.startsWith('turn:')).map(([id]) => id))
   for (const [id, rec] of records) {
     const {kind, name, key} = target(id, scope)
     const old = local.full.get(id)
     if (key) {
       const next = applyConfig(name, rec.deleted ? undefined : rec.value, old, scope, secrets)
       patch[key] = next === undefined ? null : JSON.stringify(next)
+    } else if (kind === 'turn') {
+      // wire 以完整轮次合并，物理头与正文在同一提交边界替换，避免混合不同版本。
+      if (old !== undefined) {
+        const previous = splitTurn(validateTurn(old))
+        operations.push(...previous.details.map(detail => ({store: 'toolDetails' as const, type: 'delete' as const, key: detail.id})))
+      }
+      if (rec.deleted) operations.push({store: 'turns', type: 'delete', key: name})
+      else {
+        const next = splitTurn(validateTurn(restoreSecrets(rec.value, old, secrets)))
+        operations.push({store: 'turns', type: 'put', value: next.turn}, ...next.details.map(value => ({store: 'toolDetails' as const, type: 'put' as const, value})))
+      }
     } else {
-      const store = kind === 'app' ? 'apps' : kind === 'component' ? 'kv' : kind === 'conversation' ? 'convs' : 'turns'
+      if (kind === 'conversation' && rec.deleted) {
+        // 关联校验保证远端不会保留此会话的轮次；同步删除时也清理其私有正文。
+        for (const [turnId, value] of local.full) if (turnId.startsWith('turn:') && !replacedTurns.has(turnId) && object(value) && value.convId === name) {
+          const previous = splitTurn(validateTurn(value))
+          operations.push({store: 'turns', type: 'delete', key: previous.turn.id}, ...previous.details.map(detail => ({store: 'toolDetails' as const, type: 'delete' as const, key: detail.id})))
+        }
+      }
+      const store = kind === 'app' ? 'apps' : kind === 'component' ? 'kv' : 'convs'
       if (rec.deleted) operations.push({store, type: 'delete', key: name})
       else {
         const next = restoreSecrets(rec.value, old, secrets, id === 'component:@shared.icsSubs' ? new Set(['url', ...secretFields]) : secretFields)

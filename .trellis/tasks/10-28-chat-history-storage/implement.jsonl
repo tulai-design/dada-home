@@ -3,3 +3,4 @@
 {"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "行为和隔离浏览器验证"}
 {"file": ".trellis/tasks/10-28-storage-sync/research/chat-growth.md", "reason": "分页和上下文分离"}
 {"file": ".trellis/tasks/10-28-storage-sync/research/local-storage.md", "reason": "持久化与完整备份"}
+{"file": ".trellis/tasks/10-28-chat-history-storage/design.md", "reason": "冻结的分页、上下文、工具明细与备份同步合同"}

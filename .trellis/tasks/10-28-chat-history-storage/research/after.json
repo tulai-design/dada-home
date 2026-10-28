@@ -1,0 +1,44 @@
+{
+  "dataset": {
+    "convs": 1000,
+    "turns": 10000,
+    "toolChars": 1020
+  },
+  "after": {
+    "ms": 3.900000000372529,
+    "reads": [
+      {
+        "method": "page",
+        "store": "convs",
+        "rows": 51,
+        "bytes": 4132,
+        "ms": 2.200000001117587
+      },
+      {
+        "method": "get",
+        "store": "convs",
+        "rows": 1,
+        "bytes": 80,
+        "ms": 0.09999999962747097
+      },
+      {
+        "method": "page",
+        "store": "turns",
+        "rows": 41,
+        "bytes": 10579,
+        "ms": 1.300000000745058
+      }
+    ],
+    "loaded": {
+      "convs": 50,
+      "turns": 40
+    },
+    "fieldBytes": {
+      "prompt": 108890,
+      "answer": 108890,
+      "reasoning": 108890,
+      "tools": 27238890,
+      "article": 1688
+    }
+  }
+}

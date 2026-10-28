@@ -10,13 +10,16 @@ const source = ts.transpileModule(readFileSync(new URL('../src/lib/storage.ts', 
 // 应用 schema 使用真实纯模块，与导入入口共享预算和身份校验。
 const schemaModule = {exports: {}}
 new Function('module', 'exports', ts.transpileModule(readFileSync(new URL('../src/lib/applicationDataSchema.ts', import.meta.url), 'utf8'), {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022}}).outputText)(schemaModule, schemaModule.exports)
+const chatSchemaModule = {exports:{}}
+new Function('module','exports',ts.transpileModule(readFileSync(new URL('../src/lib/chatStorageSchema.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(chatSchemaModule,chatSchemaModule.exports)
 const clone = value => structuredClone(value)
 const conv = {id:'c1',title:'合成会话',createdAt:1,updatedAt:2}
-const turn = {id:'t1',convId:'c1',prompt:'问题',answer:'回答',reasoning:'思考',tools:[],error:'',startedAt:1,endedAt:2}
-const makeBackup = (extra={}) => ({app:'dada-backup',version:2,'fp.settings':'{"name":"备份"}',indexedDB:{kv:[{k:'note',v:'备份便签'}],apps:[{k:'app:tool',v:{text:'备份应用'}}],chat:{convs:[conv],turns:[turn]}},...extra})
+const turn = {id:'t1',convId:'c1',prompt:'问题',answer:'回答',reasoning:'思考',tools:[{name:'inspect',title:'读取',ok:true,text:'完整工具正文中文🙂'.repeat(30000)}],error:'',startedAt:1,endedAt:2}
+const stored = chatSchemaModule.exports.splitTurn(turn)
+const makeBackup = (extra={}) => ({app:'dada-backup',version:3,'fp.settings':'{"name":"备份"}',indexedDB:{kv:[{k:'note',v:'备份便签'}],apps:[{k:'app:tool',v:{text:'备份应用'}}],chat:{convs:[conv],turns:[stored.turn],toolDetails:stored.details}},...extra})
 function harness() {
   const ls = new Map([['fp.settings','{"name":"原配置"}'],['unrelated','keep']])
-  const tables = {apps:new Map([['app:tool',{k:'app:tool',v:{text:'原应用'}}]]),kv:new Map([['note',{k:'note',v:'原便签'}]]),convs:new Map(),turns:new Map(),recovery:new Map()}
+  const tables = {apps:new Map([['app:tool',{k:'app:tool',v:{text:'原应用'}}]]),kv:new Map([['note',{k:'note',v:'原便签'}]]),convs:new Map(),turns:new Map(),toolDetails:new Map(),recovery:new Map()}
   const log=[];const failures={batch:false,set:false,rollback:false};let reloads=0;let exclusive=false;let flushData=async()=>{};let flushChat=async()=>{};let flushApps=async()=>{};let retry=async()=>{}
   const navigator={locks:{request:async(_name,_options,work)=>work()}}
   const storage = {
@@ -27,7 +30,7 @@ function harness() {
   const db={
     async get(store,key){return clone(tables[store].get(key))},
     async all(store){return clone([...tables[store].values()])},
-    async snapshot(){log.push('snapshot');return Object.fromEntries(['kv','apps','convs','turns'].map(k=>[k,clone([...tables[k].values()])]))},
+    async snapshot(){log.push('snapshot');return Object.fromEntries(['kv','apps','convs','turns','toolDetails'].map(k=>[k,clone([...tables[k].values()])]))},
     async batch(ops){
       log.push('batch')
       if(failures.batch){failures.batch=false;throw new Error('模拟事务abort')}
@@ -45,6 +48,7 @@ function harness() {
     './chat':{initChat:async()=>log.push('initChat'),flush:async()=>{log.push('flushChat');await flushChat()},clearChat:async()=>{},exportChat:async()=>({convs:[...tables.convs.values()],turns:[...tables.turns.values()]})},
     './componentData':{initComponentData:async()=>log.push('initData'),flush:async()=>{log.push('flushData');await flushData()},dropPendingData(){}},
     './applicationDataSchema':schemaModule.exports,
+    './chatStorageSchema':chatSchemaModule.exports,
     './applicationData':{flushApplicationData:async()=>{log.push('flushApps');await flushApps()}},
     './sync':{waitForSyncIdle:async()=>{}},
     './persistence':{
@@ -65,7 +69,7 @@ async function test(name,run){await run();passed++;console.log(`通过：${name}
 await test('不可信备份在替换前严格验证，旧格式直接拒绝',async()=>{
   const h=harness()
   for(const bad of [
-    {indexedDB:true},{'fp.settings':'{}'},makeBackup({version:1}),{app:'dada-backup',version:99,indexedDB:{}},
+    {indexedDB:true},{'fp.settings':'{}'},makeBackup({version:1}),makeBackup({version:2}),{app:'dada-backup',version:99,indexedDB:{}},
     makeBackup({'fp.settings':7}),makeBackup({'fp.settings':'{broken'}),
     makeBackup({indexedDB:{kv:[],apps:[],chat:{convs:[conv],turns:[{...turn,convId:'missing'}]}}}),
     makeBackup({indexedDB:{kv:[{k:'same',v:1},{k:'same',v:2}],apps:[],chat:{convs:[],turns:[]}}}),
@@ -76,6 +80,20 @@ await test('不可信备份在替换前严格验证，旧格式直接拒绝',asy
     assert.equal(h.tables.kv.get('note').v,'原便签');assert.equal(h.reloads,0)
   }
   assert.equal(h.api.parseBackup(JSON.stringify(makeBackup())).summary.turns,1)
+})
+
+await test('工具正文缺失、错误归属、字节数及孤立引用在任何清库前拒绝',async()=>{
+  for(const mutate of [
+    b=>delete b.indexedDB.chat.toolDetails,
+    b=>b.indexedDB.chat.toolDetails.splice(0),
+    b=>b.indexedDB.chat.toolDetails[0].convId='other',
+    b=>b.indexedDB.chat.toolDetails[0].bytes++,
+    b=>b.indexedDB.chat.turns[0].tools=[],
+    b=>b.indexedDB.chat.toolDetails.push({...b.indexedDB.chat.toolDetails[0]}),
+  ]){
+    const h=harness(),bad=clone(makeBackup());mutate(bad)
+    await assert.rejects(h.api.importBackup(bad));assert.equal(h.log.includes('batch'),false)
+  }
 })
 
 await test('工作空间不能以合法JSON空壳覆盖现有库，当前格式保留扩展字段',async()=>{
@@ -102,7 +120,7 @@ await test('应用备份缺仓、重复身份、坏JSON值和超预算均在清�
   await assert.rejects(()=>h.api.importBackup(bad))
 })
 
-await test('v2拒绝旧业务键且零写入，原样导出仍保留救援来源',async()=>{
+await test('v3拒绝旧业务键且零写入，原样导出仍保留救援来源',async()=>{
   for(const key of ['fp.chatTurns.v2','fp.data.shadow','fp.app.tool','fp.applet.tool']){
     for(const value of ['{}','{broken']){
       const h=harness(),bad=makeBackup({[key]:value}),before=structuredClone({local:[...h.ls],apps:[...h.tables.apps],kv:[...h.tables.kv]})
@@ -126,7 +144,7 @@ await test('导出先等待保存屏障，包含最新配置和业务数据',asy
   const dump=await h.api.exportBackupSnapshot()
   assert.equal(dump['fp.settings'],'{"name":"刚改名"}')
   assert.equal(dump.indexedDB.kv[0].v,'刚编辑')
-  assert.equal(dump.app,'dada-backup');assert.equal(dump.version,2)
+  assert.equal(dump.app,'dada-backup');assert.equal(dump.version,3)
   assert.equal(dump.indexedDB.apps[0].v.text,'刚写应用')
   assert.ok(h.log.indexOf('snapshot')>h.log.indexOf('flushApps'))
   assert.ok(h.log.indexOf('snapshot')>h.log.indexOf('flushData'))
@@ -145,7 +163,7 @@ await test('生成中导出不持有写入门禁，后续片段仍能继续保�
   const exporting=h.api.exportBackupSnapshot()
   await new Promise(resolve=>setImmediate(resolve))
   assert.equal(h.exclusive,false)
-  h.tables.turns.set('t1',turn);h.tables.convs.set('c1',conv)
+  h.tables.turns.set('t1',stored.turn);h.tables.convs.set('c1',conv);for(const detail of stored.details)h.tables.toolDetails.set(detail.id,detail)
   release();const dump=await exporting
   assert.equal(dump.indexedDB.chat.turns[0].answer,'回答')
 })
@@ -155,6 +173,7 @@ await test('合法恢复替换业务表与配置，保留非搭搭配置并清�
   assert.equal(h.tables.kv.get('note').v,'备份便签')
   assert.equal(h.tables.apps.get('app:tool').v.text,'备份应用')
   assert.equal(h.tables.turns.get('t1').answer,'回答')
+  assert.equal(h.tables.toolDetails.get(stored.details[0].id).text,turn.tools[0].text)
   assert.equal(h.ls.get('fp.settings'),'{"name":"备份"}')
   assert.equal(h.ls.get('unrelated'),'keep');assert.equal(h.tables.recovery.size,0);assert.equal(h.reloads,1)
 })
@@ -209,7 +228,7 @@ await test('救援导出保留坏旧配置，恢复日志也能原样回退坏�
   const dump=await h.api.exportBackupSnapshot()
   assert.equal(dump['fp.data.old'],'{broken')
   assert.throws(()=>h.api.parseBackup(JSON.stringify(dump)),/旧业务存储/)
-  h.tables.recovery.set('backup-restore',{k:'backup-restore',version:2,before:{local:{'fp.data.old':'{broken'},data:{kv:[{k:'old',v:7}],apps:[{k:'app:raw',v:{text:'中'.repeat(3*1024*1024)}}],convs:[],turns:[{id:'orphan',convId:'removed'}]}}})
+  h.tables.recovery.set('backup-restore',{k:'backup-restore',version:3,before:{local:{'fp.data.old':'{broken'},data:{kv:[{k:'old',v:7}],apps:[{k:'app:raw',v:{text:'中'.repeat(3*1024*1024)}}],convs:[],turns:[{id:'orphan',convId:'removed'}],toolDetails:[{id:'raw-broken-body',text:'原坏正文'}]}}})
   await h.api.initStorage()
   assert.equal(h.tables.apps.get('app:raw').v.text.length,3*1024*1024);assert.equal(h.ls.get('fp.data.old'),'{broken');assert.equal(h.tables.turns.get('orphan').convId,'removed')
   assert.equal(h.tables.recovery.size,0)
@@ -231,7 +250,7 @@ await test('仅配置提交的quota回退不读取或清空业务表',async()=>{
 await test('仅配置中断日志重新启动只恢复配置，保留期间的业务表',async()=>{
   const h=harness();h.ls.set('fp.settings','{"name":"中断"}')
   h.tables.kv.set('new',{k:'new',v:'业务继续保留'})
-  h.tables.recovery.set('backup-restore',{k:'backup-restore',version:2,before:{local:{'fp.settings':'{"name":"原配置"}'},data:null}})
+  h.tables.recovery.set('backup-restore',{k:'backup-restore',version:3,before:{local:{'fp.settings':'{"name":"原配置"}'},data:null}})
   await h.api.recoverStorage()
   assert.equal(h.ls.get('fp.settings'),'{"name":"原配置"}');assert.equal(h.tables.kv.get('new').v,'业务继续保留')
   assert.equal(h.tables.recovery.size,0);assert.equal(h.log.includes('batch'),false)

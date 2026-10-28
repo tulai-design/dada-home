@@ -42,12 +42,19 @@ function runtime({storage = localStore(), indexedDB, mocks = {}} = {}) {
   return {load, storage}
 }
 function backend() {
-  const stores = {apps: new Map(), kv: new Map(), convs: new Map(), turns: new Map(), recovery: new Map()}
+  const stores = {apps: new Map(), kv: new Map(), convs: new Map(), turns: new Map(), toolDetails: new Map(), recovery: new Map()}
   return {
     stores, fail: false, gate: undefined,
     async all(store) {return [...stores[store].values()]},
     async get(store, key) {return stores[store].get(key)},
     async byIndex(store, field, key) {return [...stores[store].values()].filter(row => row[field] === key)},
+    async keysByIndex(store, field, key) {return [...stores[store].values()].filter(row=>row[field]===key).map(row=>row.id)},
+    async page(store,index,options) {
+      const cmp=(a,b)=>{for(let i=0;i<Math.min(a.length,b.length);i++){if(Array.isArray(a[i])&&!Array.isArray(b[i]))return 1;if(!Array.isArray(a[i])&&Array.isArray(b[i]))return -1;if(a[i]<b[i])return -1;if(a[i]>b[i])return 1}return a.length-b.length}
+      const key=row=>index==='recent'?[row.updatedAt,row.id]:[row.convId,row.startedAt,row.id]
+      let rows=[...stores[store].values()].filter(row=>(!options.lower||cmp(key(row),options.lower)>(options.lowerOpen?0:-1))&&(!options.upper||cmp(key(row),options.upper)<(options.upperOpen?0:1)))
+      rows.sort((a,b)=>cmp(key(a),key(b))*(options.direction==='prev'?-1:1));return structuredClone(rows.slice(0,options.limit))
+    },
     async putMany(store, rows) {return this.batch(rows.map(value => ({store, type: 'put', value})))},
     async batch(operations) {
       if (this.gate) {const gate = this.gate; this.gate = undefined; await gate}
@@ -58,7 +65,7 @@ function backend() {
         else stores[item.store].set(item.value.k ?? item.value.id, structuredClone(item.value))
       }
     },
-    async snapshot() {return {kv: await this.all('kv'), apps: await this.all('apps'), convs: await this.all('convs'), turns: await this.all('turns')}},
+    async snapshot() {return {kv: await this.all('kv'), apps: await this.all('apps'), convs: await this.all('convs'), turns: await this.all('turns'), toolDetails: await this.all('toolDetails')}},
   }
 }
 const deferred = () => {let resolve; const promise = new Promise(done => {resolve = done}); return {promise, resolve}}
@@ -93,14 +100,10 @@ await test('组件事务失败后待写保留，重试写入最新值', async ()
   assert.equal(disk.get('note')?.text, 'first')
   assert.equal(app.load('src/lib/persistence.ts').getPersistenceStatus().errors.length, 0)
 })
-await test('旧聊天在数据库不可用时保留来源并允许初始化重试', async () => {
-  const storage = localStore({'fp.chatTurns.v2': JSON.stringify([{id: 'old', prompt: '原文', answer: '', reasoning: '', tools: [], error: '', startedAt: 1}])})
-  const app = runtime({storage})
-  const chat = app.load('src/lib/chat.ts')
-  await assert.rejects(chat.initChat())
-  assert.ok(storage.getItem('fp.chatTurns.v2'))
-  await assert.rejects(chat.initChat())
-  assert.ok(storage.getItem('fp.chatTurns.v2'))
+await test('聊天数据库不可用时显式失败并允许初始化重试', async () => {
+  const chat=runtime().load('src/lib/chat.ts')
+  await assert.rejects(chat.initChat());await assert.rejects(chat.initChat())
+  assert.equal(chat.getChatState().ready,false)
 })
 await test('localStorage失败可见并重试最新值', async () => {
   const storage = localStore()
@@ -156,14 +159,15 @@ await test('聊天失败重试完整轮次，并发新编辑不会被旧ack清�
   const chat = app.load('src/lib/chat.ts')
   await chat.initChat()
   const turn = {...chat.beginTurn('你好'), id: 'one'}
-  chat.useChat().setTurns([turn])
+  const convId=await chat.newConv()
+  chat.appendTurn(convId,turn)
   db.fail = true
   await assert.rejects(chat.flush())
   db.fail = false
   const paused = deferred()
   db.gate = paused.promise
   const first = chat.flush()
-  chat.useChat().setTurns([{...turn, answer: '完整原文', endedAt: 2}])
+  chat.patchTurn(convId,turn.id,{answer:'完整原文',endedAt:2})
   paused.resolve()
   await first
   const row = db.stores.turns.get('one')
@@ -177,7 +181,9 @@ await test('迟到的打开会话不覆盖较新的导航请求', async () => {
   const chat = app.load('src/lib/chat.ts')
   await chat.initChat()
   const slow = deferred()
-  db.byIndex = async (_, __, id) => id === 'a' ? slow.promise : []
+  db.stores.convs.set('a',{id:'a',title:'A',createdAt:1,updatedAt:1})
+  db.stores.convs.set('b',{id:'b',title:'B',createdAt:1,updatedAt:1})
+  db.page = async (store, index, options) => store==='turns' && options.lower?.[0]==='a' ? slow.promise : []
   const first = chat.useChat().openConv('a')
   await Promise.resolve()
   await chat.useChat().openConv('b')
@@ -335,17 +341,13 @@ await test('工作空间读取连续重试不覆盖期间失败保存的最新�
   assert.equal(store.getWorkspace().name, '最新编辑')
   assert.equal(JSON.parse(storage.getItem('fp.workspace')).name, '最新编辑')
 })
-await test('旧聊天重复ID、缺正文或坏工具拒绝迁移并保留唯一来源', async () => {
-  const valid = {id: 'old', prompt: '原文', answer: '', reasoning: '', tools: [], error: '', startedAt: 1}
-  for (const turns of [[valid, {...valid, answer: '另一段'}], [{...valid, answer: undefined}], [{...valid, tools: [{name: '坏工具'}]}]]) {
-    const source = JSON.stringify(turns)
-    const db = backend()
-    const storage = localStore({'fp.chatTurns.v2': source})
-    const app = runtime({storage, mocks: {'./db': {db}}})
-    await assert.rejects(app.load('src/lib/chat.ts').initChat(), /旧聊天数据格式损坏/)
-    assert.equal(storage.getItem('fp.chatTurns.v2'), source)
-    assert.equal(db.stores.turns.size, 0)
-    assert.equal(db.stores.convs.size, 0)
+await test('当前聊天坏轮次或坏工具引用拒绝加载并保留原数据', async () => {
+  const valid={id:'t',convId:'c',prompt:'原文',answer:'',reasoning:'',tools:[],error:'',startedAt:1,endedAt:2}
+  for(const turn of [{...valid,answer:undefined},{...valid,tools:[{name:'坏工具'}]}]){
+    const db=backend();db.stores.convs.set('c',{id:'c',title:'会话',createdAt:1,updatedAt:2});db.stores.turns.set('t',turn)
+    const storage=localStore({'fp.conv':'"c"'}),app=runtime({storage,mocks:{'./db':{db,openDb:async()=>({})}}})
+    await assert.rejects(app.load('src/lib/chat.ts').initChat())
+    assert.deepEqual(db.stores.turns.get('t'),turn);assert.equal(db.stores.convs.size,1)
   }
 })
 await test('恢复失败后允许专用恢复入口重试，仍拒绝嵌套恢复与业务编辑', async () => {

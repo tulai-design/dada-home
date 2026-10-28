@@ -24,17 +24,17 @@ function server() {
     },get writes(){return this.requests.filter(r=>r.method!=='GET').length}}
 }
 function client(remote, existing) {
-  const ls=existing?.ls??new Map(),tables=existing?.tables??Object.fromEntries(['kv','apps','convs','turns','recovery'].map(s=>[s,new Map()]))
+  const ls=existing?.ls??new Map(),tables=existing?.tables??Object.fromEntries(['kv','apps','convs','turns','toolDetails','recovery'].map(s=>[s,new Map()]))
   const modules=new Map(),errors={read:false,batch:false,set:false,rollback:false},log=[]
   const localStorage={get length(){return ls.size},key:index=>[...ls.keys()][index]??null,getItem:key=>ls.get(key)??null,setItem(key,value){if(errors.set){errors.set=false;throw new Error('quota')}ls.set(key,String(value))},removeItem:key=>ls.delete(key)}
-  const db={async get(store,key){await onGet?.();return copy(tables[store].get(key))},async snapshot(){if(errors.read)throw new Error('读取失败');return Object.fromEntries(['kv','apps','convs','turns'].map(s=>[s,copy([...tables[s].values()])]))},async del(s,k){tables[s].delete(k)},async batch(ops){log.push(ops);if(errors.batch)throw new Error('事务abort');const next=Object.fromEntries(Object.entries(tables).map(([s,rows])=>[s,new Map(rows)]));for(const op of ops){if(op.type==='clear')next[op.store].clear();else if(op.type==='delete')next[op.store].delete(op.key);else next[op.store].set(op.store==='kv'||op.store==='apps'||op.store==='recovery'?op.value.k:op.value.id,copy(op.value))}for(const s of Object.keys(tables))tables[s]=next[s]}}
+  const db={async get(store,key){await onGet?.();return copy(tables[store].get(key))},async snapshot(){if(errors.read)throw new Error('读取失败');return Object.fromEntries(['kv','apps','convs','turns','toolDetails'].map(s=>[s,copy([...tables[s].values()])]))},async del(s,k){tables[s].delete(k)},async batch(ops){log.push(ops);if(errors.batch)throw new Error('事务abort');const next=Object.fromEntries(Object.entries(tables).map(([s,rows])=>[s,new Map(rows)]));for(const op of ops){if(op.type==='clear')next[op.store].clear();else if(op.type==='delete')next[op.store].delete(op.key);else next[op.store].set(op.store==='kv'||op.store==='apps'||op.store==='recovery'?op.value.k:op.value.id,copy(op.value))}for(const s of Object.keys(tables))tables[s]=next[s]}}
   let flush=async()=>{},onGet
   const deps={react:{useSyncExternalStore:(_,get)=>get()},'./db':{db,openDb:async()=>({})},'./applicationData':{flushApplicationData:async()=>flush()},'./chat':{flush:async()=>flush()},'./componentData':{flush:async()=>flush()},'./rss':{proxied:url=>url}}
   const navigator={onLine:true,locks:{request:async(_name,_options,work)=>work()}}
   function load(file){if(modules.has(file))return modules.get(file);const module={exports:{}};modules.set(file,module.exports);if(!sources.has(file))sources.set(file,ts.transpileModule(readFileSync(new URL(`../src/lib/${file}.ts`,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText);new Function('module','exports','require','localStorage','fetch','navigator','crypto',sources.get(file))(module,module.exports,id=>deps[id]??load(id.slice(2)),localStorage,(...args)=>remote.fetch(...args),navigator,webcrypto);return module.exports}
   const api=load('sync'),persistence=load('persistence')
   if(!existing)api.writeSyncConfig({...api.defaultSyncConfig(),backend:'http',http:{url:'https://sync.invalid/data',token:'',proxy:''},auto:false})
-  return {api,persistence,ls,tables,errors,log,reload:()=>client(remote,{ls,tables}),get status(){return api.useSyncStatus()},setFlush(fn){flush=fn},setOnGet(fn){onGet=fn}}
+  return {api,schema:load('chatStorageSchema'),persistence,ls,tables,errors,log,reload:()=>client(remote,{ls,tables}),get status(){return api.useSyncStatus()},setFlush(fn){flush=fn},setOnGet(fn){onGet=fn}}
 }
 let count=0
 async function test(name,run){await run();console.log(`通过：${name}`);count++}
@@ -67,6 +67,21 @@ await test('两设备应用仓往返保留同名三种身份，无安装记录�
   a.tables.apps.delete('app:same');await a.api.runSync();await b.api.runSync()
   assert.equal(b.tables.apps.has('app:same'),false);assert.equal(b.tables.apps.get('applet:same').v.count,3);assert.equal(b.tables.kv.get('same').v,'普通组件')
   assert.equal(JSON.parse(s.text).records['app:app:same'].deleted,true)
+})
+await test('两设备完整聊天正文往返、替换与墓碑清理，缺正文同步零网络',async()=>{
+  const s=server();let a=client(s),b=client(s)
+  const conv={id:'c',title:'完整会话',createdAt:1,updatedAt:2},full={id:'t',convId:'c',prompt:'问题',answer:'回答',reasoning:'完整推理',article:{title:'文章',link:'https://example.invalid',context:'全文'},tools:[{name:'inspect',title:'读取',ok:true,text:'大工具正文🙂'.repeat(50000)},{name:'check',title:'校验',ok:false,text:'保留失败详情'}],error:'',startedAt:1,endedAt:2}
+  const save=(c,value)=>{const split=c.schema.splitTurn(value);for(const [id,body] of c.tables.toolDetails)if(body.turnId===value.id)c.tables.toolDetails.delete(id);c.tables.turns.set(value.id,split.turn);for(const body of split.details)c.tables.toolDetails.set(body.id,body)}
+  a.tables.convs.set('c',conv);save(a,full);await a.api.runSync();await b.api.runSync();b=b.reload()
+  assert.deepEqual(b.schema.hydrateTurn(b.tables.turns.get('t'),b.tables.toolDetails),full)
+  assert.deepEqual(Object.keys(JSON.parse(s.text).records).sort(),['conversation:c','turn:t'])
+  const edited={...full,answer:'B的新答案',tools:[{name:'new',title:'新结果',ok:true,text:'更新正文🙂'.repeat(40000)}]};save(b,edited);await b.api.runSync();await a.api.runSync();a=a.reload()
+  assert.deepEqual(a.schema.hydrateTurn(a.tables.turns.get('t'),a.tables.toolDetails),edited);assert.equal(a.tables.toolDetails.size,1)
+  const key=[...a.tables.toolDetails.keys()][0],body=a.tables.toolDetails.get(key),requests=s.requests.length;a.tables.toolDetails.delete(key)
+  await assert.rejects(a.api.runSync(),/正文缺失/);assert.equal(s.requests.length,requests);a.tables.toolDetails.set(key,body)
+  a.tables.convs.clear();a.tables.turns.clear();a.tables.toolDetails.clear();await a.api.runSync();await b.api.runSync()
+  assert.equal(b.tables.convs.size,0);assert.equal(b.tables.turns.size,0);assert.equal(b.tables.toolDetails.size,0)
+  assert.equal(JSON.parse(s.text).records['turn:t'].deleted,true)
 })
 await test('规范化对象键顺序不上传；同一毫秒多次修改仍使用增长的逻辑版本',async()=>{
   const s=server(),c=client(s);c.tables.kv.set('note',{k:'note',v:{a:1,b:2}});await c.api.runSync();const first=JSON.parse(s.text).records['component:note'].revision.counter

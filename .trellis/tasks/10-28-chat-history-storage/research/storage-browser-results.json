@@ -1,0 +1,122 @@
+[
+  {
+    "name": "真实IndexedDB：batch请求成功后abort仍拒绝且跨仓回滚",
+    "status": "passed",
+    "ms": 233
+  },
+  {
+    "name": "真实IndexedDB：读取错误与不可克隆写入均严格拒绝",
+    "status": "passed",
+    "ms": 106
+  },
+  {
+    "name": "组件并发write/delete/write：重入flush屏障保存最终版本并重载",
+    "status": "passed",
+    "ms": 155
+  },
+  {
+    "name": "组件quota失败保留最新值：真实事务失败后重试落盘",
+    "status": "passed",
+    "ms": 98
+  },
+  {
+    "name": "配置与工作空间读写权限恢复：连续重试保留最新失败编辑",
+    "status": "passed",
+    "ms": 1079
+  },
+  {
+    "name": "聊天流式更改立即export：全部轮次与组件最新值可重载",
+    "status": "passed",
+    "ms": 181
+  },
+  {
+    "name": "聊天快速切换：迟到读取不覆盖最新会话，原轮次归属不变",
+    "status": "passed",
+    "ms": 125
+  },
+  {
+    "name": "当前聊天初始化读取失败：保留原轮次，同页重试恢复",
+    "status": "passed",
+    "ms": 144
+  },
+  {
+    "name": "工具正文事务abort：头与正文均不提交，重试完整保存",
+    "status": "passed",
+    "ms": 122
+  },
+  {
+    "name": "旧组件坏JSON：原值保留且合法项继续迁移",
+    "status": "passed",
+    "ms": 112
+  },
+  {
+    "name": "当前聊天不完整行：初始化拒绝且不改原文",
+    "status": "passed",
+    "ms": 116
+  },
+  {
+    "name": "坏备份拒绝：结构/版本/工作空间/应用坏行与重复ID不改原数据",
+    "status": "passed",
+    "ms": 240
+  },
+  {
+    "name": "新版备份夹带旧业务键：清库前拒绝且不触发重载迁移",
+    "status": "passed",
+    "ms": 149
+  },
+  {
+    "name": "完整备份v3导入：跨设备恢复工具正文，重置清理全部五仓",
+    "status": "passed",
+    "ms": 370
+  },
+  {
+    "name": "恢复LS失败：原IndexedDB和fp配置回退且恢复日志清除",
+    "status": "passed",
+    "ms": 149
+  },
+  {
+    "name": "恢复中断重启：durable recovery日志在业务初始化前回退",
+    "status": "passed",
+    "ms": 231
+  },
+  {
+    "name": "恢复和回退均失败：真实导入保留日志，重载恢复原数据",
+    "status": "passed",
+    "ms": 202
+  },
+  {
+    "name": "数据库升级blocked：失败可见，关闭旧连接后重试，versionchange拒绝旧页继续写入",
+    "status": "passed",
+    "ms": 128
+  },
+  {
+    "name": "真实App无IndexedDB启动失败：恢复API后重新读取进入首页",
+    "status": "passed",
+    "ms": 1277
+  },
+  {
+    "name": "真实启动救援下载：保留坏JSON原文，标记配置救援且拒作完整备份",
+    "status": "passed",
+    "ms": 1184
+  },
+  {
+    "name": "真实启动回退失败：恢复权限后同页重新读取成功，原数据恢复",
+    "status": "passed",
+    "ms": 1405
+  },
+  {
+    "name": "真实设置导出按钮：下载备份可解析并包含未flush最新组件与配置",
+    "status": "passed",
+    "ms": 1487
+  },
+  {
+    "name": "真实App保存失败Notice：旧警告后quota优先、四宽双主题、重试与输入保持",
+    "status": "passed",
+    "ms": 1890
+  },
+  {
+    "name": "真实App恢复双失败：提示重新加载、业务inert与写门禁、重载恢复",
+    "status": "passed",
+    "ms": 2238
+  }
+]

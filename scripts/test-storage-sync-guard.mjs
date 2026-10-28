@@ -16,7 +16,7 @@ function harness({all = async () => [], flush = async () => {}, flushApps = asyn
     react: {useSyncExternalStore: (_, get) => get()},
     './applicationData': {flushApplicationData: flushApps},
     './chat': {flush}, './componentData': {flush, dropPendingData() {}},
-    './db': {db: {all, snapshot: async () => ({kv: await all('kv'), apps: await all('apps'), convs: await all('convs'), turns: await all('turns')})}, openDb: async () => ({})}, './rss': {proxied: url => url},
+    './db': {db: {all, snapshot: async () => ({kv: await all('kv'), apps: await all('apps'), convs: await all('convs'), turns: await all('turns'), toolDetails: await all('toolDetails')})}, openDb: async () => ({})}, './rss': {proxied: url => url},
   }
   function load(file) {
     if (modules.has(file)) return modules.get(file)

@@ -5,7 +5,7 @@ import type {AiConfig} from '../lib/types'
 import type {AssistantMode} from '../lib/assistantLayout'
 import {useIsMobile} from '../lib/useMedia'
 import {Mascot} from './About'
-import {elapsed, isActive, type Conv, type Turn} from '../lib/chat'
+import {elapsed, type Conv, type StoredTurn} from '../lib/chat'
 import {ThinkingPanel} from './ThinkingPanel'
 import {ToolRow} from './ToolRow'
 import {Composer} from './Composer'
@@ -19,11 +19,20 @@ type Props = {
   /** 宿主判断是否有足够宽度同时显示页面和助手。 */
   canSplit?: boolean
   ai: AiConfig
-  turns: Turn[]
+  turns: StoredTurn[]
   /** 对话记录是否已从 IndexedDB 读完 */
   ready: boolean
   convs: Conv[]
   convId: string
+  activeTurnIds: string[]
+  hasOlderTurns: boolean
+  turnsLoading: boolean
+  turnsError: string
+  onLoadOlderTurns: () => Promise<void>
+  hasMoreConvs: boolean
+  convsLoading: boolean
+  convsError: string
+  onLoadMoreConvs: () => Promise<void>
   onNewConv: () => void
   onOpenConv: (id: string) => void
   onDeleteConv: (id: string) => void
@@ -41,15 +50,13 @@ type Props = {
 
 /** 距底部多少像素内算「贴底」，超过就认为用户在看历史，不再自动跟随。 */
 const FOLLOW_THRESHOLD = 120
-/** 一次渲染多少轮。 */
-const PAGE = 40
 const MODES = [
   {value: 'drawer', label: '抽屉', icon: SidebarSimple},
   {value: 'split', label: '分栏', icon: Columns},
   {value: 'full', label: '全屏', icon: Maximize2},
 ] as const
 
-export function Assistant({open, mode, onMode, canSplit = true, ai, turns, ready, convs, convId, onNewConv, onOpenConv, onDeleteConv, busy, seed, articleTitle, onRemoveArticle, onSend, onStop, onClose, onOpenSettings, onApprovalAnswer}: Props) {
+export function Assistant({open, mode, onMode, canSplit = true, ai, turns, ready, convs, convId, activeTurnIds, hasOlderTurns, turnsLoading, turnsError, onLoadOlderTurns, hasMoreConvs, convsLoading, convsError, onLoadMoreConvs, onNewConv, onOpenConv, onDeleteConv, busy, seed, articleTitle, onRemoveArticle, onSend, onStop, onClose, onOpenSettings, onApprovalAnswer}: Props) {
   const [input, setInput] = useState('')
   const logRef = useRef<HTMLDivElement>(null)
   const followRef = useRef(true)
@@ -58,13 +65,9 @@ export function Assistant({open, mode, onMode, canSplit = true, ai, turns, ready
   const splitAvailable = !mobile && canSplit
   const displayMode = mode === 'split' && !splitAvailable ? 'drawer' : mode
   const [paused, setPaused] = useState(false)
-  // 对话可以无限长：只渲染最近一段，更早的点一下再展开，免得几千轮把界面拖慢
-  const [shown, setShown] = useState(PAGE)
   const [listOpen, setListOpen] = useState(false)
   const [pendingDelete, setPendingDelete] = useState<string | null>(null)
-  useEffect(() => setShown(PAGE), [convId])
-  const visible = turns.length > shown ? turns.slice(-shown) : turns
-  const hiddenCount = turns.length - visible.length
+  const prependAnchor = useRef<{convId: string; firstId: string; id?: string; top: number; height: number; scrollTop: number} | null>(null)
   const configured = Boolean(ai.baseUrl.trim() && ai.model.trim())
   const consumedSeed = useRef(seed.key)
 
@@ -94,13 +97,37 @@ export function Assistant({open, mode, onMode, canSplit = true, ai, turns, ready
 
   useLayoutEffect(() => {
     const el = logRef.current
-    if (!el || !followRef.current) return
-    el.scrollTop = el.scrollHeight
-  }, [turns])
+    if (!el) return
+    const anchor = prependAnchor.current
+    if (anchor && anchor.convId === convId) {
+      if (turns[0]?.id !== anchor.firstId) {
+        const row = Array.from(el.querySelectorAll<HTMLElement>('.turn')).find(item => item.id === anchor.id)
+        if (row) el.scrollTop += row.getBoundingClientRect().top - el.getBoundingClientRect().top - anchor.top
+        else el.scrollTop = anchor.scrollTop + el.scrollHeight - anchor.height
+        prependAnchor.current = null
+      } else if (!turnsLoading) prependAnchor.current = null
+      return
+    }
+    if (followRef.current) el.scrollTop = el.scrollHeight
+  }, [turns, turnsLoading, convId])
+
+  const loadOlder = async () => {
+    if (turnsLoading) return
+    const el = logRef.current
+    if (el) {
+      const top = el.getBoundingClientRect().top
+      const row = Array.from(el.querySelectorAll<HTMLElement>('.turn')).find(item => item.getBoundingClientRect().bottom > top)
+      prependAnchor.current = {convId, firstId: turns[0]?.id ?? '', id: row?.id, top: row ? row.getBoundingClientRect().top - top : 0, height: el.scrollHeight, scrollTop: el.scrollTop}
+    }
+    followRef.current = false
+    setPaused(true)
+    try {await onLoadOlderTurns()} catch {prependAnchor.current = null /* 仓库保留旧页并提供重试错误。 */}
+  }
 
   // 打开面板、切换对话时：落在最新一条上。面板有进场动画、内容可能晚一拍才挂上，所以多补几次。
   useEffect(() => {
     if (!open) return
+    prependAnchor.current = null
     followRef.current = true
     setPaused(false)
     const snap = () => {
@@ -168,7 +195,8 @@ export function Assistant({open, mode, onMode, canSplit = true, ai, turns, ready
 
   const chat = (
       <Flexbox className="chat-root" direction="vertical" style={{height: '100%', position: 'relative'}}>
-        {!ready ? (
+        {turnsError && !turns.length && <div className="chat-load-error" role="alert"><Text fontSize={13}>{turnsError}</Text></div>}
+        {!ready || (turnsLoading && !turns.length) ? (
           <div className="chat-empty">
             <Text type="secondary">正在读取对话记录…</Text>
           </div>
@@ -188,13 +216,14 @@ export function Assistant({open, mode, onMode, canSplit = true, ai, turns, ready
           </div>
         ) : (
           <div className="chat-log" ref={logRef} onScroll={onScroll}>
-            {hiddenCount > 0 && (
-              <Button className="chat-earlier" type="text" size="small" onClick={() => setShown((n) => n + PAGE)}>
-                显示更早的 {Math.min(PAGE, hiddenCount)} 轮（还有 {hiddenCount} 轮）
+            {(hasOlderTurns || turnsError) && <div className="chat-page-controls">
+              {turnsError && <Text className="chat-load-error" fontSize={13} role="alert">{turnsError}</Text>}
+              <Button className="chat-earlier" type="text" size="small" loading={turnsLoading} onClick={() => void loadOlder()}>
+                {turnsError ? '重试读取更早记录' : '加载更早的对话'}
               </Button>
-            )}
-            {visible.map((turn) => (
-              <TurnView key={turn.id} turn={turn} busy={busy} onApprovalAnswer={onApprovalAnswer} />
+            </div>}
+            {turns.map((turn) => (
+              <TurnView key={turn.id} turn={turn} active={activeTurnIds.includes(turn.id)} onApprovalAnswer={onApprovalAnswer} />
             ))}
             <div className="chat-log-tail" />
           </div>
@@ -233,6 +262,10 @@ export function Assistant({open, mode, onMode, canSplit = true, ai, turns, ready
             convs={convs}
             convId={convId}
             busy={busy}
+            hasMore={hasMoreConvs}
+            loading={convsLoading}
+            error={convsError}
+            onLoadMore={onLoadMoreConvs}
             onOpen={(id) => {
               onOpenConv(id)
               setListOpen(false)
@@ -271,7 +304,7 @@ export function Assistant({open, mode, onMode, canSplit = true, ai, turns, ready
           </Button>
           <div className="ai-full-history-title">历史</div>
           <div className="ai-full-history">
-            <ConvList convs={convs} convId={convId} busy={busy} onOpen={onOpenConv} onDelete={setPendingDelete} />
+            <ConvList convs={convs} convId={convId} busy={busy} hasMore={hasMoreConvs} loading={convsLoading} error={convsError} onLoadMore={onLoadMoreConvs} onOpen={onOpenConv} onDelete={setPendingDelete} />
           </div>
         </aside>
         <section className="ai-full-main">
@@ -318,8 +351,7 @@ export function Assistant({open, mode, onMode, canSplit = true, ai, turns, ready
 }
 
 /** 一轮对话：用户提问 → 思考 → 工具 → 回答 → 失败/耗时。 */
-function TurnView({turn, busy, onApprovalAnswer}: {turn: Turn; busy: boolean; onApprovalAnswer: (approved: boolean | 'always') => void}) {
-  const active = isActive(turn) && busy
+function TurnView({turn, active, onApprovalAnswer}: {turn: StoredTurn; active: boolean; onApprovalAnswer: (approved: boolean | 'always') => void}) {
   const thinking = active && !turn.answer && (!turn.tools.length || turn.tools.every((t) => t.ok))
   const seconds = elapsed(turn)
 
@@ -338,8 +370,8 @@ function TurnView({turn, busy, onApprovalAnswer}: {turn: Turn; busy: boolean; on
 
       {turn.tools.length > 0 && (
         <div className="turn-tools">
-          {turn.tools.map((step, i) => (
-            <ToolRow key={`${step.name}-${i}`} step={step} pending={active && i === turn.tools.length - 1 && !step.text} />
+          {turn.tools.map(step => (
+            <ToolRow key={step.detailId} step={step} active={active} />
           ))}
         </div>
       )}
@@ -356,7 +388,7 @@ function TurnView({turn, busy, onApprovalAnswer}: {turn: Turn; busy: boolean; on
         </Text>
       )}
 
-      {turn.pending && <ApprovalCard request={turn.pending.request} onAnswer={onApprovalAnswer} />}
+      {active && turn.pending && <ApprovalCard request={turn.pending.request} onAnswer={onApprovalAnswer} />}
 
       {turn.error && <p className="turn-error">{turn.error}</p>}
 
@@ -366,8 +398,8 @@ function TurnView({turn, busy, onApprovalAnswer}: {turn: Turn; busy: boolean; on
 }
 
 /** 历史对话列表：只有标题，当前的高亮，每行可删。 */
-function ConvList({convs, convId, busy, onOpen, onDelete}: {convs: Conv[]; convId: string; busy: boolean; onOpen: (id: string) => void; onDelete: (id: string) => void}) {
-  if (!convs.length) {
+function ConvList({convs, convId, busy, hasMore, loading, error, onLoadMore, onOpen, onDelete}: {convs: Conv[]; convId: string; busy: boolean; hasMore: boolean; loading: boolean; error: string; onLoadMore: () => Promise<void>; onOpen: (id: string) => void; onDelete: (id: string) => void}) {
+  if (!convs.length && !loading && !error) {
     return (
       <Text type="secondary" fontSize={12}>
         还没有对话
@@ -377,14 +409,13 @@ function ConvList({convs, convId, busy, onOpen, onDelete}: {convs: Conv[]; convI
   return (
     <>
       {convs.map((conv) => (
-        <div key={conv.id} className="conv-row" data-on={conv.id === convId} data-disabled={busy && conv.id !== convId}>
+        <div key={conv.id} className="conv-row" data-on={conv.id === convId}>
           <Button
             block
             type="text"
             className="ai-history-item"
             icon={<MessageSquare size={13} />}
             title={conv.title}
-            disabled={busy && conv.id !== convId}
             onClick={() => onOpen(conv.id)}
           >
             <span>{conv.title}</span>
@@ -392,6 +423,8 @@ function ConvList({convs, convId, busy, onOpen, onDelete}: {convs: Conv[]; convI
           <ActionIcon className="conv-del" icon={Trash2} size="small" title="删除" disabled={busy} onClick={() => onDelete(conv.id)} />
         </div>
       ))}
+      {error && <Text className="chat-load-error" role="alert" fontSize={13}>{error}</Text>}
+      {(hasMore || loading || error) && <Button className="conv-more" type="text" size="small" loading={loading} onClick={() => {void onLoadMore().catch(() => undefined)}}>{error ? '重试读取历史' : '加载更多对话'}</Button>}
     </>
   )
 }

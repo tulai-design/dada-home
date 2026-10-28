@@ -1,0 +1,31 @@
+{
+  "baseline": "4547ad1",
+  "dataset": {
+    "convs": 1000,
+    "turns": 10000,
+    "toolChars": 1020
+  },
+  "startup": {
+    "ms": 171.5,
+    "reads": [
+      {
+        "method": "all",
+        "store": "convs",
+        "rows": 1000,
+        "bytes": 80891,
+        "ms": 4.5
+      },
+      {
+        "method": "byIndex",
+        "store": "turns",
+        "rows": 10000,
+        "bytes": 29605249,
+        "ms": 151.5
+      }
+    ]
+  },
+  "loaded": {
+    "convs": 1000,
+    "turns": 10000
+  }
+}

@@ -1,17 +1,17 @@
 import {reportPersistenceError} from './persistence'
 
 /**
- * IndexedDB 事务边界。业务数据保存在 kv/apps/convs/turns；recovery 仅用于本机恢复日志。
+ * IndexedDB 事务边界。业务数据保存在 kv/apps/convs/turns/toolDetails；recovery 仅用于本机恢复日志。
  * 读写失败必须 reject，不能把数据库故障当成空表或成功保存。
  */
 const NAME = 'dada'
-const VERSION = 3
-export type StoreName = 'kv' | 'apps' | 'convs' | 'turns' | 'recovery'
+const VERSION = 4
+export type StoreName = 'kv' | 'apps' | 'convs' | 'turns' | 'toolDetails' | 'recovery'
 export type DbOperation =
   | {store: StoreName; type: 'put'; value: unknown}
   | {store: StoreName; type: 'delete'; key: string}
   | {store: StoreName; type: 'clear'}
-export type DbSnapshot = {kv: {k: string; v: unknown}[]; apps: {k: string; v: unknown}[]; convs: unknown[]; turns: unknown[]}
+export type DbSnapshot = {kv: {k: string; v: unknown}[]; apps: {k: string; v: unknown}[]; convs: unknown[]; turns: unknown[]; toolDetails: unknown[]}
 
 let opened: Promise<IDBDatabase | null> | null = null
 let connection: IDBDatabase | null = null
@@ -40,6 +40,15 @@ export function openDb(): Promise<IDBDatabase | null> {
         if (!database.objectStoreNames.contains('apps')) database.createObjectStore('apps', {keyPath: 'k'})
         if (!database.objectStoreNames.contains('convs')) database.createObjectStore('convs', {keyPath: 'id'})
         if (!database.objectStoreNames.contains('turns')) database.createObjectStore('turns', {keyPath: 'id'}).createIndex('convId', 'convId')
+        if (!database.objectStoreNames.contains('toolDetails')) {
+          const details = database.createObjectStore('toolDetails', {keyPath: 'id'})
+          details.createIndex('turnId', 'turnId')
+          details.createIndex('convId', 'convId')
+        }
+        const upgrade = request.transaction!
+        const convs = upgrade.objectStore('convs'), turns = upgrade.objectStore('turns')
+        if (!convs.indexNames.contains('recent')) convs.createIndex('recent', ['updatedAt', 'id'])
+        if (!turns.indexNames.contains('chronological')) turns.createIndex('chronological', ['convId', 'startedAt', 'id'])
         if (!database.objectStoreNames.contains('recovery')) database.createObjectStore('recovery', {keyPath: 'k'})
       }
       request.onerror = () => fail(request.error)
@@ -120,7 +129,34 @@ async function batch(operations: DbOperation[]): Promise<void> {
   })
 }
 
+export type DbPageOptions = {
+  lower?: IDBValidKey; upper?: IDBValidKey; lowerOpen?: boolean; upperOpen?: boolean
+  direction?: 'next' | 'prev'; limit: number
+}
+/** 有界索引游标；到达 limit 就停止继续读取，不能用 getAll 后再 slice。 */
+function page<T>(store: StoreName, index: string, options: DbPageOptions): Promise<T[]> {
+  if (!Number.isSafeInteger(options.limit) || options.limit < 1) return Promise.reject(new Error('分页条数无效。'))
+  let range: IDBKeyRange | undefined
+  if (options.lower !== undefined && options.upper !== undefined) range = IDBKeyRange.bound(options.lower, options.upper, options.lowerOpen, options.upperOpen)
+  else if (options.lower !== undefined) range = IDBKeyRange.lowerBound(options.lower, options.lowerOpen)
+  else if (options.upper !== undefined) range = IDBKeyRange.upperBound(options.upper, options.upperOpen)
+  return run<T[]>(store, 'readonly', s => new Promise((resolve, reject) => {
+    const rows: T[] = []
+    const request = s.index(index).openCursor(range, options.direction ?? 'next')
+    request.onerror = () => reject(request.error ?? new Error('无法读取聊天分页。'))
+    request.onsuccess = () => {
+      const cursor = request.result
+      if (!cursor) {resolve(rows); return}
+      rows.push(cursor.value as T)
+      if (rows.length >= options.limit) resolve(rows)
+      else cursor.continue()
+    }
+  }))
+}
+
 export const db = {
+  page,
+  keysByIndex: (store: StoreName, index: string, key: string) => run<string[]>(store, 'readonly', s => wrap(s.index(index).getAllKeys(key)) as Promise<string[]>),
   get: <T>(store: StoreName, key: string) => run<T | undefined>(store, 'readonly', s => wrap(s.get(key)) as Promise<T | undefined>),
   all: <T>(store: StoreName) => run<T[]>(store, 'readonly', s => wrap(s.getAll()) as Promise<T[]>),
   byIndex: <T>(store: StoreName, index: string, key: string) =>
@@ -131,13 +167,14 @@ export const db = {
   delMany: (store: StoreName, keys: string[]) => batch(keys.map(key => ({store, type: 'delete', key}))),
   clear: (store: StoreName) => batch([{store, type: 'clear'}]),
   batch,
-  snapshot: (): Promise<DbSnapshot> => transaction(['kv', 'apps', 'convs', 'turns'], 'readonly', async tx => {
-    const [kv, apps, convs, turns] = await Promise.all([
+  snapshot: (): Promise<DbSnapshot> => transaction(['kv', 'apps', 'convs', 'turns', 'toolDetails'], 'readonly', async tx => {
+    const [kv, apps, convs, turns, toolDetails] = await Promise.all([
       wrap(tx.objectStore('kv').getAll()) as Promise<DbSnapshot['kv']>,
       wrap(tx.objectStore('apps').getAll()) as Promise<DbSnapshot['apps']>,
       wrap(tx.objectStore('convs').getAll()) as Promise<unknown[]>,
       wrap(tx.objectStore('turns').getAll()) as Promise<unknown[]>,
+      wrap(tx.objectStore('toolDetails').getAll()) as Promise<unknown[]>,
     ])
-    return {kv, apps, convs, turns}
+    return {kv, apps, convs, turns, toolDetails}
   }),
 }

@@ -34,7 +34,7 @@ import { MonitorPage } from './components/Monitor'
 import { MarketPage } from './components/MarketPage'
 import { isInstalled } from './lib/market'
 import { resetStorage } from './lib/storage'
-import { beginTurn, contextTurns, initChat, turnContent, useChat, type Turn } from './lib/chat'
+import { appendTool, appendTurn, beginTurn, getChatState, initChat, loadContextTurns, patchTurn, turnContent, useChat, type Turn } from './lib/chat'
 import { articleContext } from './lib/articleContext'
 import { normalizeHost } from './lib/customWidget'
 import type { Article, BookmarkGroup, Feed, Settings as SettingsShape } from './lib/types'
@@ -81,7 +81,7 @@ export default function App() {
   const [range, setRange] = useStored<RangeId>('range', '24h')
 
   const chat = useChat()
-  const { turns, setTurns, newConv } = chat
+  const { turns, newConv } = chat
   const [busy, setBusy] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   /** 待答复的确认请求：由 ask 写入，由确认卡片按钮调用。 */
@@ -340,28 +340,30 @@ export default function App() {
       setBusy(true)
       try {
         await initChat()
-        if (options?.fresh) await newConv()
+        const targetConvId = options?.fresh ? await newConv() : getChatState().convId
         const turn = beginTurn(text)
         if (options?.article) {
           turn.article = { title: options.article.title, link: options.article.link, context: articleContext(options.article) }
         }
         if (!aiConfigured) {
-          setTurns((prev) => [...prev, {...turn, error: '先到设置里填接口地址与模型。', endedAt: Date.now()}])
+          appendTurn(targetConvId, {...turn, error: '先到设置里填接口地址与模型。', endedAt: Date.now()})
           return
         }
 
         // 历史按轮展开成消息：只带问答正文，思考过程和工具细节不进上下文
-        const history: ChatMessage[] = contextTurns(options?.fresh ? [] : turns, settings.ai.contextTurns).flatMap((t) => {
+        const context = options?.fresh ? [] : await loadContextTurns(targetConvId, settings.ai.contextTurns)
+        if (controller.signal.aborted) return
+        const history: ChatMessage[] = context.flatMap((t) => {
           const items: ChatMessage[] = [{ role: 'user', content: turnContent(t) }]
           if (t.answer) items.push({ role: 'assistant', content: t.answer })
           return items
         })
 
-        setTurns((prev) => [...prev, turn])
+        appendTurn(targetConvId, turn)
 
         /** 只改这一轮，不碰其它轮。 */
-        const patch = (part: Partial<Turn>) =>
-          setTurns((prev) => prev.map((t) => (t.id === turn.id ? { ...t, ...part } : t)))
+        const patch = (part: Partial<Omit<Turn, 'id' | 'convId' | 'tools'>>) =>
+          patchTurn(targetConvId, turn.id, part)
 
         /**
          * 把确认请求交给界面，等用户点。
@@ -395,13 +397,7 @@ export default function App() {
               patch({ answer })
             },
             onTool: (info) => {
-              setTurns((prev) =>
-                prev.map((t) =>
-                  t.id === turn.id
-                    ? { ...t, tools: [...t.tools, { name: info.name, title: info.title, ok: info.ok, text: info.text }] }
-                    : t,
-                ),
-              )
+              appendTool(targetConvId, turn.id, {name: info.name, title: info.title, ok: info.ok, text: info.text})
               // 成功不打扰；失败才提示，细节已在对话里
               if (!info.ok) toast.error(info.text)
             },
@@ -428,7 +424,7 @@ export default function App() {
         abortRef.current = null
       }
     },
-    [settings.ai, turns, aiConfigured, setTurns, newConv, openSettings, openApplication, inspectPage, inspectHomepageDraft],
+    [settings.ai, aiConfigured, newConv, openSettings, openApplication, inspectPage, inspectHomepageDraft],
   )
 
   /** 用户点了确认卡片上的允许/拒绝。 */
@@ -709,6 +705,15 @@ export default function App() {
               ready={chat.ready}
               convs={chat.convs}
               convId={chat.convId}
+              activeTurnIds={chat.activeTurnIds}
+              hasOlderTurns={chat.hasOlderTurns}
+              turnsLoading={chat.turnsLoading}
+              turnsError={chat.turnsError}
+              onLoadOlderTurns={chat.loadOlderTurns}
+              hasMoreConvs={chat.hasMoreConvs}
+              convsLoading={chat.convsLoading}
+              convsError={chat.convsError}
+              onLoadMoreConvs={chat.loadMoreConvs}
               onNewConv={() => { void chat.newConv().then(clearArticleDraft).catch(error => toast.error(error instanceof Error ? error.message : String(error))) }}
               onOpenConv={(id) => { void chat.openConv(id).then(clearArticleDraft).catch(error => toast.error(error instanceof Error ? error.message : String(error))) }}
               onDeleteConv={(id) => { void chat.deleteConv(id).then(() => { if (id === chat.convId) clearArticleDraft() }).catch(error => toast.error(error instanceof Error ? error.message : String(error))) }}

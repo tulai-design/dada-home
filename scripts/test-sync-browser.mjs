@@ -146,6 +146,43 @@ try {
     } finally {await a.context.close(); await b.context.close()}
   })
 
+  await check('真实聊天仓：完整大工具正文两设备往返，替换/删除无孤立明细', async () => {
+    const server=remote(),a=await fresh(server),b=await fresh(server)
+    try {
+      await configure(a.page);await configure(b.page)
+      const ids=await a.page.evaluate(async()=>{
+        const {chat}=window.syncQA,convId=await chat.newConv(),turn=chat.beginTurn('完整聊天问题')
+        chat.appendTurn(convId,turn)
+        chat.appendTool(convId,turn.id,{name:'inspect',title:'读取',ok:true,text:'大工具正文中文🙂'.repeat(50000)})
+        chat.appendTool(convId,turn.id,{name:'verify',title:'核验',ok:false,text:'完整错误详情'})
+        chat.patchTurn(convId,turn.id,{answer:'完整答案',reasoning:'完整推理',article:{title:'资料',link:'https://example.invalid',context:'完整文章'},endedAt:Date.now()});await chat.flush()
+        return {convId,turnId:turn.id}
+      })
+      await sync(a.page);await sync(b.page)
+      let data=(await snapshot(b.page)).data
+      assert.equal(data.toolDetails.find(row=>row.index===0).text,'大工具正文中文🙂'.repeat(50000))
+      assert.equal(data.turns[0].tools[0].text,undefined);assert.equal(data.turns[0].reasoning,'完整推理');assert.equal(data.turns[0].article.context,'完整文章')
+      const wire=JSON.parse(server.text);assert.equal(wire.records['turn:'+ids.turnId].value.tools[0].text,'大工具正文中文🙂'.repeat(50000));assert.equal(Object.keys(wire.records).some(key=>key.includes('toolDetails')),false)
+      await b.page.reload();await b.page.waitForFunction(()=>window.syncQA)
+      await b.page.evaluate(async ids=>{
+        const {db}=window.syncQA.database,{splitTurn}=await import('/src/lib/chatStorageSchema.ts')
+        const previous=await db.get('turns',ids.turnId),next=splitTurn({...previous,answer:'B更新的回答',tools:[{name:'recheck',title:'重新核验',ok:true,text:'替换正文🙂'.repeat(40000)}]})
+        await db.batch([...previous.tools.map(tool=>({store:'toolDetails',type:'delete',key:tool.detailId})),{store:'turns',type:'put',value:next.turn},...next.details.map(value=>({store:'toolDetails',type:'put',value}))])
+      },ids)
+      await sync(b.page);await sync(a.page);data=(await snapshot(a.page)).data
+      assert.equal(data.toolDetails.length,1);assert.equal(data.toolDetails[0].text,'替换正文🙂'.repeat(40000));assert.equal(data.turns[0].answer,'B更新的回答')
+      await a.page.reload();await a.page.waitForFunction(()=>window.syncQA)
+      const before=server.requests.length
+      await a.page.evaluate(async()=>{const {db}=window.syncQA.database;window.__qaMissingDetail=(await db.all('toolDetails'))[0];await db.del('toolDetails',window.__qaMissingDetail.id)})
+      const failed=await a.page.evaluate(async()=>{try{await window.syncQA.sync.syncNow();return ''}catch(error){return error.message}})
+      assert.match(failed,/正文缺失/);assert.equal(server.requests.length,before)
+      await a.page.evaluate(async ids=>{await window.syncQA.database.db.put('toolDetails',window.__qaMissingDetail);await window.syncQA.chat.deleteConv(ids.convId)},ids)
+      await sync(a.page);await sync(b.page);data=(await snapshot(b.page)).data
+      assert.equal(data.convs.length,0);assert.equal(data.turns.length,0);assert.equal(data.toolDetails.length,0)
+      assert.deepEqual([...a.errors,...b.errors],[])
+    }finally{await a.context.close();await b.context.close()}
+  })
+
   await check('真实应用仓：大对象跨设备往返与删除，App/Applet/组件同名互不覆盖', async () => {
     const server = remote(), a = await fresh(server), b = await fresh(server)
     try {

@@ -1,4 +1,5 @@
-import {initChat, type Conv, type Turn} from './chat'
+import {initChat} from './chat'
+import {validateStoredChat, type Conv, type StoredTurn, type ToolDetail} from './chatStorageSchema'
 import {initComponentData} from './componentData'
 import {db} from './db'
 import {validateApplicationDataRecord, type ApplicationDataRecord} from './applicationDataSchema'
@@ -9,15 +10,14 @@ import {waitForSyncIdle} from './sync'
 /** 整包 JSON 备份的读取预算，不是 IndexedDB 或浏览器存储配额。 */
 export const MAX_BACKUP_BYTES = 256 * 1024 * 1024
 const BACKUP_APP = 'dada-backup'
-const BACKUP_VERSION = 2
+const BACKUP_VERSION = 3
 
-type DataSnapshot = {apps: ApplicationDataRecord[]; kv: {k: string; v: unknown}[]; convs: Conv[]; turns: Turn[]}
+type DataSnapshot = {apps: ApplicationDataRecord[]; kv: {k: string; v: unknown}[]; convs: Conv[]; turns: StoredTurn[]; toolDetails: ToolDetail[]}
 type LocalSnapshot = Record<string, string>
 export type BackupSummary = {keys: number; convs: number; turns: number; data: number; apps: number}
 type ValidBackup = {dump: Record<string, unknown>; summary: BackupSummary; local: LocalSnapshot; data: DataSnapshot}
 
 const object = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value)
-const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0
 const id = (value: unknown): value is string => typeof value === 'string' && value.length > 0
 const own = (value: object, key: string) => Object.prototype.hasOwnProperty.call(value, key)
 function invalid(message = '这不像完整的搭搭备份文件。'): never {throw new Error(message)}
@@ -41,8 +41,8 @@ function checkJson(value: unknown, ancestors = new Set<object>(), depth = 0): vo
 }
 
 function checkData(raw: unknown): DataSnapshot {
-  if (!object(raw) || !Array.isArray(raw.kv) || !Array.isArray(raw.apps) || !object(raw.chat) || !Array.isArray(raw.chat.convs) || !Array.isArray(raw.chat.turns)) invalid('备份缺少完整的组件、应用或对话数据。')
-  const data = {kv: raw.kv, apps: raw.apps.map(validateApplicationDataRecord), convs: raw.chat.convs, turns: raw.chat.turns}
+  if (!object(raw) || !Array.isArray(raw.kv) || !Array.isArray(raw.apps) || !object(raw.chat) || !Array.isArray(raw.chat.convs) || !Array.isArray(raw.chat.turns) || !Array.isArray(raw.chat.toolDetails)) invalid('备份缺少完整的组件、应用或对话数据。')
+  const data = {kv: raw.kv, apps: raw.apps.map(validateApplicationDataRecord), convs: raw.chat.convs, turns: raw.chat.turns, toolDetails: raw.chat.toolDetails}
   const checkIds = (rows: unknown[], key: 'id' | 'k', label: string) => {
     const seen = new Set<string>()
     for (const row of rows) {
@@ -55,25 +55,7 @@ function checkData(raw: unknown): DataSnapshot {
   checkIds(data.kv, 'k', '组件数据')
   checkIds(data.apps, 'k', '应用数据')
   for (const row of data.kv) if (!object(row) || !own(row, 'v')) invalid('组件数据缺少记录值。')
-  const convIds = checkIds(data.convs, 'id', '对话')
-  for (const row of data.convs) {
-    if (!object(row) || typeof row.title !== 'string' || !finite(row.createdAt) || !finite(row.updatedAt)) invalid('对话的标题或时间无效。')
-  }
-  checkIds(data.turns, 'id', '聊天轮次')
-  for (const row of data.turns) {
-    if (!object(row) || !id(row.convId) || !convIds.has(row.convId)) invalid('聊天轮次没有对应的对话。')
-    for (const key of ['prompt', 'answer', 'reasoning', 'error']) if (typeof row[key] !== 'string') invalid('聊天轮次的正文格式无效。')
-    if (!finite(row.startedAt) || (row.endedAt !== undefined && !finite(row.endedAt)) || (row.aborted !== undefined && typeof row.aborted !== 'boolean')) invalid('聊天轮次的时间或状态无效。')
-    if (!Array.isArray(row.tools)) invalid('聊天工具记录格式无效。')
-    for (const tool of row.tools) {
-      if (!object(tool) || typeof tool.name !== 'string' || typeof tool.title !== 'string' || typeof tool.text !== 'string' || typeof tool.ok !== 'boolean') invalid('聊天工具记录格式无效。')
-    }
-    if (row.article !== undefined) {
-      const article = row.article
-      if (!object(article) || ['title', 'link', 'context'].some(key => typeof article[key] !== 'string')) invalid('聊天参考资料格式无效。')
-    }
-    if (row.pending !== undefined && (!object(row.pending) || !object(row.pending.request) || typeof row.pending.request.tool !== 'string' || typeof row.pending.request.summary !== 'string')) invalid('聊天确认记录格式无效。')
-  }
+  validateStoredChat(data.convs, data.turns, data.toolDetails)
   return data as DataSnapshot
 }
 
@@ -121,7 +103,7 @@ export async function initStorage(): Promise<void> {
 export async function exportBackupSnapshot(): Promise<Record<string, unknown>> {
   await saveBarrier()
   const data = await db.snapshot()
-  const dump = {app: BACKUP_APP, version: BACKUP_VERSION, ...readLocal(), indexedDB: {kv: data.kv, apps: data.apps, chat: {convs: data.convs, turns: data.turns}}}
+  const dump = {app: BACKUP_APP, version: BACKUP_VERSION, ...readLocal(), indexedDB: {kv: data.kv, apps: data.apps, chat: {convs: data.convs, turns: data.turns, toolDetails: data.toolDetails}}}
   // 配置和业务数据库并无共同事务；此快照不声称覆盖屏障之后所有并发改动。
   // 原样救援保留损坏配置与旧业务键；这类文件可供人工恢复，不能通过当前格式导入。
   if (new TextEncoder().encode(JSON.stringify(dump)).byteLength > MAX_BACKUP_BYTES) invalid('备份超过当前整包读取预算（256 MiB），没有截断数据。')
@@ -132,7 +114,7 @@ export async function exportBackupSnapshot(): Promise<Record<string, unknown>> {
 export async function exportIdb() {
   await saveBarrier()
   const data = await db.snapshot()
-  return {kv: data.kv, apps: data.apps, chat: {convs: data.convs, turns: data.turns}}
+  return {kv: data.kv, apps: data.apps, chat: {convs: data.convs, turns: data.turns, toolDetails: data.toolDetails}}
 }
 
 /** 检查格式与完整性；此函数不会修改任何存储。 */
@@ -157,5 +139,5 @@ export async function importBackup(dump: Record<string, unknown>): Promise<void>
 
 /** 重置保留非搭搭存储；排空旧队列后用同样的可恢复替换流程清理。 */
 export async function resetStorage(): Promise<void> {
-  await replaceStorage(validateBackup({app: BACKUP_APP, version: BACKUP_VERSION, indexedDB: {kv: [], apps: [], chat: {convs: [], turns: []}}}))
+  await replaceStorage(validateBackup({app: BACKUP_APP, version: BACKUP_VERSION, indexedDB: {kv: [], apps: [], chat: {convs: [], turns: [], toolDetails: []}}}))
 }

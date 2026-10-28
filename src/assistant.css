@@ -73,3 +73,22 @@
     padding: 10px 14px;
   }
 }
+
+/* 分页由仓库读取，显式保留可见轮次锚点，避免浏览器再次自动补偿。 */
+.chat-log { overflow-anchor: none; }
+.chat-page-controls, .chat-load-error, .tool-detail-content {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.chat-page-controls, .chat-load-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.chat-page-controls { margin-bottom: 16px; }
+.chat-load-error { color: var(--c-red); }
+.tool-detail-content { padding-left: 20px; }
+.tool-detail-content .tool-detail { margin-left: 0; max-width: 100%; }
+.conv-more { margin-top: 8px; }
