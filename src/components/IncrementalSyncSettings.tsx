@@ -98,7 +98,7 @@ export function IncrementalSyncSettings() {
       </Group>
 
       <Group title="空间密钥" footer="同步内容在本机加密后才上传，服务只看到密文。密钥丢失后无法恢复，请保留另一台已配对的设备或自行备份邀请。">
-        <Row label={config.keyring ? '已保存空间密钥' : '还没有空间密钥'} hint={config.keyring ? `密钥版本 ${config.keyring.keys.length} 把；换设备请用下面的邀请。` : serverData === 'yes' ? '服务器上这个空间已有数据，需要用另一台设备生成的邀请加入，不能新建密钥。' : serverData === 'no' ? '服务器上还没有数据，可以在这台设备新建密钥。' : '先填好服务地址和访问令牌，确认服务器上是否已有数据。'}>
+        <Row label={config.keyring ? '已保存空间密钥' : '还没有空间密钥'} hint={config.keyring ? `密钥 ${config.keyring.keys.map(key => key.id).join('、')}；各设备的密钥编号必须一致，换设备请用下面的邀请。` : serverData === 'yes' ? '服务器上这个空间已有数据，需要用另一台设备生成的邀请加入，不能新建密钥。' : serverData === 'no' ? '服务器上还没有数据，可以在这台设备新建密钥。' : '先填好服务地址和访问令牌，确认服务器上是否已有数据。'}>
           {!config.keyring && <Button size="small" disabled={Boolean(busy) || serverData !== 'no'} onClick={() => void act('key', async () => {set({keyring: await createSpaceKeyring(config)}); return '已新建空间密钥。'})}>新建密钥</Button>}
         </Row>
         <Notice note={note} group="key" />

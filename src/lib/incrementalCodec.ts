@@ -85,6 +85,10 @@ export async function decodeSyncRecord(
   cancelled(options.signal)
   if (!SYNC_COLLECTIONS.includes(record.collection as SyncCollection) || record.deleted || record.schemaVersion !== 1 || !/^[0-9a-f]{64}$/.test(record.entityId)) invalid()
   const collection = record.collection as SyncCollection
+  const wanted = object(record.payload) ? record.payload.keyId : undefined
+  if (typeof wanted === 'string' && !options.keyring.keys.some(key => key.id === wanted)) {
+    throw new Error(`这条远端记录由密钥 ${wanted} 加密，本机的空间密钥里没有它（本机：${options.keyring.keys.map(key => key.id).join('、')}）。请用持有该密钥的设备重新生成邀请加入。`)
+  }
   const ctx = context(options.scope, collection, record.entityId), metadata = await decryptRecord(record.payload, options.keyring, ctx)
   if (!object(metadata) || metadata.format !== FORMAT || metadata.version !== 1 || metadata.collection !== collection) invalid()
   const ref = refOf(metadata.collection, metadata.key)
