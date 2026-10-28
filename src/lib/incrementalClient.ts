@@ -163,12 +163,16 @@ export async function detachIncremental(): Promise<void> {
 export const listDevices = (config = readIncrementalConfig()): Promise<Device[]> => clientFor(config).devices().then(result => result.devices)
 export const revokeDevice = (deviceId: string, config = readIncrementalConfig()) => clientFor(config).revoke(deviceId).then(() => undefined)
 
-/** 在已配置的设备上生成邀请：令牌有效期内的一次性配对码，加上用口令包装的空间密钥。 */
-export async function createInvite(passphrase: string, deviceId: string, hours: number, config = readIncrementalConfig()): Promise<string> {
+/** 服务允许的设备期限上限（一年）；null 表示设备长期有效。配对码本身另有服务端固定的短期限。 */
+const MAX_DEVICE_TERM_MS = 366 * 86_400_000
+
+/** 在已配置的设备上生成邀请：一次性配对码，加上用口令包装的空间密钥。expiresAt 是新设备的使用期限（Unix 毫秒），null 为长期有效。 */
+export async function createInvite(passphrase: string, deviceId: string, expiresAt: number | null, config = readIncrementalConfig()): Promise<string> {
   if (!config.keyring) throw new Error('当前设备还没有同步空间密钥。')
   if (passphrase.length < 8) throw new Error('邀请口令至少 8 个字符，用于加密传递空间密钥。')
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(deviceId)) throw new Error('设备标识只能包含字母、数字、点、下划线和连字符。')
-  const pairing = await clientFor(config).pair({deviceId, scopes: [{appId: config.appId, spaceId: config.spaceId}], expiresAt: Date.now() + hours * 3600_000})
+  if (expiresAt !== null && !(expiresAt > Date.now() && expiresAt <= Date.now() + MAX_DEVICE_TERM_MS)) throw new Error('设备到期时间必须在未来，且最长一年；需要更久请选择长期有效。')
+  const pairing = await clientFor(config).pair({deviceId, scopes: [{appId: config.appId, spaceId: config.spaceId}], expiresAt})
   const invite: PairingInvite = {
     format: 'dada-sync-invite', version: 1, endpoint: config.endpoint.trim(), appId: config.appId, spaceId: config.spaceId,
     pairingToken: pairing.pairingToken, deviceId, keyring: await wrapKeyring(config.keyring, passphrase),

@@ -13,7 +13,7 @@ globalThis.fetch = async (url, init) => {
   const path = new URL(url).pathname
   calls.push({path, body: init?.body ? JSON.parse(init.body) : undefined})
   const json = body => new Response(JSON.stringify(body), {status: 200, headers: {'content-type': 'application/json'}})
-  if (path === '/v1/pairings') return json({protocolVersion: 1, deviceId: calls.at(-1).body.deviceId, pairingToken: PAIR, expiresAt: calls.at(-1).body.expiresAt})
+  if (path === '/v1/pairings') return json({protocolVersion: 1, deviceId: calls.at(-1).body.deviceId, pairingToken: PAIR, expiresAt: Date.now() + 600_000})
   if (path === '/v1/pairings/redeem') return json({protocolVersion: 1, device: {id: 'phone-1', scopes: [{appId: 'dada', spaceId: 'personal'}], expiresAt: null, revokedAt: null, kind: 'paired'}})
   return new Response('{}', {status: 404})
 }
@@ -52,8 +52,9 @@ await test('默认配置未就绪，并给出下一步提示', () => {
 await test('邀请往返：口令正确才兑换，新设备生成自己的令牌与密钥', async () => {
   const admin = {...client.readIncrementalConfig(), endpoint: 'https://sync.example.com', token: ADMIN}
   admin.keyring = client.createSpaceKeyring(admin)
-  const text = await client.createInvite('correct horse', 'phone-1', 24, admin)
+  const text = await client.createInvite('correct horse', 'phone-1', null, admin)
   assert.equal(calls.at(-1).body.scopes[0].spaceId, 'personal')
+  assert.equal(calls.at(-1).body.expiresAt, null, '默认长期有效，不能带期限')
   assert.ok(!text.includes(admin.keyring.keys[0].key), '邀请不能包含明文密钥')
   const before = calls.length
   await assert.rejects(client.acceptInvite(text, 'wrong passphrase'))
@@ -70,8 +71,10 @@ await test('邀请往返：口令正确才兑换，新设备生成自己的令�
 await test('邀请参数校验', async () => {
   const config = {...client.readIncrementalConfig(), endpoint: 'https://sync.example.com', token: ADMIN}
   config.keyring = client.createSpaceKeyring(config)
-  await assert.rejects(client.createInvite('short', 'phone-1', 24, config), /8 个字符/)
-  await assert.rejects(client.createInvite('long enough pass', 'bad id!', 24, config), /设备标识/)
+  await assert.rejects(client.createInvite('short', 'phone-1', null, config), /8 个字符/)
+  await assert.rejects(client.createInvite('long enough pass', 'bad id!', null, config), /设备标识/)
+  await assert.rejects(client.createInvite('long enough pass', 'phone-2', Date.now() - 1000, config), /到期时间/)
+  await assert.rejects(client.createInvite('long enough pass', 'phone-2', Date.now() + 400 * 86_400_000, config), /最长一年/)
   await assert.rejects(client.acceptInvite('{"format":"x"}', 'whatever pass'), /不是搭搭/)
 })
 

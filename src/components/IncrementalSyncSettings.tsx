@@ -1,5 +1,5 @@
 import {useCallback, useEffect, useState} from 'react'
-import {Button, Switch, Text, TextArea} from '@lobehub/ui'
+import {Button, Select, Switch, Text, TextArea} from '@lobehub/ui'
 import {ArrowsClockwise, Link, PlugsConnected} from '@phosphor-icons/react'
 import type {Device} from '@tulai-design/sync-sdk'
 import {
@@ -21,6 +21,22 @@ function Notice({note, group}: {note: Note; group: string}) {
   return <Row stack><span className="ios-note" role={note.kind === 'error' ? 'alert' : 'status'}><Text type={note.kind === 'error' ? 'danger' : 'success'}>{note.text}</Text></span></Row>
 }
 
+const TERM_OPTIONS = [
+  {value: 'forever', label: '长期有效'}, {value: '30', label: '30 天'}, {value: '90', label: '90 天'},
+  {value: '365', label: '1 年'}, {value: 'custom', label: '自定义日期'},
+]
+
+/** 设备期限选项换算成到期时间（Unix 毫秒）；长期有效为 null，自定义日期取当天结束。 */
+function termExpiry(term: string, date: string): number | null {
+  if (term === 'forever') return null
+  if (term === 'custom') {
+    const end = new Date(`${date}T23:59:59`).getTime()
+    if (!date || Number.isNaN(end)) throw new Error('请选择到期日期。')
+    return end
+  }
+  return Date.now() + Number(term) * 86_400_000
+}
+
 /** 自建增量同步：连接、密钥、配对、范围、冲突和设备。所有操作都不会自动清空本地数据或改写远端。 */
 export function IncrementalSyncSettings() {
   const version = useIncrementalConfigVersion()
@@ -32,6 +48,7 @@ export function IncrementalSyncSettings() {
   const [conflicts, setConflicts] = useState<ConflictItem[]>([])
   const [devices, setDevices] = useState<Device[] | null>(null)
   const [invitePass, setInvitePass] = useState(''), [inviteDevice, setInviteDevice] = useState(''), [inviteText, setInviteText] = useState('')
+  const [inviteTerm, setInviteTerm] = useState('forever'), [inviteDate, setInviteDate] = useState('')
   const [joinText, setJoinText] = useState(''), [joinPass, setJoinPass] = useState('')
   const problem = incrementalConfigProblem(config)
 
@@ -75,12 +92,20 @@ export function IncrementalSyncSettings() {
         </Row>
       </Group>
 
-      <Group title="添加另一台设备" footer="邀请包含一次性配对码和用口令加密的空间密钥。口令请通过另一条渠道告诉对方，邀请到期后失效。">
+      <Group title="添加另一台设备" footer="邀请包含一次性配对码和用口令加密的空间密钥。口令请通过另一条渠道告诉对方，配对码本身 10 分钟内有效，请尽快在新设备上加入。">
         <TextRow label="新设备标识" value={inviteDevice} placeholder="例如 phone-1" onChange={setInviteDevice} />
         <TextRow label="邀请口令" secret value={invitePass} placeholder="至少 8 个字符" onChange={setInvitePass} />
-        <Row label="生成邀请" hint="有效期 24 小时">
+        <Row label="设备期限" hint="到期后该设备不能再同步，最长一年；长期有效可随时在设备列表撤销。">
+          <Select className="ios-select" variant="borderless" value={inviteTerm} popupMatchSelectWidth={false} options={TERM_OPTIONS} onChange={setInviteTerm} />
+        </Row>
+        {inviteTerm === 'custom' && (
+          <Row label="到期日期">
+            <input type="date" aria-label="设备到期日期" value={inviteDate} min={new Date(Date.now() + 86_400_000).toLocaleDateString('sv')} max={new Date(Date.now() + 365 * 86_400_000).toLocaleDateString('sv')} onChange={event => setInviteDate(event.target.value)} />
+          </Row>
+        )}
+        <Row label="生成邀请">
           <Button size="small" icon={<Link size={16} />} loading={busy === 'invite'} disabled={Boolean(busy) || Boolean(problem)} onClick={() => void act('invite', async () => {
-            setInviteText(await createInvite(invitePass, inviteDevice.trim(), 24)); setInvitePass('')
+            setInviteText(await createInvite(invitePass, inviteDevice.trim(), termExpiry(inviteTerm, inviteDate))); setInvitePass('')
             return '邀请已生成，复制下面的内容到新设备。'
           })}>生成</Button>
         </Row>
