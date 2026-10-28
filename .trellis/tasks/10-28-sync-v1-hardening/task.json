@@ -1,0 +1,31 @@
+{
+  "id": "sync-v1-hardening",
+  "name": "sync-v1-hardening",
+  "title": "兼容同步可靠性与Gist边界",
+  "description": "保持现有同步格式，修复加密策略、损坏输入、存储错误与供应商边界，明确Gist并发限制。",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P1",
+  "creator": "ROYIANS",
+  "assignee": "ROYIANS",
+  "createdAt": "2026-10-28",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-28-storage-sync",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "planning_depth": "behavior-specified",
+    "blocked_by": [
+      "10-28-storage-durability"
+    ]
+  }
+}

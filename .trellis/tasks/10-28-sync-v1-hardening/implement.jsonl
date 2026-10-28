@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "持久化与生命周期"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "备份与网络unknown边界"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "行为和隔离浏览器验证"}
+{"file": ".trellis/tasks/10-28-storage-sync/research/sync.md", "reason": "协议失败与竞态"}
+{"file": ".trellis/tasks/10-28-storage-sync/research/provider-limits.md", "reason": "Gist官方边界"}

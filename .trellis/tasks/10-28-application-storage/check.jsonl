@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "持久化与生命周期"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "备份与网络unknown边界"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "行为和隔离浏览器验证"}
+{"file": ".trellis/tasks/10-28-storage-sync/research/local-storage.md", "reason": "应用命名空间与迁移"}
+{"file": ".trellis/tasks/10-28-storage-sync/research/sync.md", "reason": "v1稳定记录身份"}
+{"file": ".trellis/spec/ai/tools-and-apps.md", "reason": "应用协议及AI说明"}

@@ -1,0 +1,7 @@
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "持久化与生命周期"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "备份与网络unknown边界"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "行为和隔离浏览器验证"}
+{"file": ".trellis/tasks/10-28-storage-sync/research/chat-growth.md", "reason": "容量与历史管理"}
+{"file": ".trellis/tasks/10-28-storage-sync/research/sync.md", "reason": "范围排除非删除"}
+{"file": ".trellis/tasks/10-28-storage-sync/research/provider-limits.md", "reason": "配额与估算区别"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "宿主界面与主题"}

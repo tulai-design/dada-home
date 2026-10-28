@@ -1,0 +1,33 @@
+{
+  "id": "incremental-sync",
+  "name": "incremental-sync",
+  "title": "可选自建增量同步服务",
+  "description": "交付单人多设备的可选同步服务与客户端，支持变更游标、幂等写入、冲突保留和离线重试。",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "ROYIANS",
+  "assignee": "ROYIANS",
+  "createdAt": "2026-10-28",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-28-storage-sync",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "planning_depth": "behavior-specified",
+    "blocked_by": [
+      "10-28-application-storage",
+      "10-28-chat-history-storage",
+      "10-28-sync-v1-hardening"
+    ]
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "id": "chat-history-storage",
+  "name": "chat-history-storage",
+  "title": "聊天历史按需加载与大内容分离",
+  "description": "让当前会话和长期工具明细按需读取，保持完整历史、上下文语义和可恢复导出。",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "ROYIANS",
+  "assignee": "ROYIANS",
+  "createdAt": "2026-10-28",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-28-storage-sync",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "planning_depth": "behavior-specified",
+    "blocked_by": [
+      "10-28-storage-durability"
+    ]
+  }
+}
