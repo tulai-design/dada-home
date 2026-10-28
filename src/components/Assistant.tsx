@@ -1,4 +1,4 @@
-import {useEffect, useLayoutEffect, useRef, useState} from 'react'
+import {memo, useEffect, useLayoutEffect, useRef, useState} from 'react'
 import {ActionIcon, Button, Drawer, Empty, Flexbox, Markdown, Modal, Text} from '@lobehub/ui'
 import {ArrowDown, ClockCounterClockwise as History, ArrowsOut as Maximize2, Chat as MessageSquare, Columns, SidebarSimple, Plus, Gear as Settings, Square, Trash as Trash2, X} from '@phosphor-icons/react'
 import type {AiConfig} from '../lib/types'
@@ -351,7 +351,7 @@ export function Assistant({open, mode, onMode, canSplit = true, ai, turns, ready
 }
 
 /** 一轮对话：用户提问 → 思考 → 工具 → 回答 → 失败/耗时。 */
-function TurnView({turn, active, onApprovalAnswer}: {turn: StoredTurn; active: boolean; onApprovalAnswer: (approved: boolean | 'always') => void}) {
+const TurnView = memo(function TurnView({turn, active, onApprovalAnswer}: {turn: StoredTurn; active: boolean; onApprovalAnswer: (approved: boolean | 'always') => void}) {
   const thinking = active && !turn.answer && (!turn.tools.length || turn.tools.every((t) => t.ok))
   const seconds = elapsed(turn)
 
@@ -395,7 +395,7 @@ function TurnView({turn, active, onApprovalAnswer}: {turn: StoredTurn; active: b
       {turn.aborted && <Text className="turn-note" type="secondary">已停止</Text>}
     </div>
   )
-}
+}, (prev, next) => prev.turn === next.turn && prev.active === next.active && (!next.active || prev.onApprovalAnswer === next.onApprovalAnswer)) // 流式输出时每个片段都会刷新列表；已结束的历史轮次引用不变，跳过重渲染和 Markdown 解析
 
 /** 历史对话列表：只有标题，当前的高亮，每行可删。 */
 function ConvList({convs, convId, busy, hasMore, loading, error, onLoadMore, onOpen, onDelete}: {convs: Conv[]; convId: string; busy: boolean; hasMore: boolean; loading: boolean; error: string; onLoadMore: () => Promise<void>; onOpen: (id: string) => void; onDelete: (id: string) => void}) {

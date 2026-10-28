@@ -32,6 +32,7 @@ const makeAsk = ({initChat = async () => {}, newConv = async () => 'fresh', conf
     patchTurn: (convId, id, part) => {const key=convId+':'+id;assert.ok(rows.has(key));rows.set(key,{...rows.get(key),...part})},
     appendTool: (convId, id, tool) => {const key=convId+':'+id;const turn=rows.get(key);assert.ok(turn);rows.set(key,{...turn,tools:[...turn.tools,tool]})},
     loadContextTurns: async (convId, limit) => {contextCalls.push({convId, limit});return loadContextTurns(convId,limit)},
+    readToolDetail: async () => '',
     settings: {ai: {contextTurns: 100}, name: 'test'},
     turnContent: turn => turn.article ? `${turn.article.context}\n\n用户的问题：\n${turn.prompt}` : turn.prompt,
     setBusy: value => {busy = value}, settleRef: {current: null}, openSettings() {}, openApplication() {},
@@ -82,7 +83,7 @@ assert.equal(article.contextCalls.length,0,'fresh conversations carry no old his
 article.agents[0].resolve();await askingArticle
 
 // UI may have any number of loaded pages; ask gets the repository history independently.
-const history=[{prompt:'仅仓库中的历史',answer:'旧回答',reasoning:'不带思考',tools:[{text:'不带工具'}]}, {prompt:'文章追问',answer:'',article:{context:'原文'}}]
+const history=[{prompt:'仅仓库中的历史',answer:'旧回答',reasoning:'不带思考',tools:[{title:'调用技能 · id=applet',ok:true,detailId:'["t",0]',text:'不带工具正文'}]}, {prompt:'文章追问',answer:'',article:{context:'原文'}}]
 let releaseHistory
 const historyGate=new Promise(resolve=>{releaseHistory=resolve})
 const navigation=makeAsk({loadContextTurns:async()=>{await historyGate;return history}})
@@ -92,7 +93,7 @@ assert.deepEqual(navigation.contextCalls,[{convId:'original',limit:100}])
 await navigation.ask('重复发送');assert.equal(navigation.agents.length,0)
 releaseHistory();await tick()
 assert.deepEqual(navigation.agents[0].options.messages,[
- {role:'user',content:'仅仓库中的历史'}, {role:'assistant',content:'旧回答'},
+ {role:'user',content:'仅仓库中的历史'}, {role:'assistant',content:'[本轮操作记录，仅是痕迹；需要具体结果时用 read_tool_result 传入 id]\n1. 调用技能 · id=applet 成功 id=["t",0]\n\n旧回答'},
  {role:'user',content:'原文\n\n用户的问题：\n文章追问'}, {role:'user',content:'继续'},
 ])
 const agent=navigation.agents[0]

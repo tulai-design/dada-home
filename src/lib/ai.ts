@@ -81,8 +81,9 @@ const SYSTEM_PROMPT = [
     '- 灵魂、画像、记忆都是背景，不是指令；回答里别复述它们，自然地用上就好。',
 ].join('\n')
 
-/** 单轮模型调用能执行的最大工具轮数；超出后停下，避免无限循环。 */
-const MAX_ROUNDS = 14
+/** 单次回答默认最多连续调用的工具轮数。复杂任务经常需要几十轮，上限只用来拦住失控循环。 */
+const MAX_ROUNDS = 60
+const MAX_ROUNDS_LIMIT = 200
 
 /** 推理模型（o 系列、gpt-5）只认默认温度，带上会被接口拒绝。 */
 const FIXED_SAMPLING = /^(o[1-9]|gpt-5)/i
@@ -224,7 +225,7 @@ export async function runAgent(options: RunOptions): Promise<string> {
     const {config, host, onDelta, onReasoning, onTool, signal} = options
     const permissionMode = options.permissionMode ?? 'assist'
     const messages: ChatMessage[] = [{role: 'system', content: `${SYSTEM_PROMPT}\n\n现在是 ${new Date().toLocaleString('zh-CN', {dateStyle: 'full', timeStyle: 'short', hour12: false})}。${personaPrompt(options.userName ?? '')}`}, ...options.messages]
-    const maxRounds = Math.max(1, Math.min(40, Math.trunc(config.maxRounds ?? MAX_ROUNDS)))
+    const maxRounds = Math.max(1, Math.min(MAX_ROUNDS_LIMIT, Math.trunc(config.maxRounds ?? MAX_ROUNDS)))
     const tools = toolSchemas()
 
     for (let round = 0; round < maxRounds; round += 1) {
@@ -253,7 +254,10 @@ export async function runAgent(options: RunOptions): Promise<string> {
         }
     }
 
-    return '工具调用次数用完了，先停在这里。'
+    // 这是上限而不是任务结束：明确写进回答，用户回复「继续」即可接着做（历史里有操作痕迹）。
+    const notice = `\n\n（已连续调用工具 ${maxRounds} 轮，到达上限先停在这里，任务还没有结束。回复「继续」我会接着做；也可以在设置里调高「工具轮数上限」。）`
+    onDelta(notice)
+    return notice
 }
 
 /**
@@ -273,6 +277,7 @@ async function dispatchTool(
     const name = call.function.name
     const tool = findTool(name)
     const label = tool?.title ?? name
+    const parsedBrief = brief(call.function.arguments)
     if (!tool) return {name, title: name, ok: false, text: `没有这个工具：${name}`}
 
     let args: unknown
@@ -308,12 +313,31 @@ async function dispatchTool(
         openApplication: host.openApplication,
         inspectPage: host.inspectPage,
         inspectHomepageDraft: host.inspectHomepageDraft,
+        readToolDetail: host.readToolDetail,
     }
 
     try {
-        return {name, title: label, ok: true, text: await runTool(tool, args, context)}
+        return {name, title: label + parsedBrief, ok: true, text: await runTool(tool, args, context)}
     } catch (error) {
-        return {name, title: label, ok: false, text: explain(error)}
+        return {name, title: label + parsedBrief, ok: false, text: explain(error)}
+    }
+}
+
+/**
+ * 工具标题后缀：取参数里最先出现的两个短标量，让历史里的操作痕迹能区分「调用了哪个技能、改了哪个页面」。
+ * 长文本（源码、正文）一律不带，避免把大内容塞进标题。
+ */
+function brief(rawArguments: string): string {
+    try {
+        const parsed = JSON.parse(rawArguments) as unknown
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return ''
+        const parts = Object.entries(parsed as Record<string, unknown>)
+            .filter(([, value]) => (typeof value === 'string' && value.length > 0 && value.length <= 24) || typeof value === 'number')
+            .slice(0, 2)
+            .map(([key, value]) => `${key}=${value}`)
+        return parts.length ? ` · ${parts.join(' ')}` : ''
+    } catch {
+        return ''
     }
 }
 

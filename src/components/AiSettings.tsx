@@ -241,7 +241,7 @@ function AdvancedAi({ai, onChange}: {ai: AiConfig; onChange: (next: AiConfig) =>
           </Group>
           <Group title="对话" footer="历史轮数越多，模型记得越久，也越贵。工具轮数是搭搭一次回答里最多连着改几次页面。">
             <NumberRow label="带上的历史" hint="最近多少轮问答" value={ai.contextTurns} min={1} max={100} step={1} placeholder="24" onChange={(v) => set({contextTurns: v && Math.round(v)})} />
-            <NumberRow label="工具轮数上限" hint="一次回答最多连续操作几轮" value={ai.maxRounds} min={1} max={40} step={1} placeholder="14" onChange={(v) => set({maxRounds: v && Math.round(v)})} />
+            <NumberRow label="工具轮数上限" hint="一次回答最多连续操作几轮" value={ai.maxRounds} min={1} max={200} step={1} placeholder="60" onChange={(v) => set({maxRounds: v && Math.round(v)})} />
           </Group>
           <Group
             title="额外请求参数"

@@ -47,6 +47,8 @@ export type ToolHost = {
   inspectPage?: (request: PageInspectionRequest, signal?: AbortSignal) => Promise<PageInspectionReport>
   /** 只测草稿的静态布局，保持与正式页面检查分离。 */
   inspectHomepageDraft?: (request: HomepageDraftInspectionRequest, signal?: AbortSignal) => Promise<HomepageDraftInspectionReport>
+  /** 按历史操作痕迹里的编号读回某次工具调用的完整结果。 */
+  readToolDetail?: (detailId: string) => Promise<string>
 }
 
 export type HomeToolContext = ToolContext<void> & ToolHost

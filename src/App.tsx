@@ -23,7 +23,7 @@ import {createHomepageDraft, getHomepageDraft, getHomepageDraftWorkspace, useHom
 import {createHomepageDraftInspectionHost} from './lib/homepageDraftInspection'
 import { FxLayers, hasBackdrop } from './fx/Fx'
 import { Reader } from './components/Reader'
-import { Assistant } from './components/Assistant'
+import { ChatAssistant } from './components/ChatAssistant'
 import { AssistantSplitPane } from './components/AssistantSplitPane'
 import { DEFAULT_ASSISTANT_RATIO, normalizeAssistantMode, type AssistantMode } from './lib/assistantLayout'
 import { CommandPalette } from './components/CommandPalette'
@@ -34,7 +34,7 @@ import { MonitorPage } from './components/Monitor'
 import { MarketPage } from './components/MarketPage'
 import { isInstalled } from './lib/market'
 import { resetStorage } from './lib/storage'
-import { appendTool, appendTurn, beginTurn, getChatState, initChat, loadContextTurns, patchTurn, turnContent, useChat, type Turn } from './lib/chat'
+import { appendTool, appendTurn, beginTurn, getChatState, initChat, loadContextTurns, newConv, patchTurn, readToolDetail, turnContent, type Turn } from './lib/chat'
 import { articleContext } from './lib/articleContext'
 import { normalizeHost } from './lib/customWidget'
 import type { Article, BookmarkGroup, Feed, Settings as SettingsShape } from './lib/types'
@@ -80,8 +80,6 @@ export default function App() {
   const [monitorStates, setMonitorStates] = useState<Record<string, MonitorState>>({})
   const [range, setRange] = useStored<RangeId>('range', '24h')
 
-  const chat = useChat()
-  const { turns, newConv } = chat
   const [busy, setBusy] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   /** 待答复的确认请求：由 ask 写入，由确认卡片按钮调用。 */
@@ -350,12 +348,23 @@ export default function App() {
           return
         }
 
-        // 历史按轮展开成消息：只带问答正文，思考过程和工具细节不进上下文
         const context = options?.fresh ? [] : await loadContextTurns(targetConvId, settings.ai.contextTurns)
         if (controller.signal.aborted) return
+        // 历史按轮展开成消息：带问答正文和工具「操作痕迹」（名称、参数摘要、成败、编号）；
+        // 思考过程和工具正文不进上下文，模型需要时用 read_tool_result 按编号读回。
+        const TRACE_LIMIT = 40
+        const trace = (tools: { title: string; ok: boolean; detailId?: string }[]) => {
+          if (!tools.length) return ''
+          const shown = tools.slice(-TRACE_LIMIT)
+          const lines = shown.map((tool, index) => `${tools.length - shown.length + index + 1}. ${tool.title} ${tool.ok ? '成功' : '失败'} id=${tool.detailId ?? ''}`)
+          const omitted = tools.length > shown.length ? `（更早的 ${tools.length - shown.length} 步省略）\n` : ''
+          return `[本轮操作记录，仅是痕迹；需要具体结果时用 read_tool_result 传入 id]\n${omitted}${lines.join('\n')}`
+        }
         const history: ChatMessage[] = context.flatMap((t) => {
           const items: ChatMessage[] = [{ role: 'user', content: turnContent(t) }]
-          if (t.answer) items.push({ role: 'assistant', content: t.answer })
+          const note = trace(t.tools ?? [])
+          const content = [note, t.answer].filter(Boolean).join('\n\n')
+          if (content) items.push({ role: 'assistant', content })
           return items
         })
 
@@ -386,7 +395,7 @@ export default function App() {
             config: settings.ai,
             userName: settings.name,
             messages: [...history, { role: 'user', content: turnContent(turn) }],
-            host: { openPage: (next: string) => setPendingPage(next), openSettings: (section?: string) => openSettings(section), openApplication, inspectPage, inspectHomepageDraft },
+            host: { readToolDetail, openPage: (next: string) => setPendingPage(next), openSettings: (section?: string) => openSettings(section), openApplication, inspectPage, inspectHomepageDraft },
             onApproval,
             onReasoning: (chunk) => {
               reasoning += chunk
@@ -695,28 +704,13 @@ export default function App() {
           onRatioChange={setAssistantRatio}
           onAvailableChange={setSplitAvailable}
           assistant={
-            <Assistant
+            <ChatAssistant
               open={assistantOpen}
               mode={assistantMode}
               canSplit={splitAvailable}
               onMode={changeAssistantMode}
               ai={settings.ai}
-              turns={turns}
-              ready={chat.ready}
-              convs={chat.convs}
-              convId={chat.convId}
-              activeTurnIds={chat.activeTurnIds}
-              hasOlderTurns={chat.hasOlderTurns}
-              turnsLoading={chat.turnsLoading}
-              turnsError={chat.turnsError}
-              onLoadOlderTurns={chat.loadOlderTurns}
-              hasMoreConvs={chat.hasMoreConvs}
-              convsLoading={chat.convsLoading}
-              convsError={chat.convsError}
-              onLoadMoreConvs={chat.loadMoreConvs}
-              onNewConv={() => { void chat.newConv().then(clearArticleDraft).catch(error => toast.error(error instanceof Error ? error.message : String(error))) }}
-              onOpenConv={(id) => { void chat.openConv(id).then(clearArticleDraft).catch(error => toast.error(error instanceof Error ? error.message : String(error))) }}
-              onDeleteConv={(id) => { void chat.deleteConv(id).then(() => { if (id === chat.convId) clearArticleDraft() }).catch(error => toast.error(error instanceof Error ? error.message : String(error))) }}
+              onConvChange={clearArticleDraft}
               busy={busy}
               seed={assistantSeed}
               articleTitle={draftArticle?.title}

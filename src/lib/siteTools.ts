@@ -635,4 +635,21 @@ export const SITE_TOOLS = [
       },
     },
   ),
+
+  /* ───── 历史操作痕迹 ───── */
+  define(
+    {schema: {parse: (raw) => ({id: str(obj(raw).id)})}, json: {type: 'object', properties: {id: {type: 'string', description: '历史「操作痕迹」里某一步的编号（id=后面的整段文本，原样传入）'}}, required: ['id']}},
+    {
+      name: 'read_tool_result',
+      title: '读取历史工具结果',
+      description: '读回此前某次工具调用的完整结果。历史对话里只保留操作痕迹（工具名、参数摘要、成败和编号），需要具体内容时再用编号取；已经在本轮看过的结果不必重复读取。',
+      effect: 'read',
+      highRisk: () => false,
+      execute: async (args, context) => {
+        if (!context.readToolDetail) return '当前环境不能读取历史工具结果。'
+        if (!args.id) return '缺少编号。'
+        return context.readToolDetail(args.id)
+      },
+    },
+  ),
 ] as const
