@@ -2,6 +2,8 @@
 
 状态：planning；行为范围已拆分，激活前补具体 design/implement。父任务：[存储与同步](../10-28-storage-sync/prd.md)。
 
+2026-10-28 仓库归属讨论：建议新建 `tulai-design/sync`，服务/协议/轻量SDK同仓，两个产品各自保留适配器；仓库尚未创建，名称和可见性未确定。职责、源码核对与接入顺序见 [repository-layout.md](repository-layout.md)，本文件不把提案或合成投影验证当成产品已接入。
+
 ## 目标
 
 用户可选择独立部署的共用服务同步不断增长的数据；搭搭和 aifenjing 各自接入，未部署或服务离线时仍完整本地使用。
