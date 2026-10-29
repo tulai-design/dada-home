@@ -2473,6 +2473,51 @@ body {
   font-weight: 700;
   letter-spacing: -0.02em;
 }
+/* 单栏详情：圆按钮在左，标题居中，和系统设置的返回条一致 */
+:root[data-skin='ios'] .ios-back {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 50% !important;
+  background: var(--bg2) !important;
+  color: var(--text) !important;
+  box-shadow:
+    0 1px 2px color-mix(in srgb, var(--text) 14%, transparent),
+    0 0 0 0.5px color-mix(in srgb, var(--text) 6%, transparent);
+}
+:root[data-skin='ios'] .ios-back:hover {
+  background: color-mix(in srgb, var(--bg2) 88%, var(--text)) !important;
+}
+@media (max-width: 860px) {
+  :root[data-skin='ios'] .settings-page[data-pane='detail'] .ios-detail-head {
+    display: grid;
+    grid-template-columns: 36px 1fr 36px;
+    align-items: center;
+    min-height: 56px;
+    border-bottom: 0;
+    background: var(--bg);
+  }
+  :root[data-skin='ios'] .settings-page[data-pane='detail'] .ios-detail-head h2 {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    width: 100%;
+    margin: 0;
+    padding-inline: 48px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: center;
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: 0;
+    pointer-events: none;
+  }
+  :root[data-skin='ios'] .settings-page[data-pane='detail'] .ios-back {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: start;
+    z-index: 1;
+  }
+}
 :root[data-skin='ios'] .ios-detail-desc {
   margin: 0 16px 22px;
   font-size: 13px;
