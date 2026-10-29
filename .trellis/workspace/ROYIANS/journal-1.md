@@ -680,3 +680,37 @@
 ### Next Steps
 
 - 建议先修正 Agent 取消与失败语义，再随相关需求抽离桌面外壳和 Agent 能力集合；后续范围尚未开工。
+
+
+## Session 20: 默认 iOS 主题与玻璃 Dock
+<!-- trellis-session: v=2 fp=f1bbfbcc14d9f94e -->
+
+**Date**: 2026-10-29
+**Task**: 默认 iOS 主题与玻璃 Dock
+**Branch**: `main`
+
+### Summary
+
+初始与默认外观还原统一使用iOS和glass，保留纸张预设及明确保存选择，对齐提示、文档和设置说明。
+
+### Main Changes
+
+- 共享产品默认选择；外观查询保持CSS基底与产品默认独立；更新既有相关测试和隔离fixture。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5fae647` | feat(theme): 默认使用 iOS 主题和玻璃 Dock |
+
+### Testing
+
+- [OK] 相关回归49项、持久化18项、完整pnpm test、tsc和diff检查通过；隔离浏览器1440/320亮暗、刷新保留与还原验证通过。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 已完成；未推送发布。
