@@ -55,10 +55,10 @@ function findNode(predicate) {
 }
 
 const {normalizeAssistantMode} = compile('src/lib/assistantLayout.ts')
-const names = ['changeAssistantMode', 'openAssistant', 'openAssistantPanel', 'openApplication', 'closeApplication', 'minimizeApplication', 'restoreApplication', 'goPage', 'openSettings', 'openMonitor', 'openMarket']
+const names = ['revealWin98Window', 'changeAssistantMode', 'openAssistant', 'openAssistantPanel', 'openApplication', 'closeApplication', 'minimizeApplication', 'restoreApplication', 'goPage', 'openSettings', 'openMonitor', 'openMarket']
 const callbacksJs = names.map(callbackJs).join('\n')
 function makeNavigation({split = false, sidebarAi = storedDefault('sidebarAi'), panelMode = storedDefault('panelMode')} = {}) {
-  const state = {assistantOpen: true, assistantMode: 'drawer', panelMode, sidebarAi, pageId: 'home', view: 'page', applicationView: {id: 'old', mode: 'modal'}, applicationMinimized: false, reader: {title: '文章'}, section: 'profile', settingsRequest: 0, pendingPage: null, switchBoard: true}
+  const state = {assistantOpen: true, assistantMode: 'drawer', panelMode, sidebarAi, pageId: 'home', view: 'page', applicationView: {id: 'old', mode: 'modal'}, applicationMinimized: false, reader: {title: '文章'}, section: 'profile', settingsRequest: 0, pendingPage: null, switchBoard: true, win98WindowOpen: false, win98Minimized: true}
   const writes = []
   const errors = []
   const splitActiveRef = {current: split}
@@ -75,6 +75,7 @@ function makeNavigation({split = false, sidebarAi = storedDefault('sidebarAi'), 
     normalizeAssistantMode,
     splitActiveRef, viewRef, applicationReturnView, applicationViewRef, applicationMinimizedRef,
     setAssistantMode: set('assistantMode'), setPanelMode: set('panelMode'), setAssistantOpen: set('assistantOpen'),
+    setWin98WindowOpen: set('win98WindowOpen'), setWin98Minimized: set('win98Minimized'),
     setApplicationView: set('applicationView'), setApplicationMinimized: set('applicationMinimized'), setView: set('view'), setReader: set('reader'), setSection: set('section'), setPageId: set('pageId'), setSettingsRequest: set('settingsRequest'), setPendingPage: set('pendingPage'), setSwitchBoard: set('switchBoard'),
     getWorkspace: () => ({applications: [{id: 'notes', openMode: 'drawer'}, {id: 'counter', openMode: 'modal'}]}),
     findApplication: (workspace, ref) => {
@@ -108,6 +109,7 @@ await test('分栏中打开应用的三种形态保留助手，其他布局沿�
     h.render().openApplication('notes', mode)
     assert.deepEqual(h.state.applicationView, {id: 'notes', mode})
     assert.equal(h.state.view, mode === 'page' ? 'application' : 'settings')
+    assert.equal(h.state.win98WindowOpen, mode === 'page')
     assert.equal(h.state.reader, null)
     assert.equal(h.state.assistantOpen, split)
     assert.equal(h.writes.filter((item) => item.key === 'assistantOpen').length, split ? 0 : 1)
@@ -126,6 +128,8 @@ await test('设置、监控和市场在分栏中保留助手，非分栏仍关�
     const h = makeNavigation({split})
     h.render()[callback]('application:notes')
     assert.equal(h.state.view, target)
+    assert.equal(h.state.win98WindowOpen, true)
+    assert.equal(h.state.win98Minimized, false)
     assert.equal(h.state.applicationView, null)
     assert.equal(h.state.assistantOpen, split)
     assert.equal(h.writes.filter((item) => item.key === 'assistantOpen').length, split ? 0 : 1)
@@ -144,6 +148,8 @@ await test('页面导航只更换左侧内容，不开关助手或改动布局�
     assert.equal(h.state.pageId, 'reading')
     assert.equal(h.state.view, 'page')
     assert.equal(h.state.switchBoard, false)
+    assert.equal(h.state.win98WindowOpen, true)
+    assert.equal(h.state.win98Minimized, false)
     assert.equal(h.state.applicationView, null)
     assert.equal(h.state.assistantOpen, open)
     assert.equal(h.state.panelMode, 'split')
@@ -177,12 +183,13 @@ await test('AI open_page 的真实待处理 effect 同样保留最小化应用�
     h.state.pendingPage = pendingPage
     h.render()
     const before = h.state.applicationView
-    const runEffect = evaluate(effect.arguments[0], {...h.dependencies, pendingPage, workspace: {pages: [{id: 'reading'}]}})
+    const runEffect = evaluate(effect.arguments[0], {...h.dependencies, revealWin98Window: h.render().revealWin98Window, pendingPage, workspace: {pages: [{id: 'reading'}]}})
     runEffect()
     assert.equal(h.state.applicationView, !minimized && pendingPage === 'reading' ? null : before)
     assert.equal(h.state.pageId, pendingPage === 'reading' ? 'reading' : 'home')
     assert.equal(h.state.pendingPage, null)
     assert.equal(h.state.switchBoard, pendingPage === 'reading' ? false : true)
+    assert.equal(h.state.win98WindowOpen, pendingPage === 'reading')
   }
 })
 

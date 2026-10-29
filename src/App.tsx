@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { A, ActionIcon, Modal, Text, toast } from '@lobehub/ui'
 import {AppWindow, SquaresFour as LayoutGrid, Monitor, Moon, Palette, ArrowClockwise as Redo, ArrowsClockwise as RefreshCw, Rss, Gear as Settings, Sparkle as Sparkles, Sun, ArrowCounterClockwise as Undo} from '@phosphor-icons/react'
 import { pageIcon } from './lib/pageIcons'
-import { activeTheme, FROZEN_PAGE_ID, IOS_THEME_ID, PIXEL_THEME_ID, SWITCH_THEME_ID, type ApplicationOpenMode } from './lib/workspace'
+import { activeTheme, FROZEN_PAGE_ID, IOS_THEME_ID, PIXEL_THEME_ID, SWITCH_THEME_ID, WIN98_THEME_ID, type ApplicationOpenMode } from './lib/workspace'
 import {findApplication, listApplications, updateApplication} from './lib/applications'
 import {ApplicationHost} from './components/ApplicationHost'
 import { applyTheme, resolveThemeOverrides, setMode } from './lib/themes'
@@ -15,6 +15,7 @@ import { runAgent, type ApprovalRequest, type ChatMessage } from './lib/ai'
 import { useInterval, useVisible } from './hooks'
 import { Rail } from './components/Rail'
 import { SwitchDock, SwitchHome } from './components/SwitchShell'
+import { Win98Desktop, Win98Taskbar, Win98Titlebar } from './components/Win98Shell'
 import { TopBar } from './components/TopBar'
 import { StatusBar } from './components/StatusBar'
 import { PageSwitcher } from './components/PageSwitcher'
@@ -91,6 +92,13 @@ export default function App() {
 
   const [pageId, setPageId] = useStored<string>('page', 'home')
   const [switchBoard, setSwitchBoard] = useState(true)
+  const [win98WindowOpen, setWin98WindowOpen] = useState(false)
+  const [win98Minimized, setWin98Minimized] = useState(false)
+  const [win98Maximized, setWin98Maximized] = useState(false)
+  const revealWin98Window = useCallback(() => {
+    setWin98WindowOpen(true)
+    setWin98Minimized(false)
+  }, [])
   const openBoardSelection = useRef<() => void>(() => {})
   const [pendingPage, setPendingPage] = useState<string | null>(null)
 
@@ -140,6 +148,9 @@ export default function App() {
   const [settingsRequest, setSettingsRequest] = useState(0)
 
   const { workspace, edit, undo, redo, canUndo, canRedo } = useWorkspace()
+  const theme = activeTheme(workspace)
+  const win98On = theme.id === WIN98_THEME_ID
+  const showWin98Desktop = win98On && (!win98WindowOpen || win98Minimized)
   const persistence = usePersistenceStatus()
   const homepageDraft = useHomepageDraft()
   const homepageDraftWorkspace = getHomepageDraftWorkspace()
@@ -157,12 +168,13 @@ export default function App() {
       setApplicationMinimized(false)
       setApplicationView({id: application.id, mode})
       setView(mode === 'page' ? 'application' : applicationReturnView.current)
+      if (mode === 'page') revealWin98Window()
       setReader(null)
       if (!splitActiveRef.current) setAssistantOpen(false)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : String(error))
     }
-  }, [])
+  }, [revealWin98Window])
   const minimizeApplication = useCallback(() => {
     applicationMinimizedRef.current = true
     setApplicationMinimized(true)
@@ -219,10 +231,11 @@ export default function App() {
     (id: string) => {
       if (!applicationMinimizedRef.current) setApplicationView(null)
       setSwitchBoard(false)
+      revealWin98Window()
       setPageId(id)
       setView('page')
     },
-    [setPageId],
+    [setPageId, revealWin98Window],
   )
   const openSwitchBoard = useCallback(() => {
     if (!applicationMinimizedRef.current) setApplicationView(null)
@@ -233,6 +246,7 @@ export default function App() {
   }, [setPageId])
   /** 系统页替换左侧画布，分栏中的助手继续保留。 */
   const openSettings = useCallback((target?: string) => {
+    revealWin98Window()
     if (!applicationMinimizedRef.current) setApplicationView(null)
     if (!splitActiveRef.current) setAssistantOpen(false)
     setReader(null)
@@ -241,22 +255,24 @@ export default function App() {
       setSettingsRequest((request) => request + 1)
     }
     setView('settings')
-  }, [])
+  }, [revealWin98Window])
   useEffect(() => {
     if (sessionStorage.getItem(SYNC_OPEN_FLAG) !== '1') return
     sessionStorage.removeItem(SYNC_OPEN_FLAG)
     openSettings('sync')
   }, [openSettings])
   const openMonitor = useCallback(() => {
+    revealWin98Window()
     if (!applicationMinimizedRef.current) setApplicationView(null)
     if (!splitActiveRef.current) setAssistantOpen(false)
     setView('monitor')
-  }, [])
+  }, [revealWin98Window])
   const openMarket = useCallback(() => {
+    revealWin98Window()
     if (!applicationMinimizedRef.current) setApplicationView(null)
     if (!splitActiveRef.current) setAssistantOpen(false)
     setView('market')
-  }, [])
+  }, [revealWin98Window])
 
   // 页面可能被删除或改名：存下来的 id 失效时回落到第一页
   const currentPage = workspace.pages.find((page) => page.id === pageId) ?? workspace.pages[0]
@@ -272,7 +288,7 @@ export default function App() {
     if (inspectionRevision.current.workspace !== workspace) {
       inspectionRevision.current = {workspace, value: inspectionRevision.current.value + 1}
     }
-    mountedInspection.current = !homepageDraft && view === 'page' && currentPage && inspectionRoot.current
+    mountedInspection.current = !homepageDraft && !showWin98Desktop && view === 'page' && currentPage && inspectionRoot.current
       ? {root: inspectionRoot.current, pageId: currentPage.id, workspace, revision: String(inspectionRevision.current.value)}
       : null
   })
@@ -287,14 +303,14 @@ export default function App() {
     if (workspace.pages.some((page) => page.id === pendingPage)) {
       setPageId(pendingPage)
       setSwitchBoard(false)
+      revealWin98Window()
       if (!applicationMinimizedRef.current) setApplicationView(null)
       setView('page')
     }
     setPendingPage(null)
-  }, [pendingPage, workspace.pages, setPageId])
+  }, [pendingPage, workspace.pages, setPageId, revealWin98Window])
 
   // 应用主题：明暗 + 当前主题的变量。切换主题时要把上一个主题设过的变量清掉，不然会残留。
-  const theme = activeTheme(workspace)
   const appliedVars = useRef<string[]>([])
   useEffect(() => {
     const root = document.documentElement
@@ -303,6 +319,7 @@ export default function App() {
     if (theme.id === IOS_THEME_ID) root.dataset.skin = 'ios'
     else if (theme.id === PIXEL_THEME_ID) root.dataset.skin = 'pixel'
     else if (theme.id === SWITCH_THEME_ID) root.dataset.skin = 'switch'
+    else if (theme.id === WIN98_THEME_ID) root.dataset.skin = 'win98'
     else delete root.dataset.skin
     for (const name of appliedVars.current) root.style.removeProperty(`--${name}`)
     // 字体接管的变量在前，主题自己写的变量在后（后者优先）
@@ -319,6 +336,11 @@ export default function App() {
 
   useEffect(() => {
     if (theme.id === SWITCH_THEME_ID) setSwitchBoard(true)
+    if (theme.id === WIN98_THEME_ID) {
+      setWin98WindowOpen(false)
+      setWin98Minimized(false)
+      setWin98Maximized(false)
+    }
   }, [theme.id])
 
   useEffect(() => {
@@ -700,6 +722,29 @@ export default function App() {
   const monitorOn = isInstalled(workspace, 'monitor')
   const switchOn = theme.id === SWITCH_THEME_ID
   const showSwitchBoard = switchOn && switchBoard && view === 'page'
+  const win98Title = view === 'settings' ? '控制面板' : view === 'market' ? '组件市场'
+    : view === 'monitor' ? '服务监控' : view === 'application' ? openedApplication?.instance.title || '应用'
+    : currentPage?.label || currentPage?.name || '我的主页'
+  const win98Navigation = {
+    pages: workspace.pages, applications, onPage: goPage, onApplication: openApplication,
+    onAssistant: openAssistantPanel, onMarket: openMarket, onSettings: () => openSettings(),
+    onMonitor: monitorOn ? openMonitor : undefined,
+  }
+  const minimizeWin98Window = () => {
+    setWin98Minimized(true)
+    setReader(null)
+    if (applicationView && applicationView.mode !== 'page') minimizeApplication()
+  }
+  const restoreWin98Window = () => {
+    revealWin98Window()
+    if (applicationMinimized) restoreApplication()
+  }
+  const closeWin98Window = () => {
+    setWin98WindowOpen(false)
+    setWin98Minimized(false)
+    setReader(null)
+    if (applicationView) closeApplication()
+  }
   const activeApplicationIds = [...new Set([
     ...(applicationView ? [applicationView.id] : []),
     ...(view === 'page' ? currentPage.components.filter((item) => applications.some((application) => application.id === item.id)).map((item) => item.id) : []),
@@ -710,7 +755,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <PersistenceNotice />
-      <div className="app" inert={persistence.busy || persistence.errors.some(error => error.source === 'backup-restore') || undefined} data-fx={view === 'page' && !showSwitchBoard && hasBackdrop(currentPage?.layers) ? 'on' : undefined}>
+      <div className="app" inert={persistence.busy || persistence.errors.some(error => error.source === 'backup-restore') || undefined} data-fx={view === 'page' && !showSwitchBoard && !win98On && hasBackdrop(currentPage?.layers) ? 'on' : undefined}>
         {/* 页面背景特效铺在最底层，覆盖整个窗口，侧栏和顶栏透明地叠在上面 */}
         <div className="fx-root" ref={setFxRoot} aria-hidden="true" />
         {/* 外框：四条红边进场时从各自的方向滑进来（来自 anyway.fm 的做法） */}
@@ -767,7 +812,12 @@ export default function App() {
             />
           }
         >
-          <div className="canvas" ref={setCanvasElement} data-split={splitActive || undefined} data-homepage-draft-active={homepageDraft ? true : undefined} data-switch-board={showSwitchBoard || undefined}>
+          <div className="canvas" ref={setCanvasElement} data-split={splitActive || undefined} data-homepage-draft-active={homepageDraft ? true : undefined} data-switch-board={showSwitchBoard || undefined} data-win98-desktop={win98On ? showWin98Desktop : undefined} data-win98-maximized={win98On ? win98Maximized : undefined}>
+            {win98On && <>
+              {showWin98Desktop && <Win98Desktop {...win98Navigation} />}
+              <Win98Titlebar title={win98Title} maximized={win98Maximized} onMinimize={minimizeWin98Window} onMaximize={() => setWin98Maximized(value => !value)} onClose={closeWin98Window} />
+              <Win98Taskbar {...win98Navigation} title={win98Title} windowOpen={win98WindowOpen} desktop={showWin98Desktop} onRestore={restoreWin98Window} onDesktop={minimizeWin98Window} mode={workspace.theme.mode} onTheme={toggleTheme} assistantOpen={assistantOpen} />
+            </>}
             {switchOn && (
               <SwitchDock
                 view={view}

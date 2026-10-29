@@ -3,7 +3,7 @@ import { ActionIcon, Flexbox, Modal, Segmented, Switch, Text } from '@lobehub/ui
 import {PencilSimple as Pencil, Trash as Trash2} from '@phosphor-icons/react'
 import { useAppSettings } from '../lib/apps'
 import { applyTheme, removeTheme, resolveThemeOverrides, saveTheme, setSkinFrame, swatch, tweakTheme } from '../lib/themes'
-import { activeTheme, IOS_THEME_ID, PIXEL_THEME_ID, SWITCH_THEME_ID, type ThemeEntry } from '../lib/workspace'
+import { activeTheme, IOS_THEME_ID, PIXEL_THEME_ID, SWITCH_THEME_ID, WIN98_THEME_ID, type ThemeEntry } from '../lib/workspace'
 import { applyDecor, currentDecor, DECORS } from '../lib/decor'
 import { Group, Row, TextRow } from './ios'
 
@@ -73,18 +73,18 @@ export function AppearanceSettings({ mode, onMode }: { mode: 'light' | 'dark'; o
         </Row>
       </Group>
 
-      <Group title="窗口" footer={skin ? '窗口四周那圈边。关掉只收起这圈边，还是当前这套主题。' : '窗口四周那圈红框。关掉会另存为一个新主题，默认主题不受影响。粗细、颜色和字体，对搭搭说就行。'}>
+      {current.id !== WIN98_THEME_ID && <Group title="窗口" footer={skin ? '窗口四周那圈边。关掉只收起这圈边，还是当前这套主题。' : '窗口四周那圈红框。关掉会另存为一个新主题，默认主题不受影响。粗细、颜色和字体，对搭搭说就行。'}>
         <Row label="外框">
           <Switch checked={frameOn} onChange={setFrame} />
         </Row>
-      </Group>
+      </Group>}
 
-      <Group title="首页装饰" footer="给首页铺一层动态背景，来自 React Bits。想要别的效果，或者 Spline 3D 场景，对搭搭说一声就行。">
+      {current.id !== WIN98_THEME_ID && <Group title="首页装饰" footer="给首页铺一层动态背景，来自 React Bits。想要别的效果，或者 Spline 3D 场景，对搭搭说一声就行。">
         {DECORS.map((decor) => (
           <Row key={decor.id} label={decor.name} hint={decor.hint} checked={decor.id === decorId} onClick={() => edit((ws) => applyDecor(ws, decor.id))} />
         ))}
         {decorId === 'custom' && <Row label="自定义" hint="搭搭设置的图层，选上面任意一项会替换它" checked />}
-      </Group>
+      </Group>}
 
       <Group
         title={`主题 · ${workspace.themes.length} 个`}

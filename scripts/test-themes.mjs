@@ -28,7 +28,7 @@ function load(relative) {
 }
 const model = load('src/lib/workspace.ts')
 const themes = load('src/lib/themes.ts')
-const {DEFAULT_THEME, DEFAULT_THEME_ID, IOS_THEME, IOS_THEME_ID, PIXEL_THEME, PIXEL_THEME_ID, SWITCH_THEME, SWITCH_THEME_ID, activeTheme} = model
+const {DEFAULT_THEME, DEFAULT_THEME_ID, IOS_THEME, IOS_THEME_ID, PIXEL_THEME, PIXEL_THEME_ID, SWITCH_THEME, SWITCH_THEME_ID, WIN98_THEME, WIN98_THEME_ID, activeTheme} = model
 const {saveTheme, tweakTheme, applyTheme, setMode, setSkinFrame, readThemes, removeTheme, resolveThemeOverrides, swatch} = themes
 const base = () => ({
   version: model.WORKSPACE_VERSION,
@@ -287,6 +287,26 @@ test('主机是内置预设，读入时覆盖同 id 旧副本，不能改删', (
   const off = setSkinFrame(applyTheme(ws, 'switch').workspace, false)
   assert.equal(off.theme.active, SWITCH_THEME_ID)
   assert.equal(off.themes.some((item) => item.name.startsWith('自定义')), false)
+})
+
+test('Windows 98 内置主题保持双模式、固定身份和不可改删约束', () => {
+  const loaded = readThemes([{id: 'win98', name: '伪造副本', description: '', overrides: {radius: '99px'}, light: {bg: '#ff00ff'}}])
+  const entry = loaded.find(theme => theme.id === WIN98_THEME_ID)
+  assert.equal(entry.name, 'Windows 98')
+  assert.deepEqual(entry, WIN98_THEME, '同 id 存档不能覆盖内置定义')
+  assert.equal(loaded.filter(theme => theme.id === WIN98_THEME_ID).length, 1)
+  const light = resolveThemeOverrides(entry, 'light'), dark = resolveThemeOverrides(entry, 'dark')
+  for (const key of ['bg', 'text', 'win98-desktop', 'win98-face', 'win98-field']) assert.notEqual(light[key], dark[key], `${key} 随亮暗模式变化`)
+  const ws = {...base(), themes: loaded}
+  assert.equal(applyTheme(ws, 'Windows 98').workspace.theme.active, WIN98_THEME_ID)
+  assert.throws(() => saveTheme(ws, {id: WIN98_THEME_ID, name: '改掉'}), /内置主题不能修改/)
+  assert.throws(() => removeTheme(ws, WIN98_THEME_ID), /内置主题不能删除/)
+  const selected = setMode(applyTheme(ws, WIN98_THEME_ID).workspace, 'dark')
+  const restored = migrate(JSON.parse(JSON.stringify(selected)))
+  assert.equal(restored.theme.active, WIN98_THEME_ID)
+  assert.equal(restored.theme.mode, 'dark')
+  assert.deepEqual(activeTheme(restored), WIN98_THEME)
+  assert.equal(applyTheme(restored, DEFAULT_THEME_ID).workspace.theme.active, DEFAULT_THEME_ID)
 })
 
 console.log(`主题回归：${count - failures.length}/${count}`)

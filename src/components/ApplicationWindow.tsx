@@ -19,6 +19,7 @@ const emptyBounds: WindowBounds = {width: 0, height: 0}
 /** A canvas window never captures the rest of the workspace or remounts its application. */
 export function ApplicationWindow({title, children, container, minimized, onMinimize, onRestore, onClose}: Props) {
   const mobile = useIsMobile()
+  const [layer, setLayer] = useState<HTMLDivElement | null>(null)
   const titleId = useId()
   const boundsRef = useRef<WindowBounds>(emptyBounds)
   const rectRef = useRef<WindowRect | null>(null)
@@ -40,9 +41,10 @@ export function ApplicationWindow({title, children, container, minimized, onMini
   }, [])
 
   useEffect(() => {
-    if (!container) return
+    if (!layer) return
     const measure = () => {
-      const next = {width: container.clientWidth, height: container.clientHeight}
+      // 外壳可以给任务栏留出空间，几何以真正承载窗口的可用区域为准。
+      const next = {width: layer.clientWidth, height: layer.clientHeight}
       if (next.width === boundsRef.current.width && next.height === boundsRef.current.height) return
       stopDrag()
       const previous = boundsRef.current
@@ -52,9 +54,9 @@ export function ApplicationWindow({title, children, container, minimized, onMini
     }
     measure()
     const observer = new ResizeObserver(measure)
-    observer.observe(container)
+    observer.observe(layer)
     return () => observer.disconnect()
-  }, [container, stopDrag, updateRect])
+  }, [layer, stopDrag, updateRect])
 
   useEffect(() => {
     if (minimized || mobile) stopDrag()
@@ -91,7 +93,7 @@ export function ApplicationWindow({title, children, container, minimized, onMini
   const visibleRect = mobile ? {x: 0, y: 0, width: bounds.width, height: bounds.height} : maximized ? maximizeApplicationWindow(bounds) : rect
   if (!container) return null
 
-  return createPortal(<div className="application-window-layer" data-mobile={mobile}>
+  return createPortal(<div className="application-window-layer" ref={setLayer} data-mobile={mobile}>
     <section
       className="application-floating-window"
       role="dialog"

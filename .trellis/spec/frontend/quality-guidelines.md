@@ -21,6 +21,7 @@ PATH="/Users/xiaomengdao/.nvm/versions/node/v24.11.0/bin:$PATH" /Users/xiaomengd
 | AI 协议与模型 | [test-ai-protocol.mjs](../../../scripts/test-ai-protocol.mjs)、[test-models.mjs](../../../scripts/test-models.mjs) |
 | 主题与还原 | [test-theme-tools.mjs](../../../scripts/test-theme-tools.mjs)、[test-appearance.mjs](../../../scripts/test-appearance.mjs) |
 | 主机外壳与内容页 | [test-switch-theme-browser.mjs](../../../scripts/test-switch-theme-browser.mjs)、[test-switch-content-browser.mjs](../../../scripts/test-switch-content-browser.mjs)；隔离真实 App，检查亮暗、窄屏、AI 分栏与末项可达，内容夹具不访问外网 |
+| Win98 桌面与窗口 | [test-win98-theme-browser.mjs](../../../scripts/test-win98-theme-browser.mjs)；真实开始菜单、桌面入口、窗口操作与输入状态保留，亮暗、窄屏、AI 分栏、内置内容与主题切换清理 |
 | 其他内置主题内容页 | [audit-builtin-theme-content-browser.mjs](../../../scripts/audit-builtin-theme-content-browser.mjs)；纸张、iOS、掌机亮暗，末项不被浮动 Dock 遮挡，窄屏日历控件不出界并能实际添加日程；检查失败返回非零 |
 | 应用目录与窗口 | [test-applications.mjs](../../../scripts/test-applications.mjs)、[test-application-tools.mjs](../../../scripts/test-application-tools.mjs)、[test-application-window.mjs](../../../scripts/test-application-window.mjs) |
 | 运行时与容器 | [test-applet-runtime.mjs](../../../scripts/test-applet-runtime.mjs)、[test-app-runtime.mjs](../../../scripts/test-app-runtime.mjs) |

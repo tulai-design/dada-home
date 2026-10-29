@@ -1,0 +1,273 @@
+/* Windows 98 外壳；业务页面始终保持原挂载关系，窗口状态只控制可见性与几何。 */
+:root[data-skin='win98'] .app {
+  padding: 0;
+  gap: 0;
+  background: var(--win98-desktop) !important;
+}
+:root[data-skin='win98'] .dock-shell,
+:root[data-skin='win98'] .frame,
+:root[data-skin='win98'] .app::before,
+:root[data-skin='win98'] .waves,
+:root[data-skin='win98'] .fx-static-backdrop[data-effect='waves'] { display: none; }
+:root[data-skin='win98'] .assistant-workspace-page > .canvas {
+  --win98-taskbar-height: calc(44px + env(safe-area-inset-bottom));
+  position: relative;
+  container: win98-canvas assistant-page / size;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--win98-desktop);
+  font-family: var(--font-sans);
+}
+:root[data-skin='win98'] .canvas > :is(.win98-titlebar, .topbar, .page) {
+  --win98-window-gap: 24px;
+  position: absolute;
+  left: var(--win98-window-gap);
+  right: var(--win98-window-gap);
+  width: auto;
+  margin: 0;
+  border-radius: 0;
+  pointer-events: auto;
+}
+:root[data-skin='win98'] .canvas[data-win98-maximized='true'] > :is(.win98-titlebar, .topbar, .page) { --win98-window-gap: 4px; }
+:root[data-skin='win98'] .canvas[data-win98-desktop='true'] > :is(.win98-titlebar, .topbar, .page) { display: none !important; }
+:root[data-skin='win98'] .canvas > .win98-titlebar {
+  z-index: 5;
+  top: var(--win98-window-gap);
+  height: 32px;
+}
+:root[data-skin='win98'] .canvas > .topbar {
+  z-index: 4;
+  top: calc(var(--win98-window-gap) + 32px);
+  height: 40px !important;
+  min-height: 40px;
+  padding: 0 10px !important;
+  border: 0;
+  border-left: 2px solid var(--win98-light);
+  border-right: 2px solid var(--win98-dark);
+  background: var(--win98-face);
+  box-shadow: inset 0 -1px var(--win98-shadow), inset 0 -2px var(--win98-light);
+  font-family: var(--font-sans);
+  letter-spacing: 0;
+  text-transform: none;
+}
+:root[data-skin='win98'] .canvas > .topbar::after { display: none; }
+:root[data-skin='win98'] .canvas > .topbar .topbar-brand { display: none; }
+:root[data-skin='win98'] .canvas > .topbar .topbar-right { width: 100%; min-width: 0; justify-content: flex-end; gap: 8px; }
+:root[data-skin='win98'] .canvas > .page {
+  z-index: 3;
+  top: calc(var(--win98-window-gap) + 72px);
+  bottom: calc(var(--win98-taskbar-height) + var(--win98-window-gap));
+  height: auto;
+  min-height: 0;
+  padding-bottom: 0;
+  border: 0;
+  border-left: 2px solid var(--win98-light);
+  border-right: 2px solid var(--win98-dark);
+  border-bottom: 2px solid var(--win98-dark);
+  background: var(--win98-face);
+  box-shadow: inset -1px -1px var(--win98-shadow);
+  overflow: auto;
+}
+
+:root[data-skin='win98'] :is(.win98-desktop, .win98-taskbar, .win98-titlebar) button {
+  font-family: inherit;
+  border-radius: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+:root[data-skin='win98'] .win98-raised {
+  border: 1px solid;
+  border-color: var(--win98-light) var(--win98-dark) var(--win98-dark) var(--win98-light);
+  background: var(--win98-face);
+  color: var(--text);
+  box-shadow: inset -1px -1px var(--win98-shadow), inset 1px 1px var(--win98-face);
+}
+:root[data-skin='win98'] .win98-raised:is(:active, [data-pressed='true']) {
+  border-color: var(--win98-dark) var(--win98-light) var(--win98-light) var(--win98-dark);
+  box-shadow: inset 1px 1px var(--win98-shadow);
+}
+:root[data-skin='win98'] :is(.win98-taskbar, .win98-titlebar) button:focus-visible {
+  outline: 1px dotted var(--text);
+  outline-offset: -5px;
+}
+
+/* 桌面按列摆放快捷方式；小容器恢复普通网格，所有入口均可滚动到达。 */
+:root[data-skin='win98'] .win98-desktop {
+  position: absolute;
+  z-index: 1;
+  inset: 0 0 var(--win98-taskbar-height);
+  overflow: hidden;
+  background: var(--win98-desktop);
+}
+:root[data-skin='win98'] .win98-desktop-icons {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 96px;
+  grid-template-rows: repeat(auto-fill, 104px);
+  align-content: start;
+  justify-content: start;
+  gap: 8px;
+  height: 100%;
+  margin: 0;
+  padding: 22px 20px;
+  overflow: auto;
+  list-style: none;
+  overscroll-behavior: contain;
+}
+:root[data-skin='win98'] .win98-desktop-icons > li { min-width: 0; }
+:root[data-skin='win98'] .win98-desktop-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 96px;
+  padding: 6px 2px;
+  border: 0;
+  background: transparent;
+  color: var(--win98-title-text);
+  font-size: 12px;
+  line-height: 1.45;
+  user-select: none;
+}
+:root[data-skin='win98'] .win98-desktop-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+}
+:root[data-skin='win98'] .win98-desktop-icon > svg:not(.win98-shortcut) {
+  width: 42px;
+  height: 42px;
+  filter: drop-shadow(1px 1px 0 var(--win98-dark));
+}
+:root[data-skin='win98'] .win98-desktop-icon > img { width: 44px; height: 44px; object-fit: contain; image-rendering: pixelated; }
+:root[data-skin='win98'] .win98-desktop-icon > .win98-shortcut {
+  position: absolute;
+  left: -2px;
+  bottom: -1px;
+  width: 14px;
+  height: 14px;
+  padding: 1px;
+  background: var(--win98-face);
+  color: var(--text);
+  border: 1px solid var(--win98-dark);
+}
+:root[data-skin='win98'] .win98-desktop-label {
+  max-width: 100%;
+  padding: 1px 3px;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+:root[data-skin='win98'] .win98-desktop-item[data-selected='true'] .win98-desktop-label {
+  background: var(--win98-selection);
+  color: var(--win98-selection-text);
+}
+:root[data-skin='win98'] .win98-desktop-item:focus { outline: 0; }
+:root[data-skin='win98'] .win98-desktop-item:focus-visible .win98-desktop-label { outline: 1px dotted var(--win98-selection-text); outline-offset: -1px; }
+:root[data-skin='win98'] .win98-desktop-item:hover .win98-desktop-icon { transform: translateY(-1px); }
+
+/* 经典任务栏，开始菜单始终留在实际画布内，不依赖视口宽度。 */
+:root[data-skin='win98'] .win98-taskbar {
+  position: absolute;
+  z-index: 50;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: var(--win98-taskbar-height);
+  padding: 5px 6px calc(5px + env(safe-area-inset-bottom));
+  border-top: 2px solid var(--win98-light);
+  background: var(--win98-face);
+  box-shadow: 0 -1px var(--win98-shadow);
+  color: var(--text);
+  font-size: 12px;
+}
+:root[data-skin='win98'] .win98-start {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 72px;
+  height: 32px;
+  padding: 2px 8px 2px 5px;
+  font-size: 14px;
+}
+:root[data-skin='win98'] .win98-start > img { width: 24px; height: 24px; object-fit: contain; image-rendering: pixelated; }
+:root[data-skin='win98'] .win98-taskbar-divider { flex: none; width: 2px; height: 27px; border-left: 1px solid var(--win98-shadow); border-right: 1px solid var(--win98-light); }
+:root[data-skin='win98'] .win98-task-quick,
+:root[data-skin='win98'] .win98-theme-toggle {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 29px;
+  height: 30px;
+  padding: 3px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text);
+}
+:root[data-skin='win98'] .win98-task-quick:hover,
+:root[data-skin='win98'] .win98-theme-toggle:hover { border-color: var(--win98-light) var(--win98-shadow) var(--win98-shadow) var(--win98-light); }
+:root[data-skin='win98'] .win98-task-quick:active,
+:root[data-skin='win98'] .win98-task-quick[aria-pressed='true'] { border-color: var(--win98-shadow) var(--win98-light) var(--win98-light) var(--win98-shadow); }
+:root[data-skin='win98'] .win98-task-quick > :is(svg, img) { width: 22px; height: 22px; object-fit: contain; }
+:root[data-skin='win98'] .win98-task-list { display: flex; flex: 1; min-width: 0; }
+:root[data-skin='win98'] .win98-task-current { display: flex; align-items: center; gap: 7px; width: min(100%, 220px); height: 32px; min-width: 0; padding: 3px 8px; text-align: left; font-size: 12px; }
+:root[data-skin='win98'] .win98-task-current[data-pressed='true'] { background: var(--win98-field); font-weight: 700; }
+:root[data-skin='win98'] .win98-task-current > svg { flex: none; width: 18px; height: 18px; }
+:root[data-skin='win98'] .win98-task-current > span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+:root[data-skin='win98'] .win98-tray { display: flex; flex: none; align-items: center; gap: 3px; height: 32px; padding: 0 8px 0 2px; border: 1px solid; border-color: var(--win98-shadow) var(--win98-light) var(--win98-light) var(--win98-shadow); }
+:root[data-skin='win98'] .win98-theme-toggle { width: 26px; height: 26px; }
+:root[data-skin='win98'] .win98-theme-toggle > svg { width: 16px; height: 16px; }
+:root[data-skin='win98'] .win98-tray > time { font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+:root[data-skin='win98'] .win98-start-menu {
+  position: absolute;
+  left: 4px;
+  bottom: calc(100% + 1px);
+  display: flex;
+  width: min(292px, calc(100cqw - 8px));
+  max-height: calc(100cqh - var(--win98-taskbar-height) - 8px);
+  padding: 3px;
+  overflow: hidden;
+}
+:root[data-skin='win98'] .win98-menu-brand { display: flex; flex: none; align-items: end; width: 34px; padding: 10px 4px; background: var(--win98-title); color: var(--win98-title-text); }
+:root[data-skin='win98'] .win98-menu-brand > span { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 22px; line-height: 1; letter-spacing: 1px; white-space: nowrap; }
+:root[data-skin='win98'] .win98-menu-items { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 2px; }
+:root[data-skin='win98'] .win98-menu-item { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 43px; padding: 7px 10px; border: 0; background: transparent; color: var(--text); font-size: 13px; text-align: left; overflow-wrap: anywhere; }
+:root[data-skin='win98'] .win98-menu-item:is(:hover, :focus) { background: var(--win98-selection); color: var(--win98-selection-text); outline: none; }
+:root[data-skin='win98'] .win98-menu-icon { display: grid; flex: none; place-items: center; width: 28px; height: 28px; }
+:root[data-skin='win98'] .win98-menu-icon > :is(svg, img) { width: 28px; height: 28px; object-fit: contain; }
+:root[data-skin='win98'] .win98-menu-separator { height: 2px; margin: 4px 6px; border-top: 1px solid var(--win98-shadow); border-bottom: 1px solid var(--win98-light); }
+
+:root[data-skin='win98'] .win98-titlebar { display: flex; align-items: center; gap: 8px; padding: 3px 3px 3px 6px; border: 2px solid; border-color: var(--win98-light) var(--win98-dark) var(--win98-title) var(--win98-light); background: linear-gradient(90deg, var(--win98-title), var(--win98-title-end)); color: var(--win98-title-text); user-select: none; }
+:root[data-skin='win98'] .win98-window-title { display: flex; flex: 1; min-width: 0; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; }
+:root[data-skin='win98'] .win98-window-title > svg { flex: none; width: 18px; height: 18px; }
+:root[data-skin='win98'] .win98-window-title > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:root[data-skin='win98'] .win98-window-actions { display: flex; flex: none; gap: 3px; }
+:root[data-skin='win98'] .win98-window-actions > button { display: grid; place-items: center; width: 23px; height: 22px; padding: 2px; }
+:root[data-skin='win98'] .win98-window-actions > .win98-close { margin-left: 2px; }
+:root[data-skin='win98'] .win98-window-actions > button > svg { width: 14px; height: 14px; }
+
+@container win98-canvas (max-width: 760px) {
+  :root[data-skin='win98'] .canvas > :is(.win98-titlebar, .topbar, .page) { --win98-window-gap: 4px; }
+  :root[data-skin='win98'] .win98-desktop-icons { grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); grid-template-rows: none; grid-auto-rows: minmax(104px, auto); padding: 16px 12px; gap: 10px 8px; }
+  :root[data-skin='win98'] .win98-desktop-item { min-height: 104px; }
+  :root[data-skin='win98'] .win98-window-actions > button { width: 28px; }
+}
+@container win98-canvas (max-width: 420px) {
+  :root[data-skin='win98'] .win98-taskbar { gap: 3px; padding-left: 4px; padding-right: 4px; }
+  :root[data-skin='win98'] .win98-assistant-quick { display: none; }
+  :root[data-skin='win98'] .win98-task-current { gap: 4px; padding-inline: 5px; }
+  :root[data-skin='win98'] .win98-tray { gap: 0; padding-right: 5px; }
+}
+@container win98-canvas (max-height: 420px) {
+  :root[data-skin='win98'] .canvas > :is(.win98-titlebar, .topbar, .page) { --win98-window-gap: 4px; }
+  :root[data-skin='win98'] .win98-desktop-icons { padding-block: 10px; }
+}

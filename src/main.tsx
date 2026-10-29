@@ -18,6 +18,7 @@ import './life.css'
 import './switch-content.css'
 import './switch-widgets.css'
 import './switch-collections.css'
+import './win98-content.css'
 
 // 仅开发环境：把工具和 store 挂到 window，方便在控制台按 AI 的方式调用，验证整条链路。
 if (import.meta.env.DEV) {

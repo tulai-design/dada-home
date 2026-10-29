@@ -492,6 +492,40 @@ export const SWITCH_THEME: ThemeEntry = {
   builtin: true,
 }
 
+/** 经典桌面预设：外壳与应用内容共用立体边框及亮暗模式变量。 */
+export const WIN98_THEME_ID = 'win98'
+
+export const WIN98_THEME: ThemeEntry = {
+  id: WIN98_THEME_ID,
+  name: 'Windows 98',
+  description: '青绿桌面、立体灰色窗口、开始菜单与任务栏，提供经典浅色和深色。',
+  overrides: {
+    radius: '0px', 'radius-lg': '0px', frame: '0px', 'frame-gap': '0px',
+    'font-sans': 'Tahoma, "MS Sans Serif", "Microsoft YaHei", sans-serif',
+    'font-serif': 'var(--font-sans)',
+  },
+  light: {
+    bg: '#c0c0c0', bg2: '#ffffff', bg3: '#dfdfdf',
+    text: '#000000', text2: '#333333', text3: '#595959', text4: '#757575',
+    border: '#808080', rule: '#000000', main: '#000080',
+    'win98-desktop': '#008080', 'win98-face': '#c0c0c0', 'win98-field': '#ffffff',
+    'win98-light': '#ffffff', 'win98-shadow': '#808080', 'win98-dark': '#000000',
+    'win98-title': '#000080', 'win98-title-end': '#1084d0', 'win98-title-text': '#ffffff',
+    'win98-selection': '#000080', 'win98-selection-text': '#ffffff',
+  },
+  dark: {
+    bg: '#30343b', bg2: '#171a20', bg3: '#464c55',
+    text: '#f2f2f2', text2: '#d0d3d8', text3: '#b0b5bf', text4: '#8f98a4',
+    border: '#626b78', rule: '#f2f2f2', main: '#9bc9ff',
+    'win98-desktop': '#003c40', 'win98-face': '#30343b', 'win98-field': '#171a20',
+    'win98-light': '#6b7480', 'win98-shadow': '#17191e', 'win98-dark': '#08090b',
+    'win98-title': '#18355a', 'win98-title-end': '#346c93', 'win98-title-text': '#ffffff',
+    'win98-selection': '#345f9b', 'win98-selection-text': '#ffffff',
+  },
+  mode: 'light',
+  builtin: true,
+}
+
 /** 当前启用的主题；id 失效时回落到默认主题。 */
 export function activeTheme(workspace: Pick<Workspace, 'themes' | 'theme'>): ThemeEntry {
   return workspace.themes.find((item) => item.id === workspace.theme.active) ?? workspace.themes.find((item) => item.id === DEFAULT_THEME_ID) ?? DEFAULT_THEME

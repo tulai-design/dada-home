@@ -12,6 +12,7 @@ import {
   IOS_THEME,
   PIXEL_THEME,
   SWITCH_THEME,
+  WIN98_THEME,
   FROZEN_PAGE_ID,
   MAX_PAGES,
   MAX_STATUS_ITEMS,
@@ -497,7 +498,7 @@ export function defaultWorkspace(): Workspace {
   return {
     version: WORKSPACE_VERSION,
     theme: {active: DEFAULT_THEME_ID, mode: 'light', base: 'light'},
-    themes: [DEFAULT_THEME, IOS_THEME, PIXEL_THEME, SWITCH_THEME],
+    themes: [DEFAULT_THEME, IOS_THEME, PIXEL_THEME, SWITCH_THEME, WIN98_THEME],
     layout: {...DEFAULT_LAYOUT},
     widgets: [],
     applications: [],

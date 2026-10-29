@@ -1,0 +1,567 @@
+/* Win98 内容皮肤。只消费主题色；桌面、窗口框和任务栏由 Win98Shell 管理。 */
+:root[data-skin='win98'] .canvas > .page:has(.page-grid) {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  scroll-padding-block: 20px;
+}
+:root[data-skin='win98'] .page:has(.page-grid) .fx-page-content,
+:root[data-skin='win98'] .page:has(.page-grid) .fx-page-content > .fx-page-surface {
+  height: auto !important;
+  min-height: 100%;
+}
+:root[data-skin='win98'] .page-grid {
+  width: 100%;
+  height: auto;
+  min-height: 100%;
+  padding: 20px !important;
+  gap: 20px !important;
+  grid-auto-rows: auto;
+  align-items: start;
+}
+/* 保留时钟的 inline-size 容器；各内容集合按组件实际宽度排版。 */
+:root[data-skin='win98'] .page-grid > .widget {
+  container: win98-widget / inline-size;
+  min-width: 0;
+  max-height: none;
+  overflow: visible;
+  pointer-events: auto;
+}
+:root[data-skin='win98'] .widget .page-pane {
+  min-width: 0;
+  width: 100%;
+  padding: 18px !important;
+  gap: 16px;
+  border: 1px solid var(--win98-shadow) !important;
+  border-radius: 0 !important;
+  background: var(--win98-face);
+  box-shadow: inset 1px 1px var(--win98-light), 1px 1px var(--win98-dark);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.6;
+}
+:root[data-skin='win98'] .widget :is(.hot-pane, .feeds-pane, .bookmarks-pane) {
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent;
+  box-shadow: none;
+}
+:root[data-skin='win98'] .widget .page-pane h2::before { display: none; }
+:root[data-skin='win98'] .widget .page-pane h2 {
+  min-height: 0;
+  margin: 0;
+  color: var(--text);
+  font: 600 20px/1.4 var(--font-sans);
+  letter-spacing: 0;
+  text-transform: none;
+}
+:root[data-skin='win98'] .widget :is(h3, .cal-title, .cal-num, .cal-day-date) {
+  font-family: var(--font-sans);
+  letter-spacing: 0;
+}
+:root[data-skin='win98'] .widget .widget-heading,
+:root[data-skin='win98'] .widget .page-pane > h2 {
+  min-height: 38px;
+  margin: 0;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--win98-shadow);
+  box-shadow: 0 1px var(--win98-light);
+}
+:root[data-skin='win98'] .widget .widget-heading { flex-wrap: wrap; gap: 12px; }
+:root[data-skin='win98'] .widget .page-list { max-height: none; overflow: visible; }
+:root[data-skin='win98'] .page-section-heading { font-family: var(--font-sans); font-size: 18px; }
+
+/* Lobe 公共控件只使用稳定 BEM 类；按钮外凸、输入框内凹。 */
+:root[data-skin='win98'] :is(.lobe-button, .lobe-action-icon, .lobe-modal__close, .lobe-modal__fullscreen-toggle) {
+  border: 1px solid var(--win98-dark) !important;
+  border-top-color: var(--win98-light) !important;
+  border-left-color: var(--win98-light) !important;
+  border-radius: 0 !important;
+  background: var(--win98-face) !important;
+  background-image: none !important;
+  box-shadow: inset -1px -1px var(--win98-shadow) !important;
+  color: var(--text) !important;
+  font-family: var(--font-sans);
+}
+:root[data-skin='win98'] .lobe-button { min-height: 34px; font-size: 14px; }
+:root[data-skin='win98'] :is(.lobe-button, .lobe-action-icon):not(:disabled):not([aria-disabled='true']):active {
+  border-color: var(--win98-shadow) var(--win98-light) var(--win98-light) var(--win98-shadow) !important;
+  box-shadow: inset 1px 1px var(--win98-dark) !important;
+}
+:root[data-skin='win98'] :is(.lobe-button, .lobe-action-icon)[data-danger='true'] { color: var(--c-red) !important; }
+:root[data-skin='win98'] :is(.lobe-button, .lobe-action-icon):is(:disabled, [aria-disabled='true']) {
+  color: var(--text3) !important;
+  cursor: not-allowed;
+}
+:root[data-skin='win98'] :is(.lobe-input, .lobe-input-number, .lobe-text-area, .lobe-select, .lobe-date-picker, .lobe-date-range-picker) {
+  min-width: 0;
+  border: 1px solid var(--win98-shadow) !important;
+  border-right-color: var(--win98-light) !important;
+  border-bottom-color: var(--win98-light) !important;
+  border-radius: 0 !important;
+  background: var(--win98-field) !important;
+  background-image: none !important;
+  box-shadow: inset 1px 1px var(--win98-dark) !important;
+  color: var(--text) !important;
+}
+:root[data-skin='win98'] :is(.lobe-input__input, .lobe-input-number__input, .lobe-text-area__input, .lobe-date-picker__input) {
+  min-width: 0;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+}
+:root[data-skin='win98'] .ios-input.lobe-input { padding-inline: 10px; }
+:root[data-skin='win98'] .lobe-segmented {
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--win98-shadow);
+  border-radius: 0 !important;
+  background: var(--win98-face) !important;
+  box-shadow: inset 1px 1px var(--win98-dark), 1px 1px var(--win98-light);
+}
+:root[data-skin='win98'] .lobe-segmented__indicator { display: none; }
+:root[data-skin='win98'] .lobe-segmented__item {
+  min-height: 32px;
+  border-radius: 0 !important;
+  color: var(--text);
+  font-size: 14px;
+}
+:root[data-skin='win98'] .lobe-segmented__item[aria-pressed='true'] {
+  background: var(--win98-selection) !important;
+  color: var(--win98-selection-text) !important;
+}
+:root[data-skin='win98'] :is(.lobe-switch, .lobe-switch__thumb, .lobe-checkbox__checkbox, .lobe-slider__thumb) {
+  border-radius: 0 !important;
+}
+:root[data-skin='win98'] .lobe-switch {
+  border: 1px solid var(--win98-shadow);
+  background: var(--win98-field);
+  box-shadow: inset 1px 1px var(--win98-dark), 1px 1px var(--win98-light);
+}
+:root[data-skin='win98'] .lobe-switch[aria-checked='true'] { background: var(--win98-selection); }
+:root[data-skin='win98'] .lobe-switch__thumb {
+  background: var(--win98-face);
+  box-shadow: inset 1px 1px var(--win98-light), inset -1px -1px var(--win98-dark);
+}
+:root[data-skin='win98'] .lobe-checkbox__checkbox {
+  border: 1px solid var(--win98-shadow);
+  background: var(--win98-field);
+  box-shadow: inset 1px 1px var(--win98-dark), 1px 1px var(--win98-light);
+  color: var(--text);
+}
+:root[data-skin='win98'] .lobe-slider__track { border-radius: 0; background: var(--win98-shadow); }
+:root[data-skin='win98'] .lobe-slider__indicator { border-radius: 0; background: var(--win98-selection); }
+:root[data-skin='win98'] .lobe-slider__thumb {
+  border: 1px solid var(--win98-shadow);
+  background: var(--win98-face);
+  box-shadow: inset 1px 1px var(--win98-light), 1px 1px var(--win98-dark);
+}
+
+/* 只有实际获得焦点的控件显示虚线，不给其父面板叠加焦点框。 */
+:root[data-skin='win98'] :is(.page button, .page a, .page [role='button'], .page input, .page textarea,
+  .lobe-button, .lobe-action-icon, .lobe-input__input, .lobe-input-number__input, .lobe-text-area__input,
+  .lobe-select, .lobe-select__search, .lobe-date-picker__input, .lobe-date-range-picker__input,
+  .lobe-segmented__item, .lobe-switch, .lobe-checkbox__checkbox,
+  .lobe-slider__thumb, .lobe-modal__close, .lobe-modal__fullscreen-toggle):focus-visible {
+  outline: 1px dotted currentColor !important;
+  outline-offset: -4px;
+}
+
+/* 传送到 body 的菜单与对话框同样读取当前主题。 */
+:root[data-skin='win98'] :is(.lobe-modal, .lobe-popover, .lobe-dropdown-menu, .lobe-select__popup,
+  .lobe-date-picker__container, .lobe-date-range-picker__container) {
+  border: 1px solid var(--win98-dark) !important;
+  border-top-color: var(--win98-light) !important;
+  border-left-color: var(--win98-light) !important;
+  border-radius: 0 !important;
+  background: var(--win98-face) !important;
+  box-shadow: inset -1px -1px var(--win98-shadow), 2px 2px 0 var(--win98-dark) !important;
+  color: var(--text);
+  font: 400 14px/1.5 var(--font-sans);
+}
+:root[data-skin='win98'] .lobe-modal__wrapper { border-radius: 0 !important; }
+:root[data-skin='win98'] .lobe-modal__header {
+  min-height: 36px;
+  margin: 3px;
+  padding: 5px 8px;
+  background: linear-gradient(90deg, var(--win98-title), var(--win98-title-end));
+  color: var(--win98-title-text);
+}
+:root[data-skin='win98'] .lobe-modal__title { color: inherit; font: 600 16px/1.5 var(--font-sans); }
+:root[data-skin='win98'] .lobe-modal__content { padding: 20px; }
+:root[data-skin='win98'] .lobe-modal__footer {
+  padding: 12px 20px 20px;
+  border-top: 1px solid var(--win98-shadow);
+  box-shadow: inset 0 1px var(--win98-light);
+}
+:root[data-skin='win98'] :is(.lobe-dropdown-menu__item, .lobe-select__option) { border-radius: 0 !important; }
+:root[data-skin='win98'] :is(.lobe-dropdown-menu__item, .lobe-select__option):is([data-highlighted], [aria-selected='true'], :focus-visible) {
+  background: var(--win98-selection) !important;
+  color: var(--win98-selection-text) !important;
+}
+:root[data-skin='win98'] :is(.lobe-dropdown-menu__item, .lobe-select__option):is([data-highlighted], [aria-selected='true']) :is(.lobe-dropdown-menu__desc, .lobe-dropdown-menu__extra, .lobe-select__item-text) { color: inherit; }
+:root[data-skin='win98'] .lobe-tooltip { border-radius: 0; font-family: var(--font-sans); }
+
+/* 控制面板：目录是白色列表，右侧用灰色属性分组。 */
+:root[data-skin='win98'] .page.sys-view:has(.settings-page) { overflow: hidden !important; }
+:root[data-skin='win98'] .settings-page {
+  grid-template-columns: minmax(220px, 26%) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 16px;
+  padding: 16px;
+  background: var(--win98-face);
+}
+:root[data-skin='win98'] .settings-page .ios-side {
+  min-width: 0;
+  padding: 16px 10px;
+  border: 1px solid var(--win98-shadow);
+  border-right-color: var(--win98-light);
+  border-bottom-color: var(--win98-light);
+  background: var(--win98-field);
+  box-shadow: inset 1px 1px var(--win98-dark);
+}
+:root[data-skin='win98'] .settings-page .ios-large {
+  margin: 0 8px 20px;
+  color: var(--text);
+  font: 600 20px/1.4 var(--font-sans);
+}
+:root[data-skin='win98'] .settings-index + .settings-index { margin-top: 20px; }
+:root[data-skin='win98'] .settings-index-title { margin: 0 8px 8px; font-size: 13px; color: var(--text2); }
+:root[data-skin='win98'] .settings-index .settings-nav {
+  min-height: 40px;
+  padding: 8px;
+  border-radius: 0;
+  font-size: 14px;
+}
+:root[data-skin='win98'] .settings-nav-summary { max-width: 72px; }
+:root[data-skin='win98'] .settings-nav[data-selected='true'] {
+  background: var(--win98-selection);
+  box-shadow: none;
+  color: var(--win98-selection-text);
+}
+:root[data-skin='win98'] .settings-nav[data-selected='true'] :is(.settings-nav-icon, .settings-nav-summary) { color: inherit; }
+:root[data-skin='win98'] .settings-nav[data-selected='true'] .settings-nav-name { font-weight: 400; }
+:root[data-skin='win98'] .settings-page .ios-detail { min-width: 0; border: 0; }
+:root[data-skin='win98'] .settings-page .ios-detail-inner { max-width: 960px; padding: 0 4px 20px; }
+:root[data-skin='win98'] .settings-page .ios-detail-head {
+  min-height: 40px;
+  margin-bottom: 12px;
+  padding: 0 0 12px;
+  border-bottom: 1px solid var(--win98-shadow);
+  background: var(--win98-face);
+  box-shadow: 0 1px var(--win98-light);
+}
+:root[data-skin='win98'] .ios-detail-head h2 { font: 600 20px/1.4 var(--font-sans); }
+:root[data-skin='win98'] .ios-detail-desc { margin-bottom: 20px; line-height: 1.6; }
+:root[data-skin='win98'] .ios-group {
+  margin-bottom: 20px;
+  padding: 14px;
+  border: 1px solid var(--win98-shadow);
+  box-shadow: inset 1px 1px var(--win98-light), 1px 1px var(--win98-light);
+}
+:root[data-skin='win98'] .ios-group-title { margin: 0 0 12px; font: 600 15px/1.5 var(--font-sans); }
+:root[data-skin='win98'] .ios-group-footer { margin-top: 12px; font-size: 13px; line-height: 1.6; }
+:root[data-skin='win98'] .ios-card { overflow: visible; border: 0; border-radius: 0; }
+:root[data-skin='win98'] .ios-row { min-height: 52px; margin: 0; padding: 10px 0; font-size: 14px; }
+:root[data-skin='win98'] .ios-row + .ios-row { border-top: 1px solid var(--win98-shadow); }
+:root[data-skin='win98'] .ios-row[data-clickable='true'] { padding-inline: 8px; }
+:root[data-skin='win98'] .ios-row[data-selected='true'] { background: var(--win98-selection); color: var(--win98-selection-text); }
+:root[data-skin='win98'] .ios-row[data-selected='true'] :is(.ios-row-hint, .ios-row-value, .ios-row-check, .ios-row-icon) { color: inherit; }
+:root[data-skin='win98'] .ios-row-hint { font-size: 13px; line-height: 1.5; }
+:root[data-skin='win98'] .ios-row[data-stack='true'] { row-gap: 10px; }
+
+/* 热榜与订阅的滚动归整页所有；各来源仍保留独立阅读层级。 */
+:root[data-skin='win98'] .hot-grid,
+:root[data-skin='win98'] .feed-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
+:root[data-skin='win98'] .hot-board {
+  min-width: 0;
+  padding: 0 14px 4px;
+  border: 1px solid var(--win98-shadow);
+  border-radius: 0;
+  background: var(--win98-field);
+  box-shadow: inset 1px 1px var(--win98-dark), 1px 1px var(--win98-light);
+}
+:root[data-skin='win98'] .hot-board .hot-board-title {
+  display: flex;
+  align-items: center;
+  min-height: 42px;
+  margin: 1px -13px 0;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--win98-shadow);
+  background: var(--win98-face);
+  color: var(--text);
+  font: 600 16px/1.4 var(--font-sans);
+  overflow-wrap: anywhere;
+}
+:root[data-skin='win98'] .hot-board ol { margin: 0; padding: 0; list-style: none; }
+:root[data-skin='win98'] .hot-board .hot-entry {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: start;
+  gap: 4px 8px;
+  min-height: 64px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+  line-height: 1.6;
+}
+:root[data-skin='win98'] .hot-board .hot-entry:last-child { border-bottom: 0; }
+:root[data-skin='win98'] .hot-board .hot-rank {
+  display: block;
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  color: var(--text2);
+  font: 400 13px/1.7 var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+:root[data-skin='win98'] .hot-board .hot-entry[data-leading] .hot-rank { color: var(--main); }
+:root[data-skin='win98'] .hot-board .hot-entry > a {
+  display: block;
+  grid-column: 2;
+  min-width: 0;
+  color: var(--text);
+  text-decoration: none;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+:root[data-skin='win98'] .hot-board .hot-entry > a:hover { color: var(--main); text-decoration: underline; }
+:root[data-skin='win98'] .hot-board .hot-heat { grid-column: 2; color: var(--text3); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+:root[data-skin='win98'] .hot-board > :not(h3):not(ol) { display: block; padding-block: 16px; }
+:root[data-skin='win98'] .feed-filters { gap: 8px; }
+:root[data-skin='win98'] .feed-filters .feed-filter {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  max-width: 100%;
+  padding: 6px 12px;
+  border: 1px solid var(--win98-shadow) !important;
+  border-radius: 0;
+  background: var(--win98-face) !important;
+  box-shadow: inset 1px 1px var(--win98-light), 1px 1px var(--win98-dark);
+  color: var(--text) !important;
+  font: 400 14px/1.5 var(--font-sans);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+:root[data-skin='win98'] .feed-filters .feed-filter[aria-pressed='true'] { background: var(--win98-selection) !important; color: var(--win98-selection-text) !important; box-shadow: inset 1px 1px var(--win98-dark); }
+:root[data-skin='win98'] .feed-grid > .feed-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  min-width: 0;
+  margin: 0;
+  padding: 16px !important;
+  border: 1px solid var(--win98-shadow) !important;
+  border-radius: 0 !important;
+  background: var(--win98-field) !important;
+  box-shadow: inset 1px 1px var(--win98-dark), 1px 1px var(--win98-light) !important;
+  cursor: pointer;
+  opacity: 1;
+}
+:root[data-skin='win98'] .feed-card .feed-meta { min-width: 0; align-items: baseline; }
+:root[data-skin='win98'] .feed-card .feed-source {
+  display: block;
+  min-width: 0;
+  max-width: 72%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent !important;
+  color: var(--main) !important;
+  font: 400 12px/1.5 var(--font-sans);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:root[data-skin='win98'] .feed-card .feed-date { flex: none; font-size: 12px; color: var(--text3); }
+:root[data-skin='win98'] .feed-card h3 { margin: 12px 0 8px; color: var(--text); font: 600 18px/1.5 var(--font-sans); overflow-wrap: anywhere; }
+:root[data-skin='win98'] .feed-card p { margin: 0; color: var(--text2); font: 400 14px/1.7 var(--font-sans); overflow-wrap: anywhere; -webkit-line-clamp: 3; }
+:root[data-skin='win98'] .feed-card.is-read h3 { color: var(--text2); }
+:root[data-skin='win98'] .feed-card:hover h3 { text-decoration: underline; }
+:root[data-skin='win98'] .feeds-pane .home-digest { margin: 0; gap: 8px; }
+:root[data-skin='win98'] .feeds-pane .home-digest > button { min-width: 0; min-height: 64px; padding: 12px !important; gap: 6px !important; }
+:root[data-skin='win98'] .feeds-pane .digest-source { display: flex; flex-wrap: wrap; gap: 4px 8px; color: var(--text3); font: 400 12px/1.5 var(--font-sans); }
+:root[data-skin='win98'] .feeds-pane .digest-title { color: var(--text); font: 400 14px/1.6 var(--font-sans); overflow-wrap: anywhere; }
+
+/* 书签保留分组与编辑操作，焦点落在链接或编辑按钮自身。 */
+:root[data-skin='win98'] .mark-board { display: flex; flex-direction: column; gap: 16px; }
+:root[data-skin='win98'] .mark-group { min-width: 0; padding: 16px; border: 1px solid var(--win98-shadow); border-radius: 0; background: var(--win98-field); box-shadow: inset 1px 1px var(--win98-dark), 1px 1px var(--win98-light); }
+:root[data-skin='win98'] .mark-group .mark-title { min-height: 32px; margin: 0 0 12px; padding: 0 0 10px; gap: 8px; flex-wrap: wrap; border-bottom: 1px solid var(--win98-shadow); color: var(--text); font: 600 18px/1.5 var(--font-sans); overflow-wrap: anywhere; }
+:root[data-skin='win98'] .mark-count { color: var(--text3); font: 400 12px/1.5 var(--font-sans); opacity: 1; }
+:root[data-skin='win98'] .mark-title .mark-edit { margin-left: auto; }
+:root[data-skin='win98'] .mark-grid { grid-template-columns: minmax(0, 1fr); gap: 8px 16px; }
+:root[data-skin='win98'] .mark-group .mark-cell { min-width: 0; gap: 4px; border-radius: 0; }
+:root[data-skin='win98'] .mark-group .mark-link { height: auto; min-height: 40px; padding: 8px; gap: 10px; border-radius: 0; }
+:root[data-skin='win98'] .mark-group .mark-name { color: var(--text); font: 400 14px/1.5 var(--font-sans); }
+:root[data-skin='win98'] .mark-group .mark-link-off .mark-name { color: var(--text3); }
+:root[data-skin='win98'] .mark-group .mark-edit { opacity: 1; }
+:root[data-skin='win98'] .mark-group .mark-more { min-height: 36px; margin-top: 12px; padding: 6px 8px; color: var(--main); font: 400 14px/1.5 var(--font-sans); }
+:root[data-skin='win98'] :is(.quick-link, .quick-icon, .favicon) { border-radius: 0; }
+:root[data-skin='win98'] .quick-icon { background: var(--win98-field); box-shadow: inset 1px 1px var(--win98-light), 1px 1px var(--win98-shadow); }
+
+/* 生活组件维持原有结构与横向番茄钟布局。 */
+:root[data-skin='win98'] .widget .note-area { padding: 12px; color: var(--text); font: 400 14px/1.8 var(--font-sans); }
+:root[data-skin='win98'] .widget[data-type='todos'] .lobe-list__item { min-height: 52px; padding: 12px 0; border-bottom: 1px solid var(--win98-shadow); border-radius: 0; }
+:root[data-skin='win98'] .widget[data-type='todos'] .lobe-list__label { font-size: 14px; line-height: 1.6; white-space: normal; overflow-wrap: anywhere; }
+:root[data-skin='win98'] .cal > :first-child { flex-wrap: wrap; gap: 12px; }
+:root[data-skin='win98'] .cal-title { font-size: 24px; line-height: 1.4; }
+:root[data-skin='win98'] .cal-grid { border: 1px solid var(--win98-shadow); background: var(--win98-field); }
+:root[data-skin='win98'] .cal-weekday { padding: 10px 6px; background: var(--win98-face); text-align: center; }
+:root[data-skin='win98'] .cal-cell { min-height: 72px; padding: 8px 6px; border-top-color: var(--win98-shadow); }
+:root[data-skin='win98'] .cal-cell[data-selected='true'] { background: var(--win98-selection); color: var(--win98-selection-text); outline: none; }
+:root[data-skin='win98'] .cal-cell[data-selected='true'] :is(.cal-num, .cal-sub, .cal-mark, .cal-more) { color: inherit; }
+:root[data-skin='win98'] .cal-cell[data-today='true'] .cal-num { border-radius: 0; background: var(--win98-selection); color: var(--win98-selection-text); }
+:root[data-skin='win98'] .cal-cell[data-selected='true'][data-today='true'] .cal-num { border: 1px solid currentColor; }
+:root[data-skin='win98'] :is(.cal-day, .cd-hero, .pomo-stats) { padding: 16px !important; border: 1px solid var(--win98-shadow) !important; border-radius: 0 !important; background: var(--win98-field) !important; box-shadow: inset 1px 1px var(--win98-dark), 1px 1px var(--win98-light); }
+:root[data-skin='win98'] .cal-day > div { min-width: 0; }
+:root[data-skin='win98'] .ev-row { min-height: 44px; padding-block: 10px; }
+:root[data-skin='win98'] .ev-title { white-space: normal; line-height: 1.5; overflow-wrap: anywhere; }
+:root[data-skin='win98'] .agenda-day + .agenda-day { padding-top: 16px; border-top: 1px solid var(--win98-shadow); }
+:root[data-skin='win98'] .agenda-date { margin-bottom: 8px; }
+:root[data-skin='win98'] .cd-row { min-height: 56px; padding-block: 12px; }
+:root[data-skin='win98'] .cd-title { font-size: 14px; }
+:root[data-skin='win98'] .cd-date { margin-top: 4px; }
+:root[data-skin='win98'] :is(.ev-remove, .cd-remove, .music-row-remove) { opacity: 1; }
+:root[data-skin='win98'] .weather-temp { font-family: var(--font-sans); font-size: 56px; line-height: 1.2; }
+:root[data-skin='win98'] .weather-card > div { flex-wrap: wrap; }
+:root[data-skin='win98'] .weather-label { font-size: 18px; }
+:root[data-skin='win98'] .page-grid[data-stage] { align-content: center; }
+:root[data-skin='win98'] .pomo-stats { margin-top: 16px; }
+:root[data-skin='win98'] .pomo-time { font-family: var(--font-sans); }
+:root[data-skin='win98'] .music-queue { align-self: flex-start; padding: 16px; border: 1px solid var(--win98-shadow); background: var(--win98-field); box-shadow: inset 1px 1px var(--win98-dark), 1px 1px var(--win98-light); }
+:root[data-skin='win98'] .music-queue > :first-child { padding-bottom: 12px; border-bottom: 1px solid var(--win98-shadow); }
+:root[data-skin='win98'] .music-list { max-height: none; overflow: visible; }
+:root[data-skin='win98'] .music-row { min-height: 56px; border-bottom: 1px solid var(--border); border-radius: 0; }
+:root[data-skin='win98'] .music-row-title { font-size: 14px; }
+:root[data-skin='win98'] .music-cover { border: 1px solid var(--win98-shadow); border-radius: 0; }
+
+/* 应用中心与监控沿用窗口内的标签页、白色列表和灰色工具栏。 */
+:root[data-skin='win98'] .sys-page { padding-inline: 20px; background: var(--win98-face); }
+:root[data-skin='win98'] .sys-head { min-height: 80px; padding-block: 18px; gap: 16px; border-bottom: 1px solid var(--win98-shadow); box-shadow: 0 1px var(--win98-light); }
+:root[data-skin='win98'] .sys-head h1 { font: 600 20px/1.4 var(--font-sans); }
+:root[data-skin='win98'] .sys-body { padding-top: 20px; }
+:root[data-skin='win98'] .catalog-tabs { gap: 4px; margin-bottom: 16px; }
+:root[data-skin='win98'] .catalog-tabs > button { min-height: 38px; padding: 8px 16px; border: 1px solid var(--win98-shadow); border-radius: 0; background: var(--win98-face); box-shadow: inset 1px 1px var(--win98-light), 1px 1px var(--win98-dark); color: var(--text); font: 400 14px/1.5 var(--font-sans); }
+:root[data-skin='win98'] .catalog-tabs > button[aria-selected='true'] { background: var(--win98-selection); color: var(--win98-selection-text); box-shadow: inset 1px 1px var(--win98-dark); }
+:root[data-skin='win98'] .catalog-tabs > button[aria-selected='true']::after { display: none; }
+:root[data-skin='win98'] .catalog-row { min-height: 84px; padding: 16px; gap: 16px; border: 1px solid var(--win98-shadow); background: var(--win98-field); box-shadow: inset 1px 1px var(--win98-dark), 1px 1px var(--win98-light); }
+:root[data-skin='win98'] .catalog-row + .catalog-row { margin-top: 12px; }
+:root[data-skin='win98'] .catalog-copy h3 { font: 600 16px/1.5 var(--font-sans); }
+:root[data-skin='win98'] .catalog-copy p { margin-top: 6px; font-size: 14px; line-height: 1.6; }
+:root[data-skin='win98'] .catalog-empty { padding: 48px 20px; background: var(--win98-field); }
+:root[data-skin='win98'] .monitor-section { padding: 16px; border: 1px solid var(--win98-shadow); background: var(--win98-field); box-shadow: inset 1px 1px var(--win98-dark), 1px 1px var(--win98-light); }
+:root[data-skin='win98'] .monitor-section .section-bar { padding-bottom: 12px; border-bottom: 1px solid var(--win98-shadow); }
+:root[data-skin='win98'] .monitor-mini-row { padding-block: 12px; border-bottom: 1px solid var(--border); }
+
+/* AI 应用的真实浮动窗口：保留拖动与还原行为，窗口层不盖住任务栏。 */
+:root[data-skin='win98'] .application-window-layer { bottom: var(--win98-taskbar-height); }
+:root[data-skin='win98'] .application-floating-window,
+:root[data-skin='win98'] .application-minimized-window {
+  border: 1px solid var(--win98-dark);
+  border-top-color: var(--win98-light);
+  border-left-color: var(--win98-light);
+  border-radius: 0;
+  background: var(--win98-face);
+  box-shadow: inset -1px -1px var(--win98-shadow), 2px 2px var(--win98-dark);
+}
+:root[data-skin='win98'] .application-floating-titlebar {
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 34px;
+  margin: 3px;
+  padding: 4px 6px;
+  border: 0;
+  background: linear-gradient(90deg, var(--win98-title), var(--win98-title-end));
+  color: var(--win98-title-text);
+}
+:root[data-skin='win98'] .application-floating-title {
+  grid-column: 1;
+  grid-row: 1;
+  font-size: 14px;
+  text-align: left;
+}
+:root[data-skin='win98'] .application-window-traffic { grid-column: 2; grid-row: 1; gap: 3px; }
+:root[data-skin='win98'] :is(.application-traffic-button, .application-minimized-close, .application-mobile-close, .application-window-restore) {
+  border: 1px solid var(--win98-dark);
+  border-top-color: var(--win98-light);
+  border-left-color: var(--win98-light);
+  border-radius: 0;
+  background: var(--win98-face);
+  box-shadow: inset -1px -1px var(--win98-shadow);
+  color: var(--text);
+}
+:root[data-skin='win98'] .application-traffic-button { width: 24px; height: 24px; }
+:root[data-skin='win98'] .application-traffic-button > svg { width: 12px; height: 12px; opacity: 1; }
+:root[data-skin='win98'] .application-traffic-button[data-action='minimize'] { order: 1; }
+:root[data-skin='win98'] .application-traffic-button[data-action='maximize'] { order: 2; }
+:root[data-skin='win98'] .application-traffic-button[data-action='close'] { order: 3; margin-left: 3px; }
+:root[data-skin='win98'] .application-floating-body { padding: 16px; }
+:root[data-skin='win98'] .application-minimized-window { bottom: 12px; left: 12px; padding: 2px; gap: 2px; }
+:root[data-skin='win98'] .application-window-restore { font-size: 14px; }
+:root[data-skin='win98'] .application-window-layer[data-mobile='true'] .application-floating-window {
+  border: 1px solid var(--win98-shadow);
+  box-shadow: inset 1px 1px var(--win98-light);
+}
+:root[data-skin='win98'] .application-window-layer[data-mobile='true'] .application-floating-titlebar {
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 40px;
+  padding: 4px 6px;
+}
+:root[data-skin='win98'] .application-mobile-close { grid-column: 2; grid-row: 1; }
+:root[data-skin='win98'] .application-window-layer[data-mobile='true'] .application-floating-body { padding: 12px; }
+:root[data-skin='win98'] .application-window-layer[data-mobile='true'] .application-minimized-window { bottom: 12px; }
+:root[data-skin='win98'] :is(.application-floating-titlebar, .application-traffic-button, .application-minimized-close, .application-mobile-close, .application-window-restore):focus-visible {
+  outline: 1px dotted currentColor;
+  outline-offset: -4px;
+}
+:root[data-skin='win98'] :is(.application-traffic-button, .application-minimized-close, .application-mobile-close, .application-window-restore):active {
+  border-color: var(--win98-shadow) var(--win98-light) var(--win98-light) var(--win98-shadow);
+  box-shadow: inset 1px 1px var(--win98-dark);
+}
+
+/* 容器断点也覆盖 AI 分栏，设置返回按钮与结构化标题始终可达。 */
+@container win98-canvas (max-width: 860px) {
+  :root[data-skin='win98'] .settings-page { grid-template-columns: minmax(0, 1fr); gap: 0; padding: 12px; }
+  :root[data-skin='win98'] .settings-page[data-pane='detail'] .ios-side,
+  :root[data-skin='win98'] .settings-page[data-pane='list'] .ios-detail { display: none; }
+  :root[data-skin='win98'] .settings-page[data-pane='list'] .ios-side { display: block; padding: 16px 10px; }
+  :root[data-skin='win98'] .settings-page[data-pane='list'] .ios-large { margin: 0 8px 20px; padding: 0; font-size: 20px; }
+  :root[data-skin='win98'] .settings-page .ios-detail-inner { padding: 0 2px 20px; }
+  :root[data-skin='win98'] .settings-page .ios-back { display: inline-flex !important; }
+  :root[data-skin='win98'] .settings-page .ios-detail-head { position: sticky; top: 0; z-index: 3; margin: 0 0 16px; padding: 10px 0; }
+}
+@container win98-canvas (max-width: 760px) {
+  :root[data-skin='win98'] .page-grid { grid-template-columns: minmax(0, 1fr) !important; padding: 12px !important; gap: 16px !important; }
+  :root[data-skin='win98'] .page-grid > :is(.widget, .page-section-heading) { grid-column: 1 / -1 !important; grid-row: auto !important; }
+  :root[data-skin='win98'] .page-grid > [data-section-start='row'] { margin-top: 0; }
+  :root[data-skin='win98'] .sys-page { padding-inline: 12px; }
+  :root[data-skin='win98'] .sys-head { min-height: 72px; flex-wrap: wrap; padding-block: 14px; gap: 12px; }
+  :root[data-skin='win98'] .sys-extra { max-width: 100%; }
+  :root[data-skin='win98'] .catalog-row { padding: 12px; gap: 12px; }
+}
+@container win98-widget (min-width: 640px) {
+  :root[data-skin='win98'] .hot-grid,
+  :root[data-skin='win98'] .mark-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container win98-widget (min-width: 760px) {
+  :root[data-skin='win98'] .feed-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container win98-widget (min-width: 1000px) {
+  :root[data-skin='win98'] .hot-grid,
+  :root[data-skin='win98'] .mark-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@container win98-widget (max-width: 480px) {
+  :root[data-skin='win98'] .widget .page-pane { padding: 12px !important; }
+  :root[data-skin='win98'] .widget :is(.hot-pane, .feeds-pane, .bookmarks-pane) { padding: 0 !important; }
+  :root[data-skin='win98'] .widget .page-pane h2 { font-size: 18px; }
+  :root[data-skin='win98'] .hot-board { padding-inline: 12px; }
+  :root[data-skin='win98'] .hot-board .hot-board-title { margin-inline: -11px; padding-inline: 10px; }
+  :root[data-skin='win98'] .feed-grid > .feed-card,
+  :root[data-skin='win98'] .mark-group { padding: 12px !important; }
+  :root[data-skin='win98'] .cal-cell { min-height: 62px; padding: 8px 3px; }
+  :root[data-skin='win98'] .cal-weekday { padding-inline: 3px; }
+  :root[data-skin='win98'] :is(.cal-day, .cd-hero, .pomo-stats) { padding: 12px !important; }
+  :root[data-skin='win98'] .music-deck { flex-basis: 100%; max-width: 320px; margin-inline: auto; }
+  :root[data-skin='win98'] .music-queue { flex-basis: 100%; padding: 12px; }
+}

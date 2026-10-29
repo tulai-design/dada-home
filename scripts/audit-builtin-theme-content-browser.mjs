@@ -39,7 +39,7 @@ try {
   }
   await seedBuiltinFixtures(page, call)
   builtinThemes = await page.evaluate(() => window.__tada.workspace().themes.filter(t => t.builtin).map(({id, name}) => ({id, name})))
-  const themes = builtinThemes.filter(theme => requested ? requested.includes(theme.id) : theme.id !== 'switch')
+  const themes = builtinThemes.filter(theme => requested ? requested.includes(theme.id) : ['default', 'ios', 'pixel'].includes(theme.id))
   assert.ok(themes.length, `没有匹配的内置主题：${requested}`)
   if (requested) assert.deepEqual(themes.map(t => t.id).sort(), [...requested].sort(), '所指定主题必须存在于 workspace')
   const open = async label => {

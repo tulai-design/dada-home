@@ -1,6 +1,6 @@
 import {WorkspaceError} from './errors'
 import {cleanFonts, readFonts} from './fonts'
-import {DEFAULT_THEME, DEFAULT_THEME_ID, IOS_THEME, IOS_THEME_ID, PIXEL_THEME, PIXEL_THEME_ID, SWITCH_THEME, SWITCH_THEME_ID, MAX_THEMES, activeTheme, type ThemeEntry, type Workspace} from './workspace'
+import {DEFAULT_THEME, DEFAULT_THEME_ID, IOS_THEME, IOS_THEME_ID, PIXEL_THEME, PIXEL_THEME_ID, SWITCH_THEME, SWITCH_THEME_ID, WIN98_THEME, WIN98_THEME_ID, MAX_THEMES, activeTheme, type ThemeEntry, type Workspace} from './workspace'
 
 /**
  * 主题库的纯函数。
@@ -81,11 +81,11 @@ export function cleanOverrides(raw: unknown): Record<string, string> {
   return out
 }
 
-/** 导入或升级时读主题库：坏条目丢掉，纸张、iOS、掌机和主机四个预设始终用当前定义。 */
+/** 导入或升级时读主题库：坏条目丢掉，内置预设始终用当前定义。 */
 export function readThemes(raw: unknown, fallbackMode: Mode = 'light'): ThemeEntry[] {
   const list: ThemeEntry[] = [DEFAULT_THEME]
   if (Array.isArray(raw)) for (const item of raw.slice(0, MAX_THEMES)) {
-    if (!item || typeof item.id !== 'string' || typeof item.name !== 'string' || item.id === DEFAULT_THEME_ID || item.id === IOS_THEME_ID || item.id === PIXEL_THEME_ID || item.id === SWITCH_THEME_ID) continue
+    if (!item || typeof item.id !== 'string' || typeof item.name !== 'string' || item.id === DEFAULT_THEME_ID || item.id === IOS_THEME_ID || item.id === PIXEL_THEME_ID || item.id === SWITCH_THEME_ID || item.id === WIN98_THEME_ID) continue
     if (list.some((entry) => entry.id === item.id)) continue
     try {
       list.push(normalizeEntry({
@@ -102,7 +102,7 @@ export function readThemes(raw: unknown, fallbackMode: Mode = 'light'): ThemeEnt
       /* 变量不合法的主题直接丢掉 */
     }
   }
-  list.splice(1, 0, IOS_THEME, PIXEL_THEME, SWITCH_THEME)
+  list.splice(1, 0, IOS_THEME, PIXEL_THEME, SWITCH_THEME, WIN98_THEME)
   return list
 }
 
