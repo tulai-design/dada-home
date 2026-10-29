@@ -1,6 +1,6 @@
 import {WorkspaceError} from './errors'
 import {cleanFonts, readFonts} from './fonts'
-import {DEFAULT_THEME, DEFAULT_THEME_ID, MAX_THEMES, activeTheme, type ThemeEntry, type Workspace} from './workspace'
+import {DEFAULT_THEME, DEFAULT_THEME_ID, IOS_THEME, IOS_THEME_ID, MAX_THEMES, activeTheme, type ThemeEntry, type Workspace} from './workspace'
 
 /**
  * 主题库的纯函数。
@@ -81,12 +81,11 @@ export function cleanOverrides(raw: unknown): Record<string, string> {
   return out
 }
 
-/** 导入或升级时读主题库：坏条目丢掉，默认主题保证在第一位。 */
+/** 导入或升级时读主题库：坏条目丢掉，纸张和 iOS 两个预设始终用当前定义。 */
 export function readThemes(raw: unknown, fallbackMode: Mode = 'light'): ThemeEntry[] {
   const list: ThemeEntry[] = [DEFAULT_THEME]
-  if (!Array.isArray(raw)) return list
-  for (const item of raw.slice(0, MAX_THEMES)) {
-    if (!item || typeof item.id !== 'string' || typeof item.name !== 'string' || item.id === DEFAULT_THEME_ID) continue
+  if (Array.isArray(raw)) for (const item of raw.slice(0, MAX_THEMES)) {
+    if (!item || typeof item.id !== 'string' || typeof item.name !== 'string' || item.id === DEFAULT_THEME_ID || item.id === IOS_THEME_ID) continue
     if (list.some((entry) => entry.id === item.id)) continue
     try {
       list.push(normalizeEntry({
@@ -103,6 +102,7 @@ export function readThemes(raw: unknown, fallbackMode: Mode = 'light'): ThemeEnt
       /* 变量不合法的主题直接丢掉 */
     }
   }
+  list.splice(1, 0, IOS_THEME)
   return list
 }
 
@@ -141,7 +141,7 @@ export function saveTheme(
     (input.id ? workspace.themes.find((item) => item.id === input.id) : undefined) ??
     (name ? workspace.themes.find((item) => item.name.toLowerCase() === name.toLowerCase()) : undefined)
   if (name?.toLowerCase() === DEFAULT_THEME_ID) throw new WorkspaceError('「default」是默认主题的 id，换个名字。')
-  if (existing?.builtin) throw new WorkspaceError('默认主题不能修改。换个名字另存为新主题。')
+  if (existing?.builtin) throw new WorkspaceError('内置主题不能修改。换个名字另存为新主题。')
 
   const old = existing ? normalizeEntry(existing, workspace.theme.mode) : undefined
   const supplied = cleanOverrides(input.overrides)
@@ -203,7 +203,7 @@ export function applyTheme(workspace: Workspace, ref: string): {workspace: Works
 /** 删掉一个主题；正在用的会回到默认主题。默认主题删不掉。 */
 export function removeTheme(workspace: Workspace, ref: string): {workspace: Workspace; removed: ThemeEntry} {
   const removed = find(workspace, ref)
-  if (removed.builtin) throw new WorkspaceError('默认主题不能删除。')
+  if (removed.builtin) throw new WorkspaceError('内置主题不能删除。')
   const next = {...workspace, themes: workspace.themes.filter((item) => item.id !== removed.id)}
   return {workspace: workspace.theme.active === removed.id ? activate(next, DEFAULT_THEME) : next, removed}
 }

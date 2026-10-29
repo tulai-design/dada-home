@@ -28,8 +28,8 @@ function load(relative) {
 }
 const model = load('src/lib/workspace.ts')
 const themes = load('src/lib/themes.ts')
-const {DEFAULT_THEME, DEFAULT_THEME_ID, activeTheme} = model
-const {saveTheme, tweakTheme, applyTheme, setMode, readThemes, resolveThemeOverrides, swatch} = themes
+const {DEFAULT_THEME, DEFAULT_THEME_ID, IOS_THEME, IOS_THEME_ID, activeTheme} = model
+const {saveTheme, tweakTheme, applyTheme, setMode, readThemes, removeTheme, resolveThemeOverrides, swatch} = themes
 const base = () => ({
   version: model.WORKSPACE_VERSION,
   pages: [{id: model.FROZEN_PAGE_ID, name: '首页', label: '首页', components: []}],
@@ -228,6 +228,18 @@ test('应用主题的初始偏好只影响应用动作，手动切换保持可�
   const appliedAgain = applyTheme(manual, result.theme.id).workspace
   assert.equal(appliedAgain.theme.mode, 'dark')
   assert.equal(manual.theme.base, 'light')
+})
+
+test('iOS 是内置预设，读入时覆盖同 id 旧副本，不能改删', () => {
+  const loaded = readThemes([{id: 'ios', name: '旧', description: '', overrides: {}, light: {main: '#ff00ff'}}])
+  assert.equal(loaded[0].id, DEFAULT_THEME_ID)
+  assert.equal(loaded[1].id, IOS_THEME_ID)
+  assert.equal(loaded[1].light.main, IOS_THEME.light.main)
+  assert.equal(loaded.filter((item) => item.id === 'ios').length, 1)
+  const ws = {...base(), themes: loaded}
+  assert.equal(applyTheme(ws, 'ios').workspace.theme.active, IOS_THEME_ID)
+  assert.throws(() => removeTheme(ws, 'ios'), /内置主题不能删除/)
+  assert.throws(() => saveTheme(ws, {id: 'ios', name: '改掉'}), /内置主题不能修改/)
 })
 
 console.log(`主题回归：${count - failures.length}/${count}`)

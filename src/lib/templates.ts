@@ -119,8 +119,9 @@ function freshIds(snapshot: TemplateSnapshot): TemplateSnapshot {
 
 /** 把模板里带的配色放进主题库并启用；库里已有一模一样的就直接用它。 */
 function adoptTheme(workspace: Workspace, theme: ThemeEntry): Workspace {
-  if (theme.id === DEFAULT_THEME_ID || theme.builtin) {
-    return {...workspace, theme: {...workspace.theme, active: DEFAULT_THEME_ID, mode: workspace.theme.base}}
+  if (theme.builtin) {
+    const preset = workspace.themes.find((item) => item.id === theme.id && item.builtin)
+    return {...workspace, theme: {...workspace.theme, active: preset?.id ?? DEFAULT_THEME_ID, mode: preset?.mode ?? workspace.theme.base}}
   }
   const same = workspace.themes.find((item) => item.name === theme.name && JSON.stringify(item.overrides) === JSON.stringify(theme.overrides) && JSON.stringify(item.light ?? {}) === JSON.stringify(theme.light ?? {}) && JSON.stringify(item.dark ?? {}) === JSON.stringify(theme.dark ?? {}) && JSON.stringify(item.fonts ?? []) === JSON.stringify(theme.fonts ?? []) && item.mode === theme.mode)
   let themes = workspace.themes

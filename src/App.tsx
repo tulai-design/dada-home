@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { A, ActionIcon, Modal, Text, toast } from '@lobehub/ui'
 import {AppWindow, SquaresFour as LayoutGrid, Monitor, Moon, Palette, ArrowClockwise as Redo, ArrowsClockwise as RefreshCw, Rss, Gear as Settings, Sparkle as Sparkles, Sun, ArrowCounterClockwise as Undo} from '@phosphor-icons/react'
 import { pageIcon } from './lib/pageIcons'
-import { activeTheme, type ApplicationOpenMode } from './lib/workspace'
+import { activeTheme, IOS_THEME_ID, type ApplicationOpenMode } from './lib/workspace'
 import {findApplication, listApplications, updateApplication} from './lib/applications'
 import {ApplicationHost} from './components/ApplicationHost'
 import { applyTheme, resolveThemeOverrides, setMode } from './lib/themes'
@@ -286,6 +286,8 @@ export default function App() {
     const root = document.documentElement
     root.dataset.theme = workspace.theme.mode
     root.dataset.primaryColor = 'red'
+    if (theme.id === IOS_THEME_ID) root.dataset.skin = 'ios'
+    else delete root.dataset.skin
     for (const name of appliedVars.current) root.style.removeProperty(`--${name}`)
     // 字体接管的变量在前，主题自己写的变量在后（后者优先）
     const vars = { ...fontVars(theme.fonts), ...resolveThemeOverrides(theme, workspace.theme.mode) }

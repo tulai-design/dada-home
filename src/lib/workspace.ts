@@ -412,6 +412,29 @@ export const DEFAULT_THEME: ThemeEntry = {
   builtin: true,
 }
 
+/** 预设主题。读入时始终用这份，不采用库里存过的同 id 副本。 */
+export const IOS_THEME_ID = 'ios'
+
+export const IOS_THEME: ThemeEntry = {
+  id: IOS_THEME_ID,
+  name: 'iOS',
+  description: '分组灰底、白卡片、系统蓝。圆角，没有外框。',
+  overrides: {radius: '12px', 'radius-lg': '16px', frame: '0px', 'frame-gap': '0px'},
+  light: {
+    bg: '#f2f2f7', bg2: '#ffffff', bg3: '#e5e5ea',
+    text: '#1c1c1e', text2: '#3a3a3c', text3: '#8e8e93', text4: '#c7c7cc',
+    border: 'rgba(60, 60, 67, 0.12)', rule: '#1c1c1e', main: '#007aff',
+  },
+  dark: {
+    bg: '#000000', bg2: '#1c1c1e', bg3: '#2c2c2e',
+    text: '#ffffff', text2: '#aeaeb2', text3: '#8e8e93', text4: '#3a3a3c',
+    border: 'rgba(255, 255, 255, 0.12)', rule: '#ffffff', main: '#0a84ff',
+  },
+  fonts: [{family: 'Noto Sans SC', role: 'serif'}],
+  mode: 'light',
+  builtin: true,
+}
+
 /** 当前启用的主题；id 失效时回落到默认主题。 */
 export function activeTheme(workspace: Pick<Workspace, 'themes' | 'theme'>): ThemeEntry {
   return workspace.themes.find((item) => item.id === workspace.theme.active) ?? workspace.themes.find((item) => item.id === DEFAULT_THEME_ID) ?? DEFAULT_THEME

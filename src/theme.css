@@ -2309,3 +2309,51 @@ body {
 :root[data-theme='dark'] .quick-icon .favicon-letter {
   color: #3a342c;
 }
+
+/* ============================================================
+   iOS 预设：分组底、白卡片。只在外观里选中 iOS 时生效。
+   ============================================================ */
+:root[data-skin='ios'] .widget:not([data-type='fx']):not([data-type='app']) .page-pane,
+:root[data-skin='ios'] .widget:not([data-type='fx']):not([data-type='app']) .weather-card {
+  padding: 16px;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--bg2);
+}
+:root[data-skin='ios'] .widget .page-pane h2,
+:root[data-skin='ios'] .widget .weather-card h2 {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+:root[data-skin='ios'] .widget .page-pane h2::before,
+:root[data-skin='ios'] .widget .weather-card h2::before {
+  display: none;
+}
+:root[data-skin='ios'] .ios-card {
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--bg2);
+  padding-inline: 16px;
+}
+:root[data-skin='ios'] .ios-group-title,
+:root[data-skin='ios'] .settings-index-title {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--text3);
+}
+:root[data-skin='ios'] .settings-nav {
+  border-radius: var(--radius);
+}
+:root[data-skin='ios'] .settings-nav[data-selected='true'] {
+  box-shadow: none;
+  background: color-mix(in srgb, var(--main) 14%, transparent);
+}
+:root[data-skin='ios'] .ios-large,
+:root[data-skin='ios'] .ios-detail-head h2 {
+  font-family: var(--font-sans);
+}

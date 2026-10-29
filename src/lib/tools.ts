@@ -531,7 +531,7 @@ export const HOME_TOOLS = [
       execute: async () => {
         const workspace = getWorkspace()
         return workspace.themes
-          .map((item) => `${item.id}｜${item.name}｜${item.id === workspace.theme.active ? `使用中（当前 ${workspace.theme.mode}）` : '未使用'}${item.builtin ? '｜默认（不可改删）' : ''}${item.mode ? `｜应用时初始偏好 ${item.mode}（仍可切换）` : ''}\n  ${item.description || '（无说明）'}\n  共享 overrides ${JSON.stringify(item.overrides)}\n  浅色 light ${item.light && Object.keys(item.light).length ? JSON.stringify(item.light) : '未单独覆盖，继承共享变量与系统浅色基础配色'}\n  深色 dark ${item.dark && Object.keys(item.dark).length ? JSON.stringify(item.dark) : '未单独覆盖，继承共享变量与系统深色基础配色'}${item.fonts?.length ? `\n  字体 ${JSON.stringify(item.fonts)}` : ''}`)
+          .map((item) => `${item.id}｜${item.name}｜${item.id === workspace.theme.active ? `使用中（当前 ${workspace.theme.mode}）` : '未使用'}${item.id === 'default' ? '｜默认（不可改删）' : item.builtin ? '｜预设（不可改删）' : ''}${item.mode ? `｜应用时初始偏好 ${item.mode}（仍可切换）` : ''}\n  ${item.description || '（无说明）'}\n  共享 overrides ${JSON.stringify(item.overrides)}\n  浅色 light ${item.light && Object.keys(item.light).length ? JSON.stringify(item.light) : '未单独覆盖，继承共享变量与系统浅色基础配色'}\n  深色 dark ${item.dark && Object.keys(item.dark).length ? JSON.stringify(item.dark) : '未单独覆盖，继承共享变量与系统深色基础配色'}${item.fonts?.length ? `\n  字体 ${JSON.stringify(item.fonts)}` : ''}`)
           .join('\n')
       },
     },
