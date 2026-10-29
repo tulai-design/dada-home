@@ -28,7 +28,7 @@ function load(relative) {
 }
 const model = load('src/lib/workspace.ts')
 const themes = load('src/lib/themes.ts')
-const {DEFAULT_THEME, DEFAULT_THEME_ID, IOS_THEME, IOS_THEME_ID, PIXEL_THEME, PIXEL_THEME_ID, activeTheme} = model
+const {DEFAULT_THEME, DEFAULT_THEME_ID, IOS_THEME, IOS_THEME_ID, PIXEL_THEME, PIXEL_THEME_ID, SWITCH_THEME, SWITCH_THEME_ID, activeTheme} = model
 const {saveTheme, tweakTheme, applyTheme, setMode, setSkinFrame, readThemes, removeTheme, resolveThemeOverrides, swatch} = themes
 const base = () => ({
   version: model.WORKSPACE_VERSION,
@@ -262,6 +262,25 @@ test('掌机是内置预设，读入时覆盖同 id 旧副本，不能改删', (
   assert.equal(setSkinFrame(off, true).theme.frameOff, undefined)
   assert.equal(setSkinFrame(base(), false).theme.frameOff, undefined)
   assert.equal(applyTheme(off, 'ios').workspace.theme.frameOff, undefined)
+})
+
+test('主机是内置预设，读入时覆盖同 id 旧副本，不能改删', () => {
+  const loaded = readThemes([{id: 'switch', name: '旧', description: '', overrides: {}, dark: {main: '#ff00ff'}}])
+  assert.equal(loaded[0].id, DEFAULT_THEME_ID)
+  assert.equal(loaded[1].id, IOS_THEME_ID)
+  assert.equal(loaded[2].id, PIXEL_THEME_ID)
+  assert.equal(loaded[3].id, SWITCH_THEME_ID)
+  assert.equal(loaded[3].dark.main, SWITCH_THEME.dark.main)
+  assert.equal(loaded[3].dark.bg, '#2c2c2e')
+  assert.equal(loaded.filter((item) => item.id === 'switch').length, 1)
+  const ws = {...base(), themes: loaded}
+  assert.equal(applyTheme(ws, 'switch').workspace.theme.active, SWITCH_THEME_ID)
+  assert.equal(applyTheme(ws, 'switch').workspace.theme.mode, 'dark')
+  assert.throws(() => removeTheme(ws, 'switch'), /内置主题不能删除/)
+  assert.throws(() => saveTheme(ws, {id: 'switch', name: '改掉'}), /内置主题不能修改/)
+  const off = setSkinFrame(applyTheme(ws, 'switch').workspace, false)
+  assert.equal(off.theme.active, SWITCH_THEME_ID)
+  assert.equal(off.themes.some((item) => item.name.startsWith('自定义')), false)
 })
 
 console.log(`主题回归：${count - failures.length}/${count}`)

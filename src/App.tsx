@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { A, ActionIcon, Modal, Text, toast } from '@lobehub/ui'
 import {AppWindow, SquaresFour as LayoutGrid, Monitor, Moon, Palette, ArrowClockwise as Redo, ArrowsClockwise as RefreshCw, Rss, Gear as Settings, Sparkle as Sparkles, Sun, ArrowCounterClockwise as Undo} from '@phosphor-icons/react'
 import { pageIcon } from './lib/pageIcons'
-import { activeTheme, IOS_THEME_ID, PIXEL_THEME_ID, type ApplicationOpenMode } from './lib/workspace'
+import { activeTheme, FROZEN_PAGE_ID, IOS_THEME_ID, PIXEL_THEME_ID, SWITCH_THEME_ID, type ApplicationOpenMode } from './lib/workspace'
 import {findApplication, listApplications, updateApplication} from './lib/applications'
 import {ApplicationHost} from './components/ApplicationHost'
 import { applyTheme, resolveThemeOverrides, setMode } from './lib/themes'
@@ -14,6 +14,7 @@ import { probe, summarize, type MonitorState, type RangeId } from './lib/monitor
 import { runAgent, type ApprovalRequest, type ChatMessage } from './lib/ai'
 import { useInterval, useVisible } from './hooks'
 import { Rail } from './components/Rail'
+import { SwitchDock, SwitchHome } from './components/SwitchShell'
 import { TopBar } from './components/TopBar'
 import { StatusBar } from './components/StatusBar'
 import { PageSwitcher } from './components/PageSwitcher'
@@ -88,6 +89,7 @@ export default function App() {
   const settleRef = useRef<((approved: boolean | 'always') => void) | null>(null)
 
   const [pageId, setPageId] = useStored<string>('page', 'home')
+  const [switchBoard, setSwitchBoard] = useState(true)
   const [pendingPage, setPendingPage] = useState<string | null>(null)
 
   const [reader, setReader] = useState<Article | null>(null)
@@ -214,11 +216,19 @@ export default function App() {
   const goPage = useCallback(
     (id: string) => {
       if (!applicationMinimizedRef.current) setApplicationView(null)
+      setSwitchBoard(false)
       setPageId(id)
       setView('page')
     },
     [setPageId],
   )
+  const openSwitchBoard = useCallback(() => {
+    if (!applicationMinimizedRef.current) setApplicationView(null)
+    setReader(null)
+    setSwitchBoard(true)
+    setPageId(FROZEN_PAGE_ID)
+    setView('page')
+  }, [setPageId])
   /** 系统页替换左侧画布，分栏中的助手继续保留。 */
   const openSettings = useCallback((target?: string) => {
     if (!applicationMinimizedRef.current) setApplicationView(null)
@@ -274,6 +284,7 @@ export default function App() {
     if (!pendingPage) return
     if (workspace.pages.some((page) => page.id === pendingPage)) {
       setPageId(pendingPage)
+      setSwitchBoard(false)
       if (!applicationMinimizedRef.current) setApplicationView(null)
       setView('page')
     }
@@ -289,6 +300,7 @@ export default function App() {
     root.dataset.primaryColor = 'red'
     if (theme.id === IOS_THEME_ID) root.dataset.skin = 'ios'
     else if (theme.id === PIXEL_THEME_ID) root.dataset.skin = 'pixel'
+    else if (theme.id === SWITCH_THEME_ID) root.dataset.skin = 'switch'
     else delete root.dataset.skin
     for (const name of appliedVars.current) root.style.removeProperty(`--${name}`)
     // 字体接管的变量在前，主题自己写的变量在后（后者优先）
@@ -302,6 +314,10 @@ export default function App() {
     syncFonts(theme.fonts, (family) => toast.error(`字体「${family}」没加载出来：检查名字是否是 Google Fonts 上的，或网络能不能访问 fonts.googleapis.com。`))
     document.title = `${settings.name === '朋友' ? '' : `${settings.name} · `}搭搭`
   }, [workspace.theme.mode, workspace.theme.frameOff, theme, settings.name])
+
+  useEffect(() => {
+    if (theme.id === SWITCH_THEME_ID) setSwitchBoard(true)
+  }, [theme.id])
 
   // 已读记录是共享数据，订阅组件读写它；外壳只需要把当前值传给宿主
   const [readIds, setReadIds] = useStored<string[]>('read', [])
@@ -673,6 +689,8 @@ export default function App() {
   )
 
   const monitorOn = isInstalled(workspace, 'monitor')
+  const switchOn = theme.id === SWITCH_THEME_ID
+  const showSwitchBoard = switchOn && switchBoard && view === 'page'
   const activeApplicationIds = [...new Set([
     ...(applicationView ? [applicationView.id] : []),
     ...(view === 'page' ? currentPage.components.filter((item) => applications.some((application) => application.id === item.id)).map((item) => item.id) : []),
@@ -711,6 +729,18 @@ export default function App() {
           monitorInstalled={monitorOn}
           onSettings={() => openSettings()}
         />
+        {switchOn && (
+          <SwitchDock
+            view={view}
+            board={showSwitchBoard}
+            monitorInstalled={monitorOn}
+            onBoard={openSwitchBoard}
+            onAssistant={() => (assistantOpen ? setAssistantOpen(false) : openAssistant())}
+            onMarket={openMarket}
+            onMonitor={openMonitor}
+            onSettings={() => openSettings()}
+          />
+        )}
 
         <AssistantSplitPane
           enabled={assistantOpen && assistantMode === 'split'}
@@ -740,7 +770,7 @@ export default function App() {
             />
           }
         >
-          <div className="canvas" ref={setCanvasElement} data-split={splitActive || undefined} data-homepage-draft-active={homepageDraft ? true : undefined}>
+          <div className="canvas" ref={setCanvasElement} data-split={splitActive || undefined} data-homepage-draft-active={homepageDraft ? true : undefined} data-switch-board={showSwitchBoard || undefined}>
             <TopBar
               status={<StatusBar items={workspace.statusbar} host={host} onConfig={(id,patch) => applications.some((application) => application.id === id) ? onUpdateConfig(id,patch) : onStatusConfig(id,patch)} applications={applications} onApplication={openApplication} workspace={workspace} activeApplicationIds={activeApplicationIds} />}
               theme={workspace.theme.mode}
@@ -760,7 +790,9 @@ export default function App() {
               style={paperUrl ? { ['--paper' as string]: `url("${paperUrl}")` } : undefined}
             >
               <FxLayers page={currentPage} container={canvasElement} portal={fxRoot}>
-                {currentPage && (
+                {showSwitchBoard ? (
+                  <SwitchHome pages={workspace.pages} applications={applications} onPage={goPage} onApplication={openApplication} />
+                ) : currentPage && (
                   <PageView
                     page={currentPage}
                     workspace={workspace}

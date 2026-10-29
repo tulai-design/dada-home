@@ -1216,6 +1216,9 @@ body {
   font-size: 24px;
   font-weight: 500;
 }
+.settings-console-mark {
+  display: none;
+}
 .settings-index + .settings-index {
   margin-top: 24px;
 }
@@ -3191,4 +3194,375 @@ body {
   :root[data-skin='pixel'] .settings-page .ios-detail-inner {
     padding-bottom: calc(var(--dock-clear, 96px) + 8px);
   }
+}
+
+/* 主机内容方案：只在 data-skin=switch 时加载。纸张、iOS、掌机不读这些规则。 */
+:root[data-skin='switch'] .dock-shell,
+:root[data-skin='switch'] .app::before,
+:root[data-skin='switch'] .waves,
+:root[data-skin='switch'] .fx-static-backdrop[data-effect='waves'] {
+  display: none;
+}
+:root[data-skin='switch'] .canvas {
+  border-left: 0;
+  background: var(--bg);
+}
+:root[data-skin='switch'] .canvas > .topbar {
+  border-bottom: 0;
+  background: transparent;
+}
+:root[data-skin='switch'] .canvas[data-switch-board='true'] > .topbar,
+:root[data-skin='switch'] .app:has(.settings-page) .canvas > .topbar {
+  display: none;
+}
+:root[data-skin='switch'] .page {
+  padding-bottom: 148px;
+}
+:root[data-skin='switch'] .switch-home {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 28px;
+  padding: 28px 0 132px;
+  outline: none;
+}
+:root[data-skin='switch'] .switch-title {
+  min-height: 1.2em;
+  margin: 0 72px;
+  font-size: 28px;
+  font-weight: 500;
+  color: var(--main);
+}
+:root[data-skin='switch'] .switch-title[data-empty='true'] {
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--text3);
+}
+:root[data-skin='switch'] .switch-covers {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  width: 100%;
+  overflow-x: auto;
+  padding: 18px 72px;
+  scroll-padding-inline: 72px;
+}
+:root[data-skin='switch'] .switch-cover {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 220px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+}
+:root[data-skin='switch'] .switch-cover-art {
+  display: grid;
+  place-items: center;
+  width: 220px;
+  height: 220px;
+  border-radius: 4px;
+  background: color-mix(in srgb, black 42%, var(--bg));
+  color: var(--text);
+}
+:root[data-skin='switch'] .switch-cover-art[data-tone='1'] { background: color-mix(in srgb, var(--main) 42%, var(--bg2)); }
+:root[data-skin='switch'] .switch-cover-art[data-tone='2'] { background: color-mix(in srgb, var(--text) 16%, var(--bg2)); }
+:root[data-skin='switch'] .switch-cover-art[data-tone='3'] { background: color-mix(in srgb, var(--main) 18%, var(--bg3)); }
+:root[data-skin='switch'] .switch-cover-art[data-tone='4'] { background: color-mix(in srgb, var(--text) 8%, var(--bg3)); }
+:root[data-skin='switch'] .switch-cover-empty {
+  cursor: default;
+}
+:root[data-skin='switch'] .switch-cover-empty .switch-cover-art {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--text) 16%, transparent);
+}
+:root[data-skin='switch'] .switch-cover[data-on='true'] .switch-cover-art {
+  animation: switch-select 0.9s ease-in-out infinite;
+}
+@keyframes switch-select {
+  0%, 100% { box-shadow: 0 0 0 8px var(--bg), 0 0 0 14px color-mix(in srgb, var(--main) 72%, white); }
+  50% { box-shadow: 0 0 0 8px var(--bg), 0 0 0 14px var(--main); }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-skin='switch'] .switch-cover[data-on='true'] .switch-cover-art {
+    animation: none;
+    box-shadow: 0 0 0 8px var(--bg), 0 0 0 14px var(--main);
+  }
+}
+:root[data-skin='switch'] .switch-dock {
+  position: fixed;
+  z-index: 30;
+  left: 0;
+  right: 0;
+  bottom: 18px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 26px;
+}
+:root[data-skin='switch'] .switch-dock::before {
+  content: '';
+  position: absolute;
+  left: 36px;
+  right: 36px;
+  top: -22px;
+  height: 1px;
+  background: color-mix(in srgb, var(--text) 22%, transparent);
+}
+:root[data-skin='switch'] .switch-dock-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 76px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text2);
+  cursor: pointer;
+}
+:root[data-skin='switch'] .switch-orb {
+  display: grid;
+  place-items: center;
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  background: var(--bg3);
+}
+:root[data-skin='switch'] .switch-dock-btn[data-on='true'] .switch-orb {
+  color: var(--text);
+  box-shadow: 0 0 0 3px var(--bg), 0 0 0 6px var(--main);
+}
+:root[data-skin='switch'] .switch-dock-name {
+  min-height: 1.2em;
+  font-size: 13px;
+  visibility: hidden;
+}
+:root[data-skin='switch'] .switch-dock-btn[data-on='true'] .switch-dock-name {
+  visibility: visible;
+  color: var(--main);
+}
+:root[data-skin='switch'] .switch-dock-btn:focus-visible .switch-orb {
+  box-shadow: 0 0 0 3px var(--bg), 0 0 0 6px var(--main);
+}
+:root[data-skin='switch'] .switch-dock-mark {
+  position: absolute;
+  left: 28px;
+  top: 24px;
+  color: var(--text3);
+}
+:root[data-skin='switch'] .widget .page-pane,
+:root[data-skin='switch'] .widget .weather-card {
+  border: 0 !important;
+  border-radius: 16px !important;
+  background: var(--bg2);
+  box-shadow: none;
+}
+:root[data-skin='switch'] .widget .page-pane h2::before,
+:root[data-skin='switch'] .widget .weather-card h2::before {
+  display: none;
+}
+:root[data-skin='switch'] .widget .page-pane h2,
+:root[data-skin='switch'] .widget .weather-card h2,
+:root[data-skin='switch'] .hot-grid h3,
+:root[data-skin='switch'] .mark-board h3,
+:root[data-skin='switch'] .feed-card h3 {
+  font-family: var(--font-sans);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text);
+}
+:root[data-skin='switch'] .hot-grid li,
+:root[data-skin='switch'] .feed-card,
+:root[data-skin='switch'] .monitor-mini-row {
+  border-bottom: 1px solid color-mix(in srgb, var(--text) 14%, transparent);
+}
+:root[data-skin='switch'] .feed-card {
+  border-bottom: 1px solid color-mix(in srgb, var(--text) 14%, transparent) !important;
+  border-radius: 0 !important;
+}
+:root[data-skin='switch'] .mark-cell,
+:root[data-skin='switch'] .mark-cell:hover {
+  border-radius: 12px;
+  background: transparent;
+}
+:root[data-skin='switch'] .mark-link {
+  height: 36px;
+  border-radius: 12px;
+  background: var(--bg);
+}
+:root[data-skin='switch'] .mark-cell:hover .mark-link:not(.mark-link-off) {
+  background: color-mix(in srgb, var(--main) 18%, var(--bg));
+}
+:root[data-skin='switch'] .note-area,
+:root[data-skin='switch'] .note-area textarea,
+:root[data-skin='switch'] .page-pane .lobe-input {
+  background-image: none !important;
+  border-radius: 12px !important;
+  background: var(--bg) !important;
+}
+:root[data-skin='switch'] .lobe-button[data-type='primary'] {
+  background: var(--main) !important;
+  border-color: var(--main) !important;
+  color: var(--bg) !important;
+}
+:root[data-skin='switch'] .settings-page {
+  grid-template-columns: 280px minmax(0, 1fr);
+  background: var(--bg);
+}
+:root[data-skin='switch'] .ios-side {
+  padding: 28px 0 132px;
+  border-right: 1px solid color-mix(in srgb, var(--text) 14%, transparent);
+  background: var(--bg);
+}
+:root[data-skin='switch'] .ios-large {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 24px 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--text) 16%, transparent);
+  font-family: var(--font-sans);
+  font-size: 20px;
+  font-weight: 500;
+}
+:root[data-skin='switch'] .settings-console-mark {
+  display: inline-flex;
+}
+:root[data-skin='switch'] .settings-index + .settings-index {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+}
+:root[data-skin='switch'] .settings-index-title {
+  margin: 10px 24px 4px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--text4);
+}
+:root[data-skin='switch'] .settings-index .settings-nav {
+  position: relative;
+  min-height: 40px;
+  margin: 0;
+  padding: 8px 16px 8px 28px;
+  border-radius: 0;
+  background: transparent;
+  font-size: 15px;
+  color: var(--text3);
+}
+:root[data-skin='switch'] .settings-nav-icon,
+:root[data-skin='switch'] .settings-nav-summary {
+  display: none;
+}
+:root[data-skin='switch'] .settings-nav[data-selected='true'] {
+  box-shadow: none;
+  background: transparent;
+  color: var(--text);
+}
+:root[data-skin='switch'] .settings-nav[data-selected='true']::before {
+  content: '';
+  position: absolute;
+  left: 12px;
+  top: 9px;
+  bottom: 9px;
+  width: 3px;
+  background: var(--main);
+}
+:root[data-skin='switch'] .settings-nav[data-selected='true'] .settings-nav-name {
+  font-weight: 500;
+  color: var(--text);
+}
+:root[data-skin='switch'] .settings-index .settings-nav:hover {
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  color: var(--text);
+}
+:root[data-skin='switch'] .ios-detail-inner {
+  max-width: 760px;
+  padding: 28px 40px 140px 32px;
+}
+:root[data-skin='switch'] .ios-detail-head {
+  margin-bottom: 18px;
+}
+:root[data-skin='switch'] .ios-detail-head h2 {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 500;
+}
+:root[data-skin='switch'] .ios-detail-desc {
+  display: none;
+}
+:root[data-skin='switch'] .ios-group {
+  margin-bottom: 22px;
+}
+:root[data-skin='switch'] .ios-group-title {
+  margin: 0 0 10px;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+}
+:root[data-skin='switch'] .ios-card {
+  overflow: visible;
+  border: 0;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--text) 5%, var(--bg));
+}
+:root[data-skin='switch'] .ios-row {
+  margin-inline: 0;
+  min-height: 44px;
+  padding: 10px 16px;
+  background: transparent;
+}
+:root[data-skin='switch'] .ios-row + .ios-row {
+  border-top: 0;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text) 10%, transparent);
+}
+:root[data-skin='switch'] .ios-row[data-selected='true'],
+:root[data-skin='switch'] .ios-row:has(.ios-row-check) {
+  margin: 6px;
+  box-shadow: inset 0 0 0 2px var(--main);
+  background: color-mix(in srgb, var(--main) 10%, var(--bg2));
+}
+:root[data-skin='switch'] .ios-row[data-clickable='true']:hover {
+  background: color-mix(in srgb, var(--text) 6%, var(--bg2));
+}
+:root[data-skin='switch'] .ios-row[data-clickable='true']:focus-visible {
+  outline: 2px solid var(--main);
+  outline-offset: -2px;
+}
+:root[data-skin='switch'] .ios-row-value,
+:root[data-skin='switch'] .ios-input input {
+  color: var(--text2);
+}
+:root[data-skin='switch'] .lobe-segmented {
+  border-radius: 2px !important;
+  background: color-mix(in srgb, var(--text) 8%, var(--bg)) !important;
+}
+:root[data-skin='switch'] .lobe-segmented__indicator,
+:root[data-skin='switch'] .lobe-segmented-indicator {
+  border-radius: 2px !important;
+  background: var(--bg3) !important;
+  box-shadow: none !important;
+}
+@media (max-width: 860px) {
+  :root[data-skin='switch'] .settings-page {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 760px) {
+  :root[data-skin='switch'] .switch-title { margin-inline: 24px; font-size: 22px; }
+  :root[data-skin='switch'] .switch-covers { padding-inline: 24px; scroll-padding-inline: 24px; }
+  :root[data-skin='switch'] .switch-cover,
+  :root[data-skin='switch'] .switch-cover-art {
+    width: 148px;
+    height: 148px;
+  }
+  :root[data-skin='switch'] .switch-dock-mark { display: none; }
 }

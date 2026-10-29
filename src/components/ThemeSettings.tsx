@@ -3,7 +3,7 @@ import { ActionIcon, Flexbox, Modal, Segmented, Switch, Text } from '@lobehub/ui
 import {PencilSimple as Pencil, Trash as Trash2} from '@phosphor-icons/react'
 import { useAppSettings } from '../lib/apps'
 import { applyTheme, removeTheme, resolveThemeOverrides, saveTheme, setSkinFrame, swatch, tweakTheme } from '../lib/themes'
-import { activeTheme, IOS_THEME_ID, PIXEL_THEME_ID, type ThemeEntry } from '../lib/workspace'
+import { activeTheme, IOS_THEME_ID, PIXEL_THEME_ID, SWITCH_THEME_ID, type ThemeEntry } from '../lib/workspace'
 import { applyDecor, currentDecor, DECORS } from '../lib/decor'
 import { Group, Row, TextRow } from './ios'
 
@@ -31,7 +31,7 @@ export function AppearanceSettings({ mode, onMode }: { mode: 'light' | 'dark'; o
   const [pending, setPending] = useState<ThemeEntry | null>(null)
 
   const current = activeTheme(workspace)
-  const skin = current.id === IOS_THEME_ID || current.id === PIXEL_THEME_ID
+  const skin = current.id === IOS_THEME_ID || current.id === PIXEL_THEME_ID || current.id === SWITCH_THEME_ID
   const frameOn = workspace.theme.frameOff ? false : !['0', '0px'].includes(resolveThemeOverrides(current, mode).frame ?? '')
   const setFrame = (on: boolean) =>
     edit((ws) => {

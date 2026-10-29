@@ -460,6 +460,29 @@ export const PIXEL_THEME: ThemeEntry = {
   builtin: true,
 }
 
+/** 主机预设。深色主屏，读入时始终用这份。 */
+export const SWITCH_THEME_ID = 'switch'
+
+export const SWITCH_THEME: ThemeEntry = {
+  id: SWITCH_THEME_ID,
+  name: '主机',
+  description: '深色主屏、横排封面和圆形图标，像游戏机的主界面。',
+  overrides: {radius: '12px', 'radius-lg': '18px', frame: '0px', 'frame-gap': '0px'},
+  light: {
+    bg: '#3a3a3c', bg2: '#48484a', bg3: '#636366',
+    text: '#f5f5f7', text2: '#e5e5ea', text3: '#aeaeb2', text4: '#8e8e93',
+    border: 'rgba(255, 255, 255, 0.16)', rule: '#f5f5f7', main: '#32d2ff',
+  },
+  dark: {
+    bg: '#2c2c2e', bg2: '#3a3a3c', bg3: '#48484a',
+    text: '#f5f5f7', text2: '#d1d1d6', text3: '#8e8e93', text4: '#636366',
+    border: 'rgba(255, 255, 255, 0.12)', rule: '#f5f5f7', main: '#3cd5ff',
+  },
+  fonts: [{family: 'Noto Sans SC', role: 'sans'}],
+  mode: 'dark',
+  builtin: true,
+}
+
 /** 当前启用的主题；id 失效时回落到默认主题。 */
 export function activeTheme(workspace: Pick<Workspace, 'themes' | 'theme'>): ThemeEntry {
   return workspace.themes.find((item) => item.id === workspace.theme.active) ?? workspace.themes.find((item) => item.id === DEFAULT_THEME_ID) ?? DEFAULT_THEME

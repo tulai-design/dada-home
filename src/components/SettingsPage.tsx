@@ -1,6 +1,6 @@
 import {useEffect, useRef, useState, type ReactNode} from 'react'
 import {ActionIcon, Button, Modal, Segmented, Text} from '@lobehub/ui'
-import {ArrowsClockwise, Brain, CaretLeft as ChevronLeft, Database, DownloadSimple as Download, Globe, Heart, Info, Layout as LayoutDashboard, Layout as LayoutTemplate, Palette, SidebarSimple as PanelLeft, Browser as PanelTop, ArrowCounterClockwise as RotateCcw, MagnifyingGlass as Search, UploadSimple as Upload, Sparkle as Sparkles, User} from '@phosphor-icons/react'
+import {ArrowsClockwise, Brain, CaretLeft as ChevronLeft, Database, DownloadSimple as Download, Gear, Globe, Heart, Info, Layout as LayoutDashboard, Layout as LayoutTemplate, Palette, SidebarSimple as PanelLeft, Browser as PanelTop, ArrowCounterClockwise as RotateCcw, MagnifyingGlass as Search, UploadSimple as Upload, Sparkle as Sparkles, User} from '@phosphor-icons/react'
 import type {Icon as PhosphorIcon} from '@phosphor-icons/react'
 import {appVisible} from '../lib/market'
 import {defaultWorkspace, revokeHost} from '../lib/ops'
@@ -321,7 +321,7 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest,
     <AppSettingsCtx.Provider value={ctx}>
       <div className="settings-page" data-pane={pane}>
         <aside className="ios-side">
-          <h1 className="ios-large">设置</h1>
+          <h1 className="ios-large"><Gear className="settings-console-mark" size={20} weight="fill" aria-hidden="true" />设置</h1>
           <nav aria-label="设置分类">
             {indexes.map((index) => (
               <div key={index.title} className="settings-index">

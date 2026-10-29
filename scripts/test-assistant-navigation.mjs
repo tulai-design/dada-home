@@ -58,7 +58,7 @@ const {normalizeAssistantMode} = compile('src/lib/assistantLayout.ts')
 const names = ['changeAssistantMode', 'openAssistant', 'openAssistantPanel', 'openApplication', 'closeApplication', 'minimizeApplication', 'restoreApplication', 'goPage', 'openSettings', 'openMonitor', 'openMarket']
 const callbacksJs = names.map(callbackJs).join('\n')
 function makeNavigation({split = false, sidebarAi = storedDefault('sidebarAi'), panelMode = storedDefault('panelMode')} = {}) {
-  const state = {assistantOpen: true, assistantMode: 'drawer', panelMode, sidebarAi, pageId: 'home', view: 'page', applicationView: {id: 'old', mode: 'modal'}, applicationMinimized: false, reader: {title: '文章'}, section: 'profile', settingsRequest: 0, pendingPage: null}
+  const state = {assistantOpen: true, assistantMode: 'drawer', panelMode, sidebarAi, pageId: 'home', view: 'page', applicationView: {id: 'old', mode: 'modal'}, applicationMinimized: false, reader: {title: '文章'}, section: 'profile', settingsRequest: 0, pendingPage: null, switchBoard: true}
   const writes = []
   const errors = []
   const splitActiveRef = {current: split}
@@ -75,7 +75,7 @@ function makeNavigation({split = false, sidebarAi = storedDefault('sidebarAi'), 
     normalizeAssistantMode,
     splitActiveRef, viewRef, applicationReturnView, applicationViewRef, applicationMinimizedRef,
     setAssistantMode: set('assistantMode'), setPanelMode: set('panelMode'), setAssistantOpen: set('assistantOpen'),
-    setApplicationView: set('applicationView'), setApplicationMinimized: set('applicationMinimized'), setView: set('view'), setReader: set('reader'), setSection: set('section'), setPageId: set('pageId'), setSettingsRequest: set('settingsRequest'), setPendingPage: set('pendingPage'),
+    setApplicationView: set('applicationView'), setApplicationMinimized: set('applicationMinimized'), setView: set('view'), setReader: set('reader'), setSection: set('section'), setPageId: set('pageId'), setSettingsRequest: set('settingsRequest'), setPendingPage: set('pendingPage'), setSwitchBoard: set('switchBoard'),
     getWorkspace: () => ({applications: [{id: 'notes', openMode: 'drawer'}, {id: 'counter', openMode: 'modal'}]}),
     findApplication: (workspace, ref) => {
       const application = workspace.applications.find((item) => item.id === ref)
@@ -143,6 +143,7 @@ await test('页面导航只更换左侧内容，不开关助手或改动布局�
     h.render().goPage('reading')
     assert.equal(h.state.pageId, 'reading')
     assert.equal(h.state.view, 'page')
+    assert.equal(h.state.switchBoard, false)
     assert.equal(h.state.applicationView, null)
     assert.equal(h.state.assistantOpen, open)
     assert.equal(h.state.panelMode, 'split')
@@ -181,6 +182,7 @@ await test('AI open_page 的真实待处理 effect 同样保留最小化应用�
     assert.equal(h.state.applicationView, !minimized && pendingPage === 'reading' ? null : before)
     assert.equal(h.state.pageId, pendingPage === 'reading' ? 'reading' : 'home')
     assert.equal(h.state.pendingPage, null)
+    assert.equal(h.state.switchBoard, pendingPage === 'reading' ? false : true)
   }
 })
 
