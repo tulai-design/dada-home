@@ -2744,6 +2744,21 @@ body {
   background: var(--bg2);
   box-shadow: var(--pixel-shadow);
 }
+:root[data-skin='pixel'] .widget .page-pane {
+  box-shadow: none;
+}
+:root[data-skin='pixel'] .widget .page-pane h2::before,
+:root[data-skin='pixel'] .widget .weather-card h2::before {
+  display: none;
+}
+:root[data-skin='pixel'] .widget .page-pane h2,
+:root[data-skin='pixel'] .widget .weather-card h2 {
+  font-family: var(--pixel-font);
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
 :root[data-skin='pixel'] .lobe-button,
 :root[data-skin='pixel'] .lobe-input,
 :root[data-skin='pixel'] .lobe-tag,
@@ -2751,6 +2766,27 @@ body {
 :root[data-skin='pixel'] .lobe-segmented__indicator,
 :root[data-skin='pixel'] .lobe-segmented-indicator {
   border-radius: 0 !important;
+}
+:root[data-skin='pixel'] .lobe-button[data-type='primary'] {
+  background: var(--text) !important;
+  border-color: var(--text) !important;
+  color: var(--bg) !important;
+  box-shadow: none !important;
+}
+:root[data-skin='pixel'] .lobe-tag {
+  border: 2px solid var(--text) !important;
+  background: var(--bg) !important;
+  color: var(--text) !important;
+}
+:root[data-skin='pixel'] .page-pane .lobe-input,
+:root[data-skin='pixel'] .note-area,
+:root[data-skin='pixel'] .note-area textarea {
+  border: 2px solid var(--text) !important;
+  border-radius: 0 !important;
+  background: var(--bg) !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  color: var(--text);
 }
 :root[data-skin='pixel'] .lobe-segmented {
   background: var(--bg3) !important;
@@ -2789,13 +2825,12 @@ body {
 }
 :root[data-skin='pixel'] .settings-index .settings-nav:last-child {
   border-bottom-width: 2px;
-  box-shadow: var(--pixel-shadow);
 }
 :root[data-skin='pixel'] .ios-card {
   border: 2px solid var(--text);
   border-radius: 0;
   background: var(--bg2);
-  box-shadow: var(--pixel-shadow);
+  box-shadow: none;
   padding: 0;
 }
 :root[data-skin='pixel'] .ios-row {
@@ -2878,7 +2913,7 @@ body {
 :root[data-skin='pixel'] .catalog-list {
   border: 2px solid var(--text);
   background: var(--bg2);
-  box-shadow: var(--pixel-shadow);
+  box-shadow: none;
 }
 :root[data-skin='pixel'] .catalog-row {
   padding-inline: 16px;
@@ -2925,6 +2960,112 @@ body {
 }
 :root[data-skin='pixel'] .composer:focus-within {
   border-color: var(--text);
+}
+:root[data-skin='pixel'] .hot-grid {
+  column-gap: 0;
+}
+:root[data-skin='pixel'] .hot-grid > section {
+  min-width: 0;
+  padding: 0 16px;
+}
+:root[data-skin='pixel'] .hot-grid > section + section {
+  border-left: 2px solid var(--text);
+}
+:root[data-skin='pixel'] .widget[data-type='hot'] .page-pane,
+:root[data-skin='pixel'] .widget[data-type='feeds'] .page-pane {
+  padding: 0;
+  gap: 0;
+}
+:root[data-skin='pixel'] .widget[data-type='hot'] .page-pane > :first-child,
+:root[data-skin='pixel'] .widget[data-type='feeds'] .page-pane > :first-child {
+  padding: 14px 16px;
+  border-bottom: 2px solid var(--text);
+}
+:root[data-skin='pixel'] .widget[data-type='feeds'] .page-pane > :not(.feed-grid):not(:first-child) {
+  padding: 12px 16px 0;
+}
+:root[data-skin='pixel'] .hot-grid h3,
+:root[data-skin='pixel'] .mark-board h3,
+:root[data-skin='pixel'] .cal-title {
+  font-family: var(--pixel-font);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+:root[data-skin='pixel'] .hot-grid h3 {
+  margin: 0 0 4px;
+  padding: 2px 0 8px;
+  border-bottom: 2px solid var(--text);
+  font-size: 14px;
+}
+:root[data-skin='pixel'] .hot-grid li,
+:root[data-skin='pixel'] .monitor-mini-row {
+  border-bottom: 1px solid var(--text);
+}
+:root[data-skin='pixel'] .hot-grid li:last-child {
+  border-bottom: 0;
+}
+:root[data-skin='pixel'] .hot-grid a {
+  color: var(--text);
+}
+:root[data-skin='pixel'] .feed-grid {
+  column-gap: 0;
+}
+:root[data-skin='pixel'] .feed-card {
+  margin: 0;
+  padding: 14px 16px !important;
+  border: 0 !important;
+  border-bottom: 2px solid var(--text) !important;
+  border-radius: 0 !important;
+  background: transparent;
+}
+:root[data-skin='pixel'] .feed-grid > .feed-card:nth-child(odd) {
+  border-right: 2px solid var(--text) !important;
+}
+:root[data-skin='pixel'] .feed-card h3 {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text);
+}
+:root[data-skin='pixel'] .hot-grid li span,
+:root[data-skin='pixel'] .monitor-mini-text {
+  font-family: var(--font-mono);
+  color: var(--text3);
+}
+:root[data-skin='pixel'] .mark-link {
+  border: 2px solid var(--text);
+  border-radius: 0;
+  padding: 8px 10px;
+  background: var(--bg);
+}
+:root[data-skin='pixel'] .cal-grid,
+:root[data-skin='pixel'] .cal-cell {
+  border-color: var(--text);
+}
+:root[data-skin='pixel'] .cal-cell[data-selected='true'] {
+  outline: 2px solid var(--text);
+  border-radius: 0;
+}
+:root[data-skin='pixel'] .cal-cell[data-today='true'] .cal-num {
+  border-radius: 0;
+  background: var(--text);
+  color: var(--bg);
+}
+:root[data-skin='pixel'] .monitor-mini-row i,
+:root[data-skin='pixel'] .status-dot,
+:root[data-skin='pixel'] .dot {
+  border-radius: 0;
+}
+@media (max-width: 1100px) {
+  :root[data-skin='pixel'] .hot-grid > section + section {
+    border-left: 0;
+    border-top: 2px solid var(--text);
+    margin-top: 12px;
+    padding-top: 12px;
+  }
 }
 @media (max-width: 860px) {
   :root[data-skin='pixel'] .settings-page[data-pane='detail'] .ios-detail-head {
