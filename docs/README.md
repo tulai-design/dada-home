@@ -17,6 +17,7 @@
 
 ## 当前入口
 
+- [架构与扩展性评估](work/research/2026-10-29-architecture-extensibility-audit.md)：主题、Agent、应用和存储的当前判断与演进建议，未作为已接受设计。
 - [运行时现状契约](specs/runtime-contract.md)：工作空间编辑、应用设置、形态、主题与生命周期。
 - [AI 页面生成质量目标](specs/ai-page-design-quality.md)：已接受的改进方向；未完成能力不能宣称已交付。
 - [AI 搭建能力增强里程碑](work/milestones/2026-10-27-ai-builder.md)：本轮范围与实施顺序。

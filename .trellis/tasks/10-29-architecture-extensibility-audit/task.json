@@ -1,0 +1,30 @@
+{
+  "id": "architecture-extensibility-audit",
+  "name": "architecture-extensibility-audit",
+  "title": "架构扩展性评估",
+  "description": "从现有代码评估主题、Agent、应用和宿主架构的扩展性，形成有证据、有优先级的中文评估报告；本轮不重构业务代码。",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "ROYIANS",
+  "assignee": "ROYIANS",
+  "createdAt": "2026-10-29",
+  "completedAt": null,
+  "branch": "main",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "docs/work/research/2026-10-29-architecture-extensibility-audit.md",
+    "docs/README.md",
+    "docs/work/README.md"
+  ],
+  "notes": "完成源码架构评估；隔离复现 Agent 取消与失败状态问题，仅记录证据，未修改业务实现。后续方案均为建议。",
+  "meta": {}
+}

@@ -4,6 +4,7 @@
 
 ## 当前记录
 
+- [2026-10-29：架构与扩展性评估](research/2026-10-29-architecture-extensibility-audit.md)：主题、Agent、应用和存储的源码证据、扩展成本与建议顺序。
 - [2026-10-29：内置组件主题适配检查](research/2026-10-29-builtin-theme-audit.md)：主机内容页与横向专注，以及其他主题移动端遮挡、溢出的修复和回归入口。
 - [2026-10-28：存储与可持续同步](milestones/2026-10-28-storage-sync.md)：源码审查、供应商边界和已拆分的实施任务。
 - [2026-10-27：AI 搭建能力增强](milestones/2026-10-27-ai-builder.md)：目标、阶段顺序与任务入口。
