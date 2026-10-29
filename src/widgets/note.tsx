@@ -15,6 +15,7 @@ function Note({instance, config}: ComponentProps<NoteConfig>) {
       {config.heading && <Text as="h2">{config.heading}</Text>}
       <TextArea
         className="note-area"
+        aria-label={config.heading || '便签'}
         value={text}
         placeholder="随手记下什么，AI 也可以往这里写。"
         autoSize={{minRows: config.rows, maxRows: config.rows + 10}}

@@ -1,0 +1,190 @@
+/* 内置内容页：整页阅读滚动，组件保留自身布局；所有颜色来自主机主题。 */
+:root[data-skin='switch'] .canvas > .page:has(.page-grid) {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  scroll-padding-block: 24px 96px;
+}
+/* 解除旧版一屏布局的两层定高，末项与 Dock 之间的留白也参与滚动。 */
+:root[data-skin='switch'] .page:has(.page-grid) .fx-page-content,
+:root[data-skin='switch'] .page:has(.page-grid) .fx-page-content > div {
+  height: auto !important;
+  min-height: 100%;
+}
+:root[data-skin='switch'] .page-grid {
+  height: auto;
+  min-height: 100%;
+  width: 100%;
+  padding: 28px clamp(20px, 3.2cqw, 56px) 40px !important;
+  gap: 24px !important;
+  grid-auto-rows: auto;
+  align-items: start;
+}
+:root[data-skin='switch'] .page-grid > .widget {
+  container: switch-widget / inline-size;
+  min-width: 0;
+  max-height: none;
+  overflow: visible;
+}
+:root[data-skin='switch'] .widget .page-pane {
+  min-width: 0;
+  width: 100%;
+  padding: 24px !important;
+  gap: 20px;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  background: var(--bg2);
+  box-shadow: none;
+}
+/* 集合自己拥有分组面板，外层只负责标题和间距。 */
+:root[data-skin='switch'] .widget :is(.hot-pane, .feeds-pane, .bookmarks-pane),
+:root[data-skin='switch'] .page-grid[data-stage] .widget .page-pane {
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent;
+}
+:root[data-skin='switch'] .widget .page-pane h2::before { display: none; }
+:root[data-skin='switch'] .widget .page-pane h2 {
+  margin: 0;
+  min-height: 0;
+  color: var(--text);
+  font: 500 22px/1.45 var(--font-sans);
+  letter-spacing: 0;
+  text-transform: none;
+}
+:root[data-skin='switch'] .widget :is(h3, .cal-title) { font-family: var(--font-sans); letter-spacing: 0; }
+:root[data-skin='switch'] .widget .widget-heading,
+:root[data-skin='switch'] .widget .page-pane > h2 {
+  min-height: 44px;
+  margin: 0;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+:root[data-skin='switch'] .widget .widget-heading { flex-wrap: wrap; gap: 12px; }
+:root[data-skin='switch'] .widget .page-list { max-height: none; overflow: visible; }
+:root[data-skin='switch'] .widget .page-pane :is(.lobe-input, .note-area, textarea) {
+  border-radius: var(--radius) !important;
+  background-image: none !important;
+}
+:root[data-skin='switch'] .widget .page-pane .lobe-input { min-width: 0; background: var(--bg) !important; }
+:root[data-skin='switch'] .widget .page-pane .lobe-input:focus-within { border-color: var(--main) !important; }
+:root[data-skin='switch'] :is(.ink-button, .todo-add).lobe-button {
+  border-color: var(--text) !important;
+  background: var(--text) !important;
+  color: var(--bg) !important;
+}
+:root[data-skin='switch'] :is(.ink-button, .todo-add).lobe-button:disabled {
+  border-color: var(--border) !important;
+  background: var(--bg3) !important;
+  color: var(--text3) !important;
+}
+:root[data-skin='switch'] .widget .note-area {
+  padding: 16px;
+  border: 1px solid var(--border);
+  background: var(--bg) !important;
+  color: var(--text);
+  font: 400 15px/1.9 var(--font-sans);
+}
+:root[data-skin='switch'] .widget .note-area:focus-visible {
+  outline: 2px solid var(--switch-focus);
+  outline-offset: 0;
+  box-shadow: none;
+}
+:root[data-skin='switch'] .widget[data-type='todos'] .lobe-list__item {
+  min-height: 60px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+:root[data-skin='switch'] .widget[data-type='todos'] .lobe-list__label {
+  font-size: 15px;
+  line-height: 1.6;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* 生活组件沿用矩形面板和细分隔线，日历焦点只画在当天按钮。 */
+:root[data-skin='switch'] .cal > :first-child { flex-wrap: wrap; gap: 12px; }
+:root[data-skin='switch'] .cal-title { font-size: 28px; line-height: 1.4; }
+:root[data-skin='switch'] .cal-weekday { padding: 12px 8px; }
+:root[data-skin='switch'] .cal-cell { min-height: 76px; padding: 10px 8px; gap: 4px; }
+:root[data-skin='switch'] .cal-cell:hover { background: var(--bg3); }
+:root[data-skin='switch'] .cal-cell[data-selected='true'] {
+  outline: 2px solid var(--switch-focus);
+  outline-offset: -2px;
+  background: var(--bg);
+}
+:root[data-skin='switch'] .cal-cell:focus-visible { outline: 3px solid var(--switch-focus); outline-offset: -3px; }
+:root[data-skin='switch'] .cal-cell[data-today='true'] .cal-num { background: var(--text); color: var(--bg); }
+:root[data-skin='switch'] :is(.cal-day, .cd-hero) {
+  padding: 20px !important;
+  border: 0 !important;
+  border-radius: var(--radius) !important;
+  background: var(--bg) !important;
+}
+:root[data-skin='switch'] .cal-day > div { min-width: 0; }
+:root[data-skin='switch'] .cal-day .lobe-input { width: 100%; }
+:root[data-skin='switch'] .ev-row { min-height: 48px; padding-block: 10px; }
+:root[data-skin='switch'] .ev-title { white-space: normal; line-height: 1.55; overflow-wrap: anywhere; }
+:root[data-skin='switch'] .agenda-day + .agenda-day { padding-top: 16px; border-top: 1px solid var(--border); }
+:root[data-skin='switch'] .agenda-date { margin-bottom: 8px; }
+:root[data-skin='switch'] .cd-row { min-height: 60px; padding-block: 14px; }
+:root[data-skin='switch'] .cd-title { font-size: 14px; }
+:root[data-skin='switch'] .cd-date { margin-top: 4px; }
+:root[data-skin='switch'] :is(.ev-remove, .cd-remove, .music-row-remove) { opacity: 1; }
+:root[data-skin='switch'] .weather-temp { font-family: var(--font-sans); font-size: 64px; line-height: 1.2; }
+:root[data-skin='switch'] .weather-card > div { flex-wrap: wrap; }
+:root[data-skin='switch'] .weather-label { font-size: 18px; }
+
+/* 舞台组件保持专注：主操作居中，统计和播放队列独立成块。 */
+:root[data-skin='switch'] .page-grid[data-stage] { min-height: calc(100cqh - 120px); padding-block: 40px !important; align-content: center; }
+:root[data-skin='switch'] .pomo-stats {
+  margin-top: 16px;
+  padding: 24px !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  background: var(--bg2);
+}
+:root[data-skin='switch'] .pomo-time { font-weight: 300; }
+:root[data-skin='switch'] .music-queue { align-self: flex-start; padding: 20px; border: 1px solid var(--border); background: var(--bg2); }
+:root[data-skin='switch'] .music-queue > :first-child { padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+:root[data-skin='switch'] .music-list { max-height: none; overflow: visible; }
+:root[data-skin='switch'] .music-row { min-height: 64px; border-bottom: 1px solid var(--border); border-radius: 0; }
+:root[data-skin='switch'] .music-row-title { font-size: 15px; }
+:root[data-skin='switch'] .music-cover { border-color: var(--border); }
+:root[data-skin='switch'] .monitor-mini-row { padding-block: 14px; border-bottom: 1px solid var(--border); }
+
+/* 系统内容页与组件共享标题和列表节奏。 */
+:root[data-skin='switch'] .sys-page { padding-inline: clamp(20px, 3.2cqw, 56px); }
+:root[data-skin='switch'] .sys-head { min-height: 100px; padding-block: 24px; gap: 16px; }
+:root[data-skin='switch'] .sys-head h1 { font: 400 28px/1.4 var(--font-sans); }
+:root[data-skin='switch'] .sys-body { padding-top: 24px; }
+:root[data-skin='switch'] .catalog-tabs { margin-bottom: 24px; }
+:root[data-skin='switch'] .catalog-tabs > button { min-height: 48px; font-size: 15px; }
+:root[data-skin='switch'] .catalog-row { min-height: 92px; padding: 20px; gap: 16px; border-bottom: 1px solid var(--border); background: var(--bg2); }
+:root[data-skin='switch'] .catalog-copy h3 { font-size: 16px; }
+:root[data-skin='switch'] .catalog-copy p { margin-top: 6px; font-size: 13px; line-height: 1.6; }
+:root[data-skin='switch'] .catalog-empty { padding: 64px 24px; background: var(--bg2); }
+:root[data-skin='switch'] .monitor-section { padding: 24px; background: var(--bg2); }
+:root[data-skin='switch'] .monitor-section .section-bar { padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+
+@container switch-canvas (max-width: 760px) {
+  :root[data-skin='switch'] .page-grid { grid-template-columns: minmax(0, 1fr) !important; padding: 20px 16px 32px !important; gap: 20px !important; }
+  :root[data-skin='switch'] .page-grid > :is(.widget, .page-section-heading) { grid-column: 1 / -1 !important; grid-row: auto !important; }
+  :root[data-skin='switch'] .page-grid > [data-section-start='row'] { margin-top: 0; }
+  :root[data-skin='switch'] .sys-head { flex-wrap: wrap; min-height: 88px; }
+  :root[data-skin='switch'] .sys-head h1 { font-size: 24px; }
+  :root[data-skin='switch'] .sys-page { padding-inline: 16px; }
+  :root[data-skin='switch'] .catalog-row { padding: 16px; gap: 12px; }
+}
+@container switch-widget (max-width: 480px) {
+  :root[data-skin='switch'] .widget .page-pane { padding: 16px !important; }
+  :root[data-skin='switch'] .widget :is(.hot-pane, .feeds-pane, .bookmarks-pane),
+  :root[data-skin='switch'] .page-grid[data-stage] .widget .page-pane { padding: 0 !important; }
+  :root[data-skin='switch'] .widget .page-pane h2 { font-size: 20px; }
+  :root[data-skin='switch'] .cal-cell { min-height: 64px; padding: 8px 3px; }
+  :root[data-skin='switch'] .cal-weekday { padding-inline: 3px; text-align: center; }
+  :root[data-skin='switch'] :is(.cal-day, .cd-hero) { padding: 16px !important; }
+  :root[data-skin='switch'] .cal-day > :last-child { flex-wrap: wrap; }
+  :root[data-skin='switch'] .music-deck { flex-basis: 100%; max-width: 320px; margin-inline: auto; }
+  :root[data-skin='switch'] .music-queue { flex-basis: 100%; padding: 16px; }
+  :root[data-skin='switch'] .pomo-stats { padding: 16px !important; }
+}

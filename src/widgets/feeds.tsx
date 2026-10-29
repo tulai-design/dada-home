@@ -57,8 +57,8 @@ function Feeds({config, host}: ComponentProps<FeedsConfig>) {
   }
 
   return (
-    <Flexbox className="page-pane" direction="vertical" gap={8}>
-      <Flexbox direction="horizontal" align="center" justify="space-between" width="100%">
+    <Flexbox className="page-pane feeds-pane" direction="vertical" gap={8}>
+      <Flexbox className="widget-heading" direction="horizontal" align="center" justify="space-between" width="100%">
         <Text as="h2">{config.heading}</Text>
         <Flexbox direction="horizontal" gap={4}>
           <ActionIcon icon={RefreshCw} title="刷新" loading={resource.loading} spin={resource.loading} onClick={() => void resource.refresh()} />
@@ -67,17 +67,27 @@ function Feeds({config, host}: ComponentProps<FeedsConfig>) {
       </Flexbox>
 
       {!config.compact && sources.length > 1 && (
-        <Flexbox direction="horizontal" align="center" gap={8} wrap="wrap" width="100%">
-          <Tag color={filter === '__all' ? 'red' : 'gray'} variant={filter === '__all' ? 'filled' : 'outlined'} style={{cursor: 'pointer'}} onClick={() => setFilter('__all')}>
+        <Flexbox className="feed-filters" role="group" aria-label="按订阅来源筛选" direction="horizontal" align="center" gap={8} wrap="wrap" width="100%">
+          <Tag className="feed-filter" role="button" tabIndex={0} aria-pressed={filter === '__all'} color={filter === '__all' ? 'red' : 'gray'} variant={filter === '__all' ? 'filled' : 'outlined'} style={{cursor: 'pointer'}} onClick={() => setFilter('__all')} onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setFilter('__all') }
+          }}>
             全部 {articles.length}
           </Tag>
           {sources.slice(0, 8).map((source) => (
             <Tag
               key={source}
+              className="feed-filter"
+              role="button"
+              tabIndex={0}
+              aria-label={source}
+              aria-pressed={filter === source}
               color={filter === source ? tagColor(source) : 'gray'}
               variant={filter === source ? 'filled' : 'outlined'}
               style={{cursor: 'pointer'}}
               onClick={() => setFilter(source)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setFilter(source) }
+              }}
             >
               {source.length > 14 ? `${source.slice(0, 14)}…` : source}
             </Tag>
@@ -112,13 +122,19 @@ function Feeds({config, host}: ComponentProps<FeedsConfig>) {
                 clickable
                 variant="borderless"
                 className={`feed-card${host.readIds.includes(article.id) ? ' is-read' : ''}`}
+                role="button"
+                tabIndex={0}
+                aria-label={`阅读：${article.title}`}
                 onClick={() => open(article)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(article) }
+                }}
               >
-                <Flexbox direction="horizontal" align="center" justify="space-between" gap={8} width="100%">
-                  <Tag color={tagColor(article.source)} size="small">
+                <Flexbox className="feed-meta" direction="horizontal" align="center" justify="space-between" gap={8} width="100%">
+                  <Tag className="feed-source" color={tagColor(article.source)} size="small">
                     {article.source}
                   </Tag>
-                  <Text type="secondary" fontSize={11}>
+                  <Text className="feed-date" type="secondary" fontSize={11}>
                     {relativeTime(article.date)}
                   </Text>
                 </Flexbox>

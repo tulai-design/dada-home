@@ -33,13 +33,14 @@ function Todos({instance, config}: ComponentProps<TodosConfig>) {
       {config.allowAdd && (
         <Input
           size="large"
+          aria-label="添加待办"
           placeholder="添一件待办，回车确认"
           value={draft}
           prefix={<Plus size={14} />}
           onValueChange={setDraft}
           onPressEnter={add}
           suffix={
-            <Button size="small" type="primary" icon={<Plus size={14} />} disabled={!draft.trim()} onClick={add}>
+            <Button className="todo-add" size="small" type="primary" icon={<Plus size={14} />} disabled={!draft.trim()} onClick={add}>
               添加
             </Button>
           }

@@ -29,8 +29,8 @@ function Hot({config, host}: ComponentProps<HotConfig>) {
   const boards = resource.data ?? []
 
   return (
-    <Flexbox className="page-pane" direction="vertical" gap={8}>
-      <Flexbox direction="horizontal" align="center" justify="space-between" width="100%">
+    <Flexbox className="page-pane hot-pane" direction="vertical" gap={8}>
+      <Flexbox className="widget-heading" direction="horizontal" align="center" justify="space-between" width="100%">
         <Text as="h2">{config.heading}</Text>
         <ActionIcon icon={RefreshCw} title="刷新" loading={resource.loading} spin={resource.loading} onClick={() => void resource.refresh()} />
       </Flexbox>
@@ -38,16 +38,17 @@ function Hot({config, host}: ComponentProps<HotConfig>) {
       {boards.length ? (
         <div className="hot-grid page-list">
           {boards.map((board) => (
-            <section key={board.id}>
-              <h3>{board.name}</h3>
+            <section key={board.id} className="hot-board" aria-label={board.name}>
+              <h3 className="hot-board-title">{board.name}</h3>
               {board.items.length ? (
                 <ol>
                   {board.items.slice(0, config.limit > 0 ? config.limit : undefined).map((item, index) => (
-                    <li key={`${item.title}-${index}`}>
+                    <li key={`${item.title}-${index}`} className="hot-entry" data-leading={index < 3 || undefined}>
+                      <span className="hot-rank" hidden aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
                       <A href={item.url || `https://www.bing.com/search?q=${encodeURIComponent(item.title)}`} target="_blank" rel="noreferrer noopener">
                         {item.title}
                       </A>
-                      {item.heat && <span>{item.heat}</span>}
+                      {item.heat && <span className="hot-heat">{item.heat}</span>}
                     </li>
                   ))}
                 </ol>

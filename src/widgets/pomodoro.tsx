@@ -1,4 +1,4 @@
-import {useMemo, useState} from 'react'
+import {useId, useMemo, useState} from 'react'
 import {ActionIcon, Block, Button, Flexbox, Input, Segmented, Statistic, Switch, Text, Tooltip} from '@lobehub/ui'
 import {Minus, Pause, Play, Plus, ArrowCounterClockwise as RotateCcw, SlidersHorizontal as Settings2, SkipForward, Timer} from '@phosphor-icons/react'
 import {Group, Row} from '../components/ios'
@@ -50,6 +50,7 @@ function Dial({progress, phase, children}: {progress: number; phase: FocusPhase;
 
 function Pomodoro({config, host}: ComponentProps<PomodoroConfig>) {
   const state = useFocus()
+  const taskId = useId()
   useNow(state.status === 'running' ? 250 : 60_000)
   const settings = readFocusSettings()
   const [log] = useComponentData<FocusRecord[]>(SHARED.focusLog, [])
@@ -65,83 +66,95 @@ function Pomodoro({config, host}: ComponentProps<PomodoroConfig>) {
   const done = state.round % settings.longEvery
 
   return (
-    <Flexbox className="page-pane pomo" gap={24} align="center" data-phase={state.phase}>
-      <Segmented
-        value={state.phase}
-        disabled={!idle}
-        options={PHASES.map((phase) => ({value: phase, label: PHASE_LABEL[phase]}))}
-        onChange={(value) => focusActions.switchTo(value as FocusPhase)}
-      />
-
-      <Dial progress={progress} phase={state.phase}>
-        <b className="pomo-time">{mmss(left)}</b>
-        <span className="pomo-sub">{state.status === 'paused' ? '已暂停' : state.phase === 'focus' ? state.label || '专注' : PHASE_LABEL[state.phase]}</span>
-        <span className="pomo-rounds" aria-label={`本轮已完成 ${done} / ${settings.longEvery} 个专注`}>
-          {Array.from({length: settings.longEvery}, (_, i) => (
-            <i key={i} data-done={i < done} />
-          ))}
-        </span>
-      </Dial>
-
-      {config.askLabel && state.phase === 'focus' && idle && (
-        <Input
-          className="pomo-label"
-          variant="filled"
-          placeholder="这一轮要做什么（可选）"
-          value={state.label ?? ''}
-          onValueChange={focusActions.setLabel}
-          maxLength={60}
-          style={{textAlign: 'center'}}
-        />
-      )}
-
-      <Flexbox horizontal gap={12} align="center">
-        <Tooltip title="放弃这一段">
-          <ActionIcon icon={RotateCcw} size="large" disabled={idle} onClick={focusActions.stop} aria-label="放弃这一段" />
-        </Tooltip>
-        {running ? (
-          <Button className="ink-button" type="primary" size="large" icon={<Pause size={16} />} onClick={focusActions.pause} style={{minWidth: 128}}>
-            暂停
-          </Button>
-        ) : state.status === 'paused' ? (
-          <Button className="ink-button" type="primary" size="large" icon={<Play size={16} />} onClick={focusActions.resume} style={{minWidth: 128}}>
-            继续
-          </Button>
-        ) : (
-          <Button className="ink-button" type="primary" size="large" icon={<Play size={16} />} onClick={() => focusActions.start()} style={{minWidth: 128}}>
-            开始{PHASE_LABEL[state.phase]}
-          </Button>
-        )}
-        {state.phase !== 'focus' ? (
-          <Tooltip title="跳过休息">
-            <ActionIcon icon={SkipForward} size="large" onClick={() => focusActions.switchTo('focus')} aria-label="跳过休息" />
-          </Tooltip>
-        ) : (
-          <Tooltip title="番茄钟设置">
-            <ActionIcon icon={Settings2} size="large" onClick={() => host.openSettings('focus')} aria-label="番茄钟设置" />
-          </Tooltip>
-        )}
-      </Flexbox>
-
-      {config.showStats && (
-        <Block className="pomo-stats" variant="outlined" padding={16} gap={16} width="100%">
-          <Flexbox horizontal justify="space-around" width="100%">
-            <Statistic title="今天" value={stats.todayCount} suffix="个" />
-            <Statistic title="专注" value={stats.todayMinutes} suffix="分钟" />
-            <Statistic title="连续" value={stats.streak} suffix="天" />
-          </Flexbox>
-          <div className="pomo-week" aria-label="最近 7 天的专注时长">
-            {week.map((d, i) => (
-              <Tooltip key={d.day} title={`${d.day.slice(5)}　${d.minutes} 分钟`}>
-                <div className="pomo-bar" data-today={i === 6}>
-                  <i style={{height: `${Math.max(4, (d.minutes / peak) * 100)}%`}} data-empty={d.minutes === 0} />
-                  <span>{i === 6 ? '今' : WEEKDAY[new Date(`${d.day}T00:00:00`).getDay()]}</span>
-                </div>
-              </Tooltip>
-            ))}
+    <Flexbox className="page-pane pomo" data-phase={state.phase}>
+      <div className="pomo-layout">
+        <div className="pomo-timer">
+          <div className="pomo-modes" role="group" aria-label="计时模式">
+            <Segmented
+              value={state.phase}
+              disabled={!idle}
+              options={PHASES.map((phase) => ({value: phase, label: PHASE_LABEL[phase]}))}
+              onChange={(value) => focusActions.switchTo(value as FocusPhase)}
+            />
           </div>
-        </Block>
-      )}
+
+          <Dial progress={progress} phase={state.phase}>
+            <b className="pomo-time" role="timer" aria-label={`剩余 ${mmss(left)}`}>{mmss(left)}</b>
+            <span className="pomo-sub">{state.status === 'paused' ? '已暂停' : state.phase === 'focus' ? state.label || '专注' : PHASE_LABEL[state.phase]}</span>
+            <span className="pomo-rounds" aria-label={`本轮已完成 ${done} / ${settings.longEvery} 个专注`}>
+              {Array.from({length: settings.longEvery}, (_, i) => (
+                <i key={i} data-done={i < done} />
+              ))}
+            </span>
+          </Dial>
+        </div>
+
+        <div className="pomo-workspace">
+          {config.askLabel && state.phase === 'focus' && (
+            <div className="pomo-task">
+              <label className="pomo-task-label" htmlFor={taskId}>本轮任务</label>
+              <Input
+                id={taskId}
+                className="pomo-label"
+                variant="filled"
+                placeholder="这一轮要做什么（可选）"
+                value={state.label ?? ''}
+                readOnly={!idle}
+                onValueChange={focusActions.setLabel}
+                maxLength={60}
+              />
+            </div>
+          )}
+
+          <Flexbox className="pomo-actions" horizontal gap={12} align="center" justify="center">
+            <Tooltip title="放弃这一段">
+              <ActionIcon icon={RotateCcw} size="large" disabled={idle} onClick={focusActions.stop} aria-label="放弃这一段" />
+            </Tooltip>
+            {running ? (
+              <Button className="ink-button" type="primary" size="large" icon={<Pause size={16} />} onClick={focusActions.pause} style={{minWidth: 128}}>
+                暂停
+              </Button>
+            ) : state.status === 'paused' ? (
+              <Button className="ink-button" type="primary" size="large" icon={<Play size={16} />} onClick={focusActions.resume} style={{minWidth: 128}}>
+                继续
+              </Button>
+            ) : (
+              <Button className="ink-button" type="primary" size="large" icon={<Play size={16} />} onClick={() => focusActions.start()} style={{minWidth: 128}}>
+                开始{PHASE_LABEL[state.phase]}
+              </Button>
+            )}
+            {state.phase !== 'focus' ? (
+              <Tooltip title="跳过休息">
+                <ActionIcon icon={SkipForward} size="large" onClick={() => focusActions.switchTo('focus')} aria-label="跳过休息" />
+              </Tooltip>
+            ) : (
+              <Tooltip title="番茄钟设置">
+                <ActionIcon icon={Settings2} size="large" onClick={() => host.openSettings('focus')} aria-label="番茄钟设置" />
+              </Tooltip>
+            )}
+          </Flexbox>
+
+          {config.showStats && (
+            <Block className="pomo-stats" variant="outlined" padding={16} gap={16} width="100%">
+              <Flexbox className="pomo-stat-values" horizontal justify="space-around" width="100%">
+                <Statistic title="今天" value={stats.todayCount} suffix="个" />
+                <Statistic title="专注" value={stats.todayMinutes} suffix="分钟" />
+                <Statistic title="连续" value={stats.streak} suffix="天" />
+              </Flexbox>
+              <div className="pomo-week" aria-label="最近 7 天的专注时长">
+                {week.map((d, i) => (
+                  <Tooltip key={d.day} title={`${d.day.slice(5)}　${d.minutes} 分钟`}>
+                    <div className="pomo-bar" data-today={i === 6}>
+                      <i style={{height: `${Math.max(4, (d.minutes / peak) * 100)}%`}} data-empty={d.minutes === 0} />
+                      <span>{i === 6 ? '今' : WEEKDAY[new Date(`${d.day}T00:00:00`).getDay()]}</span>
+                    </div>
+                  </Tooltip>
+                ))}
+              </div>
+            </Block>
+          )}
+        </div>
+      </div>
     </Flexbox>
   )
 }
@@ -179,7 +192,7 @@ registerComponent<PomodoroConfig>({
     askLabel: {kind: 'boolean', label: '允许写下这一轮在做什么'},
   },
   defaultSpan: 'third',
-  stage: {width: 400},
+  stage: {width: 880},
   component: Pomodoro,
   status: PomodoroStatus,
   multiple: false,

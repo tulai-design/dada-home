@@ -60,7 +60,7 @@ function Countdowns({config}: ComponentProps<CountdownConfig>) {
 
   return (
     <Flexbox className="page-pane cd" gap={10}>
-      <Flexbox horizontal align="center" justify="space-between">
+      <Flexbox className="widget-heading" horizontal align="center" justify="space-between">
         {config.heading ? <Text as="h2">{config.heading}</Text> : <span />}
         {config.allowAdd && (
           <Popover

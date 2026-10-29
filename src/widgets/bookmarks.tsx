@@ -32,8 +32,8 @@ function Bookmarks({config, host}: ComponentProps<BookmarksConfig>) {
   const [opened, setOpened] = useState<string[]>([])
 
   return (
-    <Flexbox className="page-pane" direction="vertical" gap={16}>
-      <Flexbox direction="horizontal" align="center" justify="space-between" width="100%">
+    <Flexbox className="page-pane bookmarks-pane" direction="vertical" gap={16}>
+      <Flexbox className="widget-heading" direction="horizontal" align="center" justify="space-between" width="100%">
         <Text as="h2">{config.heading}</Text>
         <Flexbox direction="horizontal" gap={2}>
           <ActionIcon icon={FileUp} title="导入与同步" onClick={() => setSyncOpen(true)} />
@@ -47,11 +47,11 @@ function Bookmarks({config, host}: ComponentProps<BookmarksConfig>) {
             const items = open ? group.items : group.items.slice(0, GROUP_PREVIEW)
             const hidden = group.items.length - items.length
             return (
-              <section key={group.id}>
+              <section key={group.id} className="mark-group" aria-label={group.name}>
                 <h3 className="mark-title">
                   {group.name}
                   <span className="mark-count">{group.items.length}</span>
-                  <ActionIcon className="mark-edit" icon={Pencil} size="small" title="编辑分组" onClick={() => setGroupEditing(group)} />
+                  <ActionIcon className="mark-edit" icon={Pencil} size="small" title="编辑分组" aria-label={`编辑分组：${group.name}`} onClick={() => setGroupEditing(group)} />
                 </h3>
                 <div className="mark-grid">
                   {items.map((item) => {
@@ -68,13 +68,13 @@ function Bookmarks({config, host}: ComponentProps<BookmarksConfig>) {
                             <span className="mark-name">{item.name}</span>
                           </span>
                         )}
-                        <ActionIcon className="mark-edit" icon={Pencil} size="small" title="编辑" onClick={() => setEditing({bookmark: item, group: group.name})} />
+                        <ActionIcon className="mark-edit" icon={Pencil} size="small" title="编辑" aria-label={`编辑书签：${item.name}`} onClick={() => setEditing({bookmark: item, group: group.name})} />
                       </div>
                     )
                   })}
                 </div>
                 {group.items.length > GROUP_PREVIEW && (
-                  <button type="button" className="mark-more" onClick={() => setOpened((list) => (open ? list.filter((id) => id !== group.id) : [...list, group.id]))}>
+                  <button type="button" className="mark-more" aria-expanded={open} onClick={() => setOpened((list) => (open ? list.filter((id) => id !== group.id) : [...list, group.id]))}>
                     {open ? '收起' : `展开其余 ${hidden} 个`}
                   </button>
                 )}

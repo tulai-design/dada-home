@@ -311,8 +311,57 @@
 /* ───────── 番茄钟（舞台型，居中由 PageView 负责） ───────── */
 .pomo {
   --pomo-color: var(--main);
+  container: pomo-widget / inline-size;
   width: 100%;
 }
+
+.pomo-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  gap: 24px;
+  width: 100%;
+  min-width: 0;
+}
+
+.pomo-timer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  min-width: 0;
+}
+
+.pomo-modes { width: max-content; max-width: 100%; }
+
+.pomo-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: min(100%, 380px);
+  min-width: 0;
+  margin-inline: auto;
+}
+
+.pomo-task {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.pomo-task-label {
+  color: var(--text2);
+  font-size: 13px;
+  text-align: center;
+}
+
+.pomo-actions {
+  width: 100%;
+  min-width: 0;
+}
+
+.pomo-stat-values > * { min-width: 0; }
 
 .pomo[data-phase='short'],
 .pomo[data-phase='long'] {
@@ -392,7 +441,7 @@
 }
 
 .pomo-label {
-  width: min(100%, 288px);
+  width: 100%;
 }
 
 .pomo-label input {
@@ -400,7 +449,7 @@
 }
 
 .pomo-stats {
-  margin-top: 8px;
+  margin-top: 0;
 }
 
 .pomo-week {
@@ -448,6 +497,20 @@
 
 .pomo-bar[data-today='true'] span {
   color: var(--text);
+}
+
+@container pomo-widget (min-width: 680px) {
+  .pomo-layout {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+    gap: 48px;
+  }
+  .pomo-timer { gap: 28px; }
+  .pomo-dial { width: min(100%, 352px); }
+  .pomo-time { font-size: 72px; }
+  .pomo-workspace { width: 100%; max-width: 380px; margin-left: 0; }
+  .pomo-task-label,
+  .pomo-label input { text-align: left; }
+  .pomo-actions { justify-content: flex-start; }
 }
 
 /* ───────── 音乐（舞台型） ───────── */

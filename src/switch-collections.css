@@ -1,0 +1,291 @@
+/* 主机内容集合：榜单、订阅和书签各自保留阅读层级，按实际组件宽度排版。 */
+:root[data-skin='switch'] :is(.hot-pane, .feeds-pane, .bookmarks-pane) {
+  gap: 20px;
+  min-width: 0;
+}
+
+/* 热榜：每个来源是一块独立系统面板，标题、排名、正文与热度分层。 */
+:root[data-skin='switch'] .hot-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 20px;
+}
+:root[data-skin='switch'] .hot-board {
+  min-width: 0;
+  padding: 0 20px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg2);
+}
+:root[data-skin='switch'] .hot-board .hot-board-title {
+  display: flex;
+  align-items: center;
+  min-height: 64px;
+  margin: 0 -20px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+:root[data-skin='switch'] .hot-board ol { margin: 0; padding: 0; list-style: none; }
+:root[data-skin='switch'] .hot-board .hot-entry {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: start;
+  column-gap: 12px;
+  row-gap: 4px;
+  min-height: 68px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 15px;
+  line-height: 1.65;
+}
+:root[data-skin='switch'] .hot-board .hot-entry:last-child { border-bottom: 0; }
+:root[data-skin='switch'] .hot-board .hot-rank {
+  display: block;
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  padding-top: 2px;
+  color: var(--text3);
+  font: 500 13px/1.65 var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+:root[data-skin='switch'] .hot-board .hot-entry[data-leading] .hot-rank { color: var(--main); }
+:root[data-skin='switch'] .hot-board .hot-entry > a {
+  display: block;
+  grid-column: 2;
+  min-width: 0;
+  color: var(--text);
+  text-decoration: none;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+:root[data-skin='switch'] .hot-board .hot-entry > a:hover { color: var(--main); }
+:root[data-skin='switch'] .hot-board .hot-entry > a:focus-visible {
+  outline: 2px solid var(--switch-focus);
+  outline-offset: 4px;
+}
+:root[data-skin='switch'] .hot-board .hot-heat {
+  grid-column: 2;
+  color: var(--text3);
+  font-size: 11px;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+:root[data-skin='switch'] .hot-board > :not(h3):not(ol) { display: block; padding-block: 20px; line-height: 1.65; }
+
+/* 订阅：来源筛选是一行系统选项，文章保持矩形面板与一致的元信息位置。 */
+:root[data-skin='switch'] .feed-filters {
+  gap: 4px 16px;
+  padding: 0 0 4px;
+  border-bottom: 1px solid var(--border);
+}
+:root[data-skin='switch'] .feed-filters .feed-filter {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  max-width: 100%;
+  padding: 8px 4px;
+  border: 0 !important;
+  border-bottom: 3px solid transparent !important;
+  border-radius: 0;
+  background: transparent !important;
+  color: var(--text2) !important;
+  font: 400 14px/1.5 var(--font-sans);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+:root[data-skin='switch'] .feed-filters .feed-filter[aria-pressed='true'] {
+  border-bottom-color: var(--switch-focus) !important;
+  color: var(--main) !important;
+  font-weight: 500;
+}
+:root[data-skin='switch'] .feed-filters .feed-filter:hover { color: var(--main) !important; }
+:root[data-skin='switch'] .feed-filters .feed-filter:focus-visible {
+  outline: 2px solid var(--switch-focus);
+  outline-offset: 2px;
+}
+:root[data-skin='switch'] .feed-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  gap: 16px;
+}
+:root[data-skin='switch'] .feed-grid > .feed-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 0;
+  min-width: 0;
+  margin: 0;
+  padding: 20px !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  background: var(--bg2) !important;
+  box-shadow: none !important;
+  cursor: pointer;
+  opacity: 1;
+}
+:root[data-skin='switch'] .feed-card .feed-meta { min-width: 0; align-items: baseline; }
+:root[data-skin='switch'] .feed-card .feed-source {
+  display: block;
+  min-width: 0;
+  max-width: 72%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent !important;
+  color: var(--main) !important;
+  font: 400 12px/1.5 var(--font-sans);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:root[data-skin='switch'] .feed-card .feed-date {
+  flex: none;
+  color: var(--text3);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+:root[data-skin='switch'] .feed-card h3 {
+  margin: 12px 0 8px;
+  color: var(--text);
+  font: 500 18px/1.55 var(--font-sans);
+  overflow-wrap: anywhere;
+}
+:root[data-skin='switch'] .feed-card p {
+  margin: 0;
+  color: var(--text2);
+  font: 400 13px/1.7 var(--font-sans);
+  overflow-wrap: anywhere;
+  -webkit-line-clamp: 3;
+}
+:root[data-skin='switch'] .feed-card.is-read h3 { color: var(--text2); }
+:root[data-skin='switch'] .feed-grid > .feed-card:hover { border-color: var(--switch-focus) !important; }
+:root[data-skin='switch'] .feed-card:focus-visible {
+  outline: 3px solid var(--switch-focus);
+  outline-offset: 2px;
+}
+:root[data-skin='switch'] .feeds-pane .home-digest { margin: 0; }
+:root[data-skin='switch'] .feeds-pane .home-digest > button {
+  min-width: 0;
+  min-height: 68px;
+  padding: 16px 0 !important;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  gap: 8px !important;
+}
+:root[data-skin='switch'] .feeds-pane .home-digest .digest-source {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  font: 400 11px/1.5 var(--font-sans);
+  color: var(--text3);
+  letter-spacing: 0;
+}
+:root[data-skin='switch'] .feeds-pane .home-digest .digest-title {
+  color: var(--text);
+  font: 400 14px/1.65 var(--font-sans);
+  overflow-wrap: anywhere;
+}
+:root[data-skin='switch'] .feeds-pane .home-digest > button:focus-visible {
+  outline: 2px solid var(--switch-focus);
+  outline-offset: 2px;
+}
+
+/* 书签：分组标题在面板内，站点和编辑操作各自有清楚的点击范围。 */
+:root[data-skin='switch'] .mark-board { display: flex; flex-direction: column; gap: 20px; }
+:root[data-skin='switch'] .mark-group {
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg2);
+}
+:root[data-skin='switch'] .mark-group .mark-title {
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 32px;
+  margin: 0 0 16px;
+  padding: 0 0 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font: 500 18px/1.5 var(--font-sans);
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+:root[data-skin='switch'] .mark-count { color: var(--text3); font: 400 12px/1.5 var(--font-sans); opacity: 1; }
+:root[data-skin='switch'] .mark-title .mark-edit { margin-left: auto; }
+:root[data-skin='switch'] .mark-grid { grid-template-columns: minmax(0, 1fr); gap: 8px 20px; }
+:root[data-skin='switch'] .mark-group .mark-cell {
+  min-width: 0;
+  gap: 4px;
+  padding-right: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+}
+:root[data-skin='switch'] .mark-group .mark-cell:hover { background: var(--bg3); }
+:root[data-skin='switch'] .mark-group .mark-link {
+  display: flex;
+  gap: 12px;
+  min-height: 48px;
+  height: auto;
+  padding: 12px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  outline: none;
+}
+:root[data-skin='switch'] .mark-group .mark-name {
+  color: var(--text);
+  font: 400 14px/1.5 var(--font-sans);
+}
+:root[data-skin='switch'] .mark-group .mark-link-off .mark-name { color: var(--text3); }
+:root[data-skin='switch'] .mark-group .mark-edit { opacity: 1; color: var(--text3); }
+:root[data-skin='switch'] .mark-group .mark-cell:hover .mark-link:not(.mark-link-off) { outline: none; }
+:root[data-skin='switch'] .mark-group .mark-cell .mark-link:focus-visible {
+  outline: 2px solid var(--switch-focus);
+  outline-offset: -2px;
+}
+:root[data-skin='switch'] .mark-group .mark-edit:focus-visible,
+:root[data-skin='switch'] .mark-group .mark-more:focus-visible {
+  outline: 2px solid var(--switch-focus);
+  outline-offset: 2px;
+}
+:root[data-skin='switch'] .mark-group .mark-more {
+  min-height: 44px;
+  margin: 12px 0 0;
+  padding: 8px 0;
+  color: var(--main);
+  font: 400 13px/1.5 var(--font-sans);
+}
+
+@container switch-widget (min-width: 640px) {
+  :root[data-skin='switch'] .hot-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  :root[data-skin='switch'] .mark-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container switch-widget (min-width: 800px) {
+  :root[data-skin='switch'] .feed-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container switch-widget (min-width: 1000px) {
+  :root[data-skin='switch'] .hot-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  :root[data-skin='switch'] .mark-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@container switch-widget (max-width: 400px) {
+  :root[data-skin='switch'] .hot-board { padding-inline: 16px; }
+  :root[data-skin='switch'] .hot-board .hot-board-title { margin-inline: -16px; padding-inline: 16px; }
+  :root[data-skin='switch'] .hot-board .hot-entry { column-gap: 8px; }
+  :root[data-skin='switch'] .feed-grid > .feed-card,
+  :root[data-skin='switch'] .mark-group { padding: 16px !important; }
+  :root[data-skin='switch'] .feed-card h3,
+  :root[data-skin='switch'] .mark-group .mark-title { font-size: 16px; }
+}

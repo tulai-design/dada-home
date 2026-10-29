@@ -150,29 +150,6 @@
 }
 :root[data-skin='switch'] .settings-page textarea:focus-visible:not(.ios-row textarea) { outline: 3px solid var(--switch-focus); outline-offset: 0; }
 :root[data-skin='switch'] .settings-page .lobe-segmented { border-radius: 2px; background: var(--bg3); }
-:root[data-skin='switch'] .widget .page-pane,
-:root[data-skin='switch'] .widget .weather-card {
-  border: 0 !important;
-  border-radius: var(--radius-lg) !important;
-  background: var(--bg2);
-  box-shadow: none;
-}
-:root[data-skin='switch'] .widget .page-pane h2::before,
-:root[data-skin='switch'] .widget .weather-card h2::before { display: none; }
-:root[data-skin='switch'] .widget h2,
-:root[data-skin='switch'] .widget h3 { font-family: var(--font-sans); letter-spacing: 0; text-transform: none; }
-:root[data-skin='switch'] .hot-grid li,
-:root[data-skin='switch'] .feed-card,
-:root[data-skin='switch'] .monitor-mini-row { border-bottom: 1px solid var(--border); }
-:root[data-skin='switch'] .feed-card { border-radius: 0 !important; }
-:root[data-skin='switch'] .mark-cell,
-:root[data-skin='switch'] .mark-cell:hover { border-radius: var(--radius); background: transparent; }
-:root[data-skin='switch'] .mark-link { border-radius: var(--radius); background: var(--bg); }
-:root[data-skin='switch'] .mark-cell:hover .mark-link:not(.mark-link-off) { outline: 2px solid var(--switch-focus); }
-:root[data-skin='switch'] .note-area,
-:root[data-skin='switch'] .note-area textarea,
-:root[data-skin='switch'] .page-pane .lobe-input { background-image: none !important; border-radius: var(--radius) !important; }
-
 /* 同一断点同时覆盖手机和 AI 分栏，返回设置列表始终可达。 */
 @container switch-canvas (max-width: 860px) {
   :root[data-skin='switch'] .settings-page { grid-template-columns: minmax(0, 1fr); padding-inline: 16px; }
