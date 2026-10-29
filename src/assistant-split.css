@@ -122,8 +122,15 @@
   :root[data-skin='ios'] .assistant-workspace .settings-page {
     grid-template-columns: minmax(0, 1fr);
   }
-  :root[data-skin='ios'] .assistant-workspace .settings-page[data-pane='list'] .ios-large,
-  :root[data-skin='ios'] .assistant-workspace .settings-page[data-pane='detail'] .ios-detail-head {
+  :root[data-skin='ios'] .assistant-workspace .settings-page[data-pane='list'] .ios-large {
+    width: 100%;
+    margin: 0 0 12px;
+    padding: 16px;
+    text-align: center;
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: 0;
+    border-bottom: 0;
     background: var(--bg);
   }
   :root[data-skin='ios'] .assistant-workspace .settings-page[data-pane='detail'] .ios-detail-head {
