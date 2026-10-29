@@ -305,9 +305,9 @@ await test('工作空间连续读取失败不替换默认状态，恢复后实�
   const storage = localStore({'fp.workspace': JSON.stringify(fixture)})
   const app = runtime({storage, mocks: {
     './ops': {defaultWorkspace: () => fallback}, './registry': {},
-    './workspace': {FROZEN_PAGE_ID: 'home', WORKSPACE_VERSION: 6, DEFAULT_THEME_ID: 'default', MAX_STATUS_ITEMS: 4},
+    './workspace': {FROZEN_PAGE_ID: 'home', WORKSPACE_VERSION: 6, DEFAULT_THEME_ID: 'default', DEFAULT_APPEARANCE_THEME: {id: 'ios'}, MAX_STATUS_ITEMS: 4},
     './customWidget': {}, '../fx/catalog': {}, './pageIcons': {}, './dock': {readDock() {}},
-    './market': {ADDONS: []}, './themes': {readThemes: () => [{id: 'default'}]},
+    './market': {ADDONS: []}, './themes': {readThemes: () => [{id: 'default'}, {id: 'ios'}]},
     './applications': {readApplications: () => []}, './pageSections': {normalizePageSections: page => page},
   }})
   const store = app.load('src/lib/workspaceStore.ts')

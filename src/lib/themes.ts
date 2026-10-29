@@ -1,6 +1,6 @@
 import {WorkspaceError} from './errors'
 import {cleanFonts, readFonts} from './fonts'
-import {DEFAULT_THEME, DEFAULT_THEME_ID, IOS_THEME, IOS_THEME_ID, PIXEL_THEME, PIXEL_THEME_ID, SWITCH_THEME, SWITCH_THEME_ID, WIN98_THEME, WIN98_THEME_ID, MAX_THEMES, activeTheme, type ThemeEntry, type Workspace} from './workspace'
+import {DEFAULT_APPEARANCE_THEME, DEFAULT_THEME, DEFAULT_THEME_ID, IOS_THEME, IOS_THEME_ID, PIXEL_THEME, PIXEL_THEME_ID, SWITCH_THEME, SWITCH_THEME_ID, WIN98_THEME, WIN98_THEME_ID, MAX_THEMES, activeTheme, type ThemeEntry, type Workspace} from './workspace'
 
 /**
  * 主题库的纯函数。
@@ -216,7 +216,7 @@ export function removeTheme(workspace: Workspace, ref: string): {workspace: Work
   const removed = find(workspace, ref)
   if (removed.builtin) throw new WorkspaceError('内置主题不能删除。')
   const next = {...workspace, themes: workspace.themes.filter((item) => item.id !== removed.id)}
-  return {workspace: workspace.theme.active === removed.id ? activate(next, DEFAULT_THEME) : next, removed}
+  return {workspace: workspace.theme.active === removed.id ? activate(next, DEFAULT_APPEARANCE_THEME) : next, removed}
 }
 
 /** 用户手动切明暗：同时记成基准，之后切到不指定明暗的主题会回到它。 */

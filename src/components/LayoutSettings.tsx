@@ -104,7 +104,7 @@ export function SidebarSettings() {
           />
         ))}
         {dock?.css && <Row label="去掉搭搭写的自定义样式" icon={<RotateCcw size={16} />} onClick={() => edit((ws) => setDock(ws, { css: '' }))} />}
-        {dock && <Row label="恢复默认（纸质卡片）" icon={<RotateCcw size={16} />} danger onClick={() => edit((ws) => setDock(ws, { reset: true }))} />}
+        {dock && <Row label="恢复默认（玻璃）" icon={<RotateCcw size={16} />} danger onClick={() => edit((ws) => setDock(ws, { reset: true }))} />}
       </Group>}
 
       <Group title="固定项" footer="这些是系统入口，不能修改、删除或挪动。">

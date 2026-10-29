@@ -2,7 +2,7 @@ import {useCallback, useSyncExternalStore} from 'react'
 import {assertPersistenceWritable, clearPersistenceError, reportPersistenceError} from './persistence'
 import {defaultWorkspace} from './ops'
 import {getDefinition, normalizeConfig} from './registry'
-import {DEFAULT_THEME, DEFAULT_THEME_ID, FROZEN_PAGE_ID, MAX_STATUS_ITEMS, MAX_TEMPLATES, WORKSPACE_VERSION, type StatusItem, type TemplateEntry, type ThemeEntry, type ThemeConfig, type CustomWidget, type Layer, type Page, type Wallpaper, type Workspace} from './workspace'
+import {DEFAULT_APPEARANCE_THEME, DEFAULT_THEME, DEFAULT_THEME_ID, FROZEN_PAGE_ID, MAX_STATUS_ITEMS, MAX_TEMPLATES, WORKSPACE_VERSION, type StatusItem, type TemplateEntry, type ThemeEntry, type ThemeConfig, type CustomWidget, type Layer, type Page, type Wallpaper, type Workspace} from './workspace'
 import {normalizeWidget, sanitizeCss} from './customWidget'
 import {normalizeLayer} from '../fx/catalog'
 import {isPageIcon} from './pageIcons'
@@ -193,7 +193,7 @@ function readThemeState(data: Partial<Workspace>): { themes: ThemeEntry[]; confi
     }
   }
   const frameOff = (data.theme as {frameOff?: unknown} | undefined)?.frameOff === true
-  const active = typeof raw.active === 'string' && themes.some((item) => item.id === raw.active) ? raw.active : DEFAULT_THEME_ID
+  const active = typeof raw.active === 'string' && themes.some((item) => item.id === raw.active) ? raw.active : DEFAULT_APPEARANCE_THEME.id
   const entry = themes.find((item) => item.id === active)
   // 初始偏好只在 applyTheme 时采用；刷新必须尊重用户已保存的实际模式。
   return { themes, config: { active, mode: raw.mode === 'light' || raw.mode === 'dark' ? raw.mode : entry?.mode ?? mode, base, ...(frameOff ? {frameOff: true} : {}) } }

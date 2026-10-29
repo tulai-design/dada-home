@@ -2,23 +2,28 @@ import {DEFAULT_DOCK_PRESET} from './dock'
 import {WorkspaceError} from './errors'
 import {DEFAULT_STACKS, fontVars} from './fonts'
 import {DEFAULT_THEME_PALETTES, resolveThemeOverrides} from './themes'
-import {DEFAULT_HOME_LAYERS, DEFAULT_THEME, DEFAULT_THEME_ID, FROZEN_PAGE_ID, activeTheme, type Page, type Workspace} from './workspace'
+import {DEFAULT_APPEARANCE_THEME, DEFAULT_HOME_LAYERS, DEFAULT_THEME, DEFAULT_THEME_ID, FROZEN_PAGE_ID, activeTheme, type Page, type Workspace} from './workspace'
 import {assertFxBudgetChange} from '../fx/policy'
 
 const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T
 const stable = (value: unknown): string => JSON.stringify(value, (_, item: unknown) => item && typeof item === 'object' && !Array.isArray(item) ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item)
+// 样式表的纸张基底独立于产品初始主题，其他主题不能继承 iOS 的圆角或字体。
+const BASE_SHARED = {radius: '0px', 'radius-lg': '0px', frame: '7px', 'side-width': '84px', gutter: '28px', 'frame-gap': 'var(--frame)', 'frame-color': 'var(--main)'}
 
 /** 默认外观的可查询说明；首页图层与真正的初始化使用同一份定义。 */
 export function defaultAppearance() {
+  const theme = DEFAULT_APPEARANCE_THEME
+  const fonts = fontVars(theme.fonts)
   return {
     theme: {
-      id: DEFAULT_THEME_ID,
-      name: DEFAULT_THEME.name,
-      description: DEFAULT_THEME.description,
-      mode: 'light',
-      shared: {radius: '0px', 'radius-lg': '0px', frame: '7px', 'side-width': '84px', gutter: '28px', 'frame-gap': 'var(--frame)', 'frame-color': 'var(--main)'},
-      ...clone(DEFAULT_THEME_PALETTES),
-      fonts: {...DEFAULT_STACKS},
+      id: theme.id,
+      name: theme.name,
+      description: theme.description,
+      mode: theme.mode ?? 'light',
+      shared: {...BASE_SHARED, ...theme.overrides},
+      light: {...DEFAULT_THEME_PALETTES.light, ...theme.light},
+      dark: {...DEFAULT_THEME_PALETTES.dark, ...theme.dark},
+      fonts: Object.fromEntries(Object.entries(DEFAULT_STACKS).map(([role, stack]) => [role, fonts[`font-${role}`] ?? stack])),
     },
     home: {wallpaper: {mode: 'off'}, layers: clone(DEFAULT_HOME_LAYERS), css: '', align: 'center'},
     otherPages: {wallpaper: {mode: 'off'}, layers: [], css: '', align: 'start'},
@@ -53,7 +58,7 @@ export function getAppearance(workspace: Workspace) {
     current: {
       mode: workspace.theme.mode,
       theme: {...currentTheme, resolved: {
-        ...defaults.theme.shared,
+        ...BASE_SHARED,
         ...DEFAULT_THEME_PALETTES[workspace.theme.mode],
         ...Object.fromEntries(Object.entries(DEFAULT_STACKS).map(([role, stack]) => [`font-${role}`, stack])),
         ...fontVars(currentTheme.fonts),
@@ -63,7 +68,7 @@ export function getAppearance(workspace: Workspace) {
       pages,
     },
     differences: {
-      theme: currentTheme.id !== DEFAULT_THEME_ID,
+      theme: currentTheme.id !== DEFAULT_APPEARANCE_THEME.id,
       dock: Boolean(workspace.dock?.css || workspace.dock && workspace.dock.preset !== DEFAULT_DOCK_PRESET),
       pages: pages.map((page) => ({
         id: page.id,
@@ -99,9 +104,13 @@ export function resetAppearance(workspace: Workspace, input: {scope?: string; mo
   const {dock: _dock, ...rest} = workspace
   const mode = input.mode ?? workspace.theme.mode
   const {frameOff: _frameOff, ...theme} = workspace.theme
+  const themes = [clone(DEFAULT_THEME), ...workspace.themes.filter((item) => item.id !== DEFAULT_THEME_ID)]
+  const defaultIndex = themes.findIndex((item) => item.id === DEFAULT_APPEARANCE_THEME.id)
+  if (defaultIndex < 0) themes.splice(1, 0, clone(DEFAULT_APPEARANCE_THEME))
+  else themes[defaultIndex] = clone(DEFAULT_APPEARANCE_THEME)
   return {
     ...rest, pages,
-    themes: [clone(DEFAULT_THEME), ...workspace.themes.filter((item) => item.id !== DEFAULT_THEME_ID)],
-    theme: {...theme, active: DEFAULT_THEME_ID, mode, base: mode},
+    themes,
+    theme: {...theme, active: DEFAULT_APPEARANCE_THEME.id, mode, base: mode},
   }
 }

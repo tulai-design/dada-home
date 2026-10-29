@@ -21,14 +21,14 @@ function load(file) {
   return module.exports
 }
 const {defaultAppearance, getAppearance, resetAppearance} = load('src/lib/appearance.ts')
-const {DEFAULT_HOME_LAYERS, DEFAULT_THEME, DEFAULT_THEME_ID, WORKSPACE_VERSION} = load('src/lib/workspace.ts')
+const {DEFAULT_HOME_LAYERS, DEFAULT_THEME, DEFAULT_THEME_ID, IOS_THEME, IOS_THEME_ID, WORKSPACE_VERSION} = load('src/lib/workspace.ts')
 const {DEFAULT_THEME_PALETTES} = load('src/lib/themes.ts')
-const {DEFAULT_STACKS} = load('src/lib/fonts.ts')
+const {DEFAULT_STACKS, fontVars} = load('src/lib/fonts.ts')
 const clone = (value) => JSON.parse(JSON.stringify(value))
 const fixture = () => ({
   version: WORKSPACE_VERSION,
   theme: {active: 'night', mode: 'dark', base: 'light'},
-  themes: [DEFAULT_THEME, {id: 'night', name: '夜航', description: '自定义主题', overrides: {frame: '0px'}, dark: {bg: '#07111f', text: '#dcecff'}, fonts: [{family: 'Noto Sans SC', role: 'sans'}]}],
+  themes: [DEFAULT_THEME, IOS_THEME, {id: 'night', name: '夜航', description: '自定义主题', overrides: {frame: '0px'}, dark: {bg: '#07111f', text: '#dcecff'}, fonts: [{family: 'Noto Sans SC', role: 'sans'}]}],
   layout: {columns: 9, maxWidth: 1234},
   widgets: [{id: 'custom-list', name: '自定义列表', source: {kind: 'static', items: [{title: '保留自定义数据'}]}}],
   network: [{host: 'example.com', grantedAt: 1}],
@@ -64,20 +64,20 @@ function test(name, run) {
   console.log(`通过：${name}`)
 }
 
-test('默认查询包含纸张双模式、字体、外框、Dock与真正默认首页波纹线', () => {
+test('默认查询包含iOS双模式、字体、无外框、玻璃Dock与默认首页波纹线', () => {
   const defaults = defaultAppearance()
-  assert.equal(defaults.theme.id, DEFAULT_THEME_ID)
-  assert.deepEqual(defaults.theme.light, DEFAULT_THEME_PALETTES.light)
-  assert.deepEqual(defaults.theme.dark, DEFAULT_THEME_PALETTES.dark)
-  assert.deepEqual(defaults.theme.fonts, DEFAULT_STACKS)
-  assert.equal(defaults.theme.shared.frame, '7px')
-  assert.equal(defaults.dock.preset, 'solid')
+  assert.equal(defaults.theme.id, IOS_THEME_ID)
+  assert.deepEqual(defaults.theme.light, IOS_THEME.light)
+  assert.deepEqual(defaults.theme.dark, IOS_THEME.dark)
+  assert.deepEqual(defaults.theme.fonts, {...DEFAULT_STACKS, serif: fontVars(IOS_THEME.fonts)['font-serif']})
+  assert.equal(defaults.theme.shared.frame, '0px')
+  assert.equal(defaults.dock.preset, 'glass')
   assert.equal(defaults.home.wallpaper.mode, 'off')
   assert.deepEqual(defaults.home.layers, DEFAULT_HOME_LAYERS)
   assert.equal(defaults.home.layers[0].effect, 'waves')
   assert.match(defaults.resetPolicy.preserved, /App.*源码/)
 })
-test('默认说明的两套配色、字体和共享尺寸与实际CSS默认值一致', () => {
+test('默认说明的配色、字体和尺寸与CSS基底叠加iOS主题一致', () => {
   const styles = readFileSync(path.join(root, 'src/styles.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
   const theme = readFileSync(path.join(root, 'src/theme.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
   const vars = (css, selector) => {
@@ -90,15 +90,15 @@ test('默认说明的两套配色、字体和共享尺寸与实际CSS默认值�
   const shared = {...vars(styles, rootSelector), ...vars(theme, rootSelector)}
   const dark = {...shared, ...vars(styles, darkSelector), ...vars(theme, darkSelector)}
   const defaults = defaultAppearance()
-  for (const [mode, actual] of [['light', shared], ['dark', dark]]) {
+  for (const [mode, actual] of [['light', {...shared, ...IOS_THEME.overrides, ...IOS_THEME.light}], ['dark', {...dark, ...IOS_THEME.overrides, ...IOS_THEME.dark}]]) {
     for (const [name, value] of Object.entries(defaults.theme[mode])) assert.equal(value, actual[name], `${mode} 模式默认变量 --${name} 说明与CSS漂移`)
   }
-  for (const [role, value] of Object.entries(defaults.theme.fonts)) assert.equal(value, shared[`font-${role}`], `默认${role}字体说明与CSS漂移`)
+  for (const [role, value] of Object.entries(defaults.theme.fonts)) assert.equal(value, fontVars(IOS_THEME.fonts)[`font-${role}`] ?? shared[`font-${role}`], `默认${role}字体说明与CSS漂移`)
   for (const [name, value] of Object.entries(defaults.theme.shared)) {
-    if (name === 'frame-gap' || name === 'frame-color') {
+    if ((name === 'frame-gap' || name === 'frame-color') && !(name in IOS_THEME.overrides)) {
       // 这两个变量通过CSS var()缺省参数表达，未声明时分别跟随frame/main。
       assert.ok(theme.includes(`var(--${name}, ${value})`), `默认 --${name} 缺省引用与CSS漂移`)
-    } else assert.equal(value, shared[name], `共享默认变量 --${name} 说明与CSS漂移`)
+    } else assert.equal(value, IOS_THEME.overrides[name] ?? shared[name], `共享默认变量 --${name} 说明与CSS漂移`)
   }
 })
 test('当前外观查询报告实际主题颜色、页面背景及独立视觉内容差异', () => {
@@ -127,7 +127,7 @@ test('当前外观查询报告实际主题颜色、页面背景及独立视觉�
 test('全站恢复清除壁纸、页面CSS、图层与组件外观，首页恢复默认背景', () => {
   const ws = fixture()
   const restored = resetAppearance(ws)
-  assert.equal(restored.theme.active, DEFAULT_THEME_ID)
+  assert.equal(restored.theme.active, IOS_THEME_ID)
   assert.equal(restored.theme.mode, 'dark')
   assert.equal(restored.theme.base, 'dark')
   assert.equal(restored.dock, undefined)
@@ -238,7 +238,7 @@ test('连续恢复幂等，恢复结果与查询副本不会污染默认图层�
   report.theme.fonts.sans = 'Testing'
   assert.deepEqual(DEFAULT_HOME_LAYERS, layersBefore)
   assert.deepEqual(DEFAULT_THEME_PALETTES, palettesBefore)
-  assert.deepEqual(defaultAppearance().theme.fonts, DEFAULT_STACKS)
+  assert.deepEqual(defaultAppearance().theme.fonts, {...DEFAULT_STACKS, serif: fontVars(IOS_THEME.fonts)['font-serif']})
 })
 
 console.log(`外观恢复回归全部通过：${checks.length}/${checks.length}`)

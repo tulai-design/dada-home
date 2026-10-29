@@ -55,7 +55,7 @@ const run = (name, args = {}) => {const item = tool(name); return item.execute(i
 const active = () => model.activeTheme(workspace)
 const plain = (value) => JSON.parse(JSON.stringify(value))
 const reset = () => {
-  workspace = {theme: {active: 'default', mode: 'light', base: 'light'}, themes: [model.DEFAULT_THEME]}
+  workspace = {theme: {active: 'default', mode: 'light', base: 'light'}, themes: [model.DEFAULT_THEME, model.IOS_THEME]}
   commits = 0
 }
 const palettes = {light: {bg: '#f4fafb', text: '#172f38', border: '#ccddee'}, dark: {bg: '#10232b', text: '#e5f3f7', border: '#334455'}}
@@ -169,8 +169,8 @@ await test('get_appearance 读取真实默认、当前和差异且不提交', as
   await decoratedWorkspace()
   const count = commits
   const appearance = JSON.parse(await run('get_appearance'))
-  assert.equal(appearance.defaults.theme.shared.frame, '7px')
-  assert.equal(appearance.defaults.dock.preset, 'solid')
+  assert.equal(appearance.defaults.theme.shared.frame, '0px')
+  assert.equal(appearance.defaults.dock.preset, 'glass')
   assert.deepEqual(appearance.defaults.home.layers, plain(model.DEFAULT_HOME_LAYERS))
   assert.equal(appearance.current.mode, 'dark')
   assert.equal(appearance.current.theme.resolved.bg, palettes.dark.bg)
@@ -186,7 +186,7 @@ await test('reset_appearance 全局一次提交恢复默认并保留内容、布
   const count = commits
   assert.match(await run('reset_appearance'), /已恢复默认外观/)
   assert.equal(commits, count + 1)
-  assert.equal(workspace.theme.active, 'default')
+  assert.equal(workspace.theme.active, 'ios')
   assert.equal(workspace.theme.mode, 'dark')
   assert.equal(workspace.dock, undefined)
   assert.deepEqual(plain(workspace.pages[0].layers), plain(model.DEFAULT_HOME_LAYERS))
@@ -248,7 +248,7 @@ await test('reset_appearance 严格拒绝非法范围和模式，全局支持显
   assert.equal(commits, count)
   await run('reset_appearance', {scope: 'all', mode: 'light'})
   assert.equal(workspace.theme.mode, 'light')
-  assert.equal(workspace.theme.active, 'default')
+  assert.equal(workspace.theme.active, 'ios')
 })
 await test('apply_theme default 仅切配色，仍保留背景、组件外观和 Dock', async () => {
   await decoratedWorkspace()
@@ -258,16 +258,17 @@ await test('apply_theme default 仅切配色，仍保留背景、组件外观和
   assert.deepEqual(plain(workspace.pages), before.pages)
   assert.deepEqual(plain(workspace.dock), before.dock)
 })
-await test('iOS 主题把默认纸质卡片显示成玻璃，不改存储，通栏仍保留', async () => {
+await test('默认玻璃Dock可直接渲染，iOS和掌机的既有显示规则及通栏仍保留', async () => {
   const dock = loadCore('dock')
   const plainDock = (value) => JSON.parse(JSON.stringify(value ?? null))
   assert.equal(dock.visibleDock(undefined, false), undefined)
-  assert.deepEqual(plainDock(dock.visibleDock(undefined, true)), {preset: 'glass'})
+  assert.equal(dock.visibleDock(undefined, true), undefined)
+  assert.equal(dock.DEFAULT_DOCK_PRESET, 'glass')
   assert.deepEqual(plainDock(dock.visibleDock({preset: 'solid'}, true)), {preset: 'glass'})
   assert.deepEqual(plainDock(dock.visibleDock({preset: 'bar'}, true)), {preset: 'bar'})
   assert.deepEqual(plainDock(dock.visibleDock({preset: 'glass', css: '.dock{color:red}'}, true)), {preset: 'glass', css: '.dock{color:red}'})
   assert.deepEqual(plainDock(dock.visibleDock({preset: 'solid', css: '.dock{color:red}'}, true)), {preset: 'glass', css: '.dock{color:red}'})
-  assert.equal(dock.visibleDock(undefined, false, true), undefined)
+  assert.deepEqual(plainDock(dock.visibleDock(undefined, false, true)), {preset: 'solid'})
   assert.deepEqual(plainDock(dock.visibleDock({preset: 'glass'}, false, true)), {preset: 'solid'})
   assert.deepEqual(plainDock(dock.visibleDock({preset: 'glass', css: '.dock{color:red}'}, false, true)), {preset: 'solid', css: '.dock{color:red}'})
   assert.deepEqual(plainDock(dock.visibleDock({preset: 'bar'}, false, true)), {preset: 'bar'})

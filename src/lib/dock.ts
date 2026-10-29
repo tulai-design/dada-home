@@ -1,8 +1,8 @@
 /**
  * Dock（桌面左侧的侧栏 / 手机底部的标签栏）的样式。
  *
- * 默认是「纸质卡片」：悬浮的实色卡片，细边线，没有玻璃。
- * 玻璃胶囊和通栏仍是可选预设。
+ * 默认是「拟态液体玻璃」：悬浮的玻璃胶囊与液态选中效果。
+ * 纸质卡片和通栏仍是可选预设。
  * 想换成别的：内置几种预设，或者让 AI 完整地写一份新的 CSS（custom css），
  * 它能改位置、形状、材质、动画，什么都行。
  *
@@ -11,8 +11,8 @@
  */
 
 export const DOCK_PRESETS = [
-  {id: 'glass', name: '拟态液体玻璃', description: '悬浮的玻璃胶囊，当前页下有一块会流动的液态玻璃。'},
-  {id: 'solid', name: '纸质卡片', description: '悬浮的实色卡片，细边线，没有玻璃效果。默认。'},
+  {id: 'glass', name: '拟态液体玻璃', description: '悬浮的玻璃胶囊，当前页下有一块会流动的液态玻璃。默认。'},
+  {id: 'solid', name: '纸质卡片', description: '悬浮的实色卡片，细边线，没有玻璃效果。'},
   {id: 'bar', name: '通栏', description: '贴边的整条栏：电脑上是通高的侧栏，手机上是通宽的底栏。'},
 ] as const
 
@@ -24,10 +24,10 @@ export type DockStyle = {
   css?: string
 }
 
-export const DEFAULT_DOCK_PRESET: DockPreset = 'solid'
+export const DEFAULT_DOCK_PRESET: DockPreset = 'glass'
 
 /**
- * 纸张主题用存下来的样式（默认纸质卡片）。
+ * 纸张主题用存下来的样式（默认玻璃）。
  * iOS 主题里，没改成通栏、也没单独选过玻璃时，侧栏显示玻璃。
  * 掌机主题里，存过的玻璃暂时显示成实色像素条。
  * 不写回存储，离开该主题后仍是原来的选择。

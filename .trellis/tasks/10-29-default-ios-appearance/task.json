@@ -1,0 +1,31 @@
+{
+  "id": "default-ios-appearance",
+  "name": "default-ios-appearance",
+  "title": "默认采用 iOS 与玻璃 Dock",
+  "description": "首次初始化与默认外观还原采用 iOS 主题和玻璃 Dock，保留纸张主题及已保存外观选择，对齐运行时说明与文档。",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "ROYIANS",
+  "assignee": "ROYIANS",
+  "createdAt": "2026-10-29",
+  "completedAt": null,
+  "branch": "main",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "src/lib/workspace.ts",
+    "src/lib/dock.ts",
+    "src/lib/appearance.ts",
+    "docs/design-system.md"
+  ],
+  "notes": "初始与还原默认统一iOS/glass；明确保存的选择不自动迁移。类型检查、完整测试与隔离浏览器检查通过。",
+  "meta": {}
+}

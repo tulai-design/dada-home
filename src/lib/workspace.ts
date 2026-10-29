@@ -273,7 +273,7 @@ export const MAX_STATUS_ITEMS = 5
 /** 页面数量上限。侧栏放不下的会自动收进「全部页面」。 */
 export const MAX_PAGES = 30
 
-/** 默认主题的 id。它永远存在，不能改、不能删，是「回到最初」的锚点。 */
+/** 纸张基底主题的 id。它永远存在、不能改或删除；产品默认外观另由 DEFAULT_APPEARANCE_THEME 指定。 */
 export const DEFAULT_THEME_ID = 'default'
 
 /** 主题库最多存多少个。 */
@@ -328,7 +328,7 @@ export type TemplateSnapshot = {
   applications?: GeneratedApplication[]
   /** 带上配色。不填表示套用模板时保持当前主题不变。 */
   theme?: ThemeEntry
-  /** Dock 样式。不填就是默认的纸质卡片。 */
+  /** Dock 样式。不填就是默认的玻璃 Dock。 */
   dock?: DockStyle
 }
 
@@ -358,7 +358,7 @@ export type Workspace = {
   network: NetworkGrant[]
   /** 状态条：顶栏右侧的实时小组件，默认只有一个时钟 */
   statusbar: StatusItem[]
-  /** Dock（侧栏 / 手机底栏）的样式；不填就是默认的纸质卡片 */
+  /** Dock（侧栏 / 手机底栏）的样式；不填就是默认的玻璃 Dock */
   dock?: DockStyle
   /** 已安装的市场组件（见 market.ts）。没装的组件不出现在页面、侧栏和 AI 的可用清单里。 */
   addons: string[]
@@ -409,7 +409,7 @@ export function instanceId(type: string): string {
 export const DEFAULT_THEME: ThemeEntry = {
   id: DEFAULT_THEME_ID,
   name: '纸张',
-  description: '米白纸张、墨色文字、红色点缀，搭搭的默认气质。',
+  description: '米白纸张、墨色文字、红色点缀，编辑部风格的纸面界面。',
   overrides: {},
   builtin: true,
 }
@@ -436,6 +436,9 @@ export const IOS_THEME: ThemeEntry = {
   mode: 'light',
   builtin: true,
 }
+
+/** 产品初始与还原外观共用的主题；纸张基底保留为可选预设。 */
+export const DEFAULT_APPEARANCE_THEME = IOS_THEME
 
 /** 掌机预设。灰绿四色，读入时始终用这份。 */
 export const PIXEL_THEME_ID = 'pixel'
@@ -528,5 +531,5 @@ export const WIN98_THEME: ThemeEntry = {
 
 /** 当前启用的主题；id 失效时回落到默认主题。 */
 export function activeTheme(workspace: Pick<Workspace, 'themes' | 'theme'>): ThemeEntry {
-  return workspace.themes.find((item) => item.id === workspace.theme.active) ?? workspace.themes.find((item) => item.id === DEFAULT_THEME_ID) ?? DEFAULT_THEME
+  return workspace.themes.find((item) => item.id === workspace.theme.active) ?? workspace.themes.find((item) => item.id === DEFAULT_APPEARANCE_THEME.id) ?? DEFAULT_APPEARANCE_THEME
 }

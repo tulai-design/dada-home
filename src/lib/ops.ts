@@ -8,7 +8,7 @@ import {
   DEFAULT_LAYOUT,
   DEFAULT_HOME_LAYERS,
   DEFAULT_THEME,
-  DEFAULT_THEME_ID,
+  DEFAULT_APPEARANCE_THEME,
   IOS_THEME,
   PIXEL_THEME,
   SWITCH_THEME,
@@ -191,7 +191,7 @@ export function setStatusbar(workspace: Workspace, raw: unknown): Workspace {
  * 设置 Dock 的样式：选预设，和 / 或 换上一份完整的自定义 CSS。
  *   - preset 不填：沿用现在的预设
  *   - css 不填：沿用现在的自定义样式；传空字符串：清掉，回到预设本身的样子
- *   - reset：整个回到默认的纸质卡片
+ *   - reset：整个回到默认的玻璃 Dock
  */
 export function setDock(workspace: Workspace, patch: {preset?: string; css?: string; reset?: boolean}): Workspace {
   const {dock: _old, ...rest} = workspace
@@ -497,7 +497,7 @@ export function defaultWorkspace(): Workspace {
   }
   return {
     version: WORKSPACE_VERSION,
-    theme: {active: DEFAULT_THEME_ID, mode: 'light', base: 'light'},
+    theme: {active: DEFAULT_APPEARANCE_THEME.id, mode: 'light', base: 'light'},
     themes: [DEFAULT_THEME, IOS_THEME, PIXEL_THEME, SWITCH_THEME, WIN98_THEME],
     layout: {...DEFAULT_LAYOUT},
     widgets: [],
@@ -514,7 +514,7 @@ export function defaultWorkspace(): Workspace {
         name: '首页',
         label: '首页',
         icon: 'home',
-        // 默认不铺照片：纸张底色是这套界面的核心。想要壁纸，对搭搭说一声即可。
+        // 默认不铺照片，沿用当前主题底色。想要壁纸，对搭搭说一声即可。
         align: 'center',
         // 一层很淡的波纹线做装饰，不抢时钟和搜索框；在设置 › 外观里可换可关
         layers: DEFAULT_HOME_LAYERS.map((layer) => ({...layer, params: {...layer.params}})),

@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "主题与外观默认契约"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "初始读取持久化与还原"}

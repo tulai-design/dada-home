@@ -17,7 +17,7 @@ type View = 'page' | 'settings' | 'monitor' | 'market' | 'application'
 
 /**
  * Dock：电脑上是左侧悬浮的一列，手机上是底部悬浮的一排。只有图标，名字在提示里。
- * 默认是「纸质卡片」；玻璃和通栏是可选预设。样式见 dock.css，
+ * 默认是「拟态液体玻璃」；纸质卡片和通栏是可选预设。样式见 dock.css，
  * 也可以换预设，或者让搭搭写一份全新的 CSS（lib/dock.ts）。
  *
  *   ┌ 首页                     固定：始终第一个，不可改
@@ -54,7 +54,7 @@ export function Rail({
   page: string
   /** 画布当前显示的是页面还是系统页 */
   view?: View
-  /** Dock 样式；不传就是默认的纸质卡片 */
+  /** Dock 样式；不传就是默认的玻璃 Dock */
   dock?: DockStyle
   onPage: (id: string) => void
   /** 打开所有页面和固定应用的切换器 */

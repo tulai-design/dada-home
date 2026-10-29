@@ -185,7 +185,7 @@ export const HOME_TOOLS = [
           .join('\n')
         const status = workspace.statusbar.map((item) => `${item.type} ${JSON.stringify(item.config)}`).join('；') || '（空）'
         const addons = workspace.addons.map((id) => ADDONS.find((a) => a.id === id)?.name ?? id).join('、') || '（无）'
-        return `${pages}\n\n特效页面上限：${JSON.stringify({desktop: FX_BUDGET_LIMITS, compact: FX_COMPACT_LIMITS, compactWidth: FX_COMPACT_WIDTH})}；图层与特效块共同计量，小于窄容器阈值的 WebGL/Spline 静态显示。旧页允许各维度不增加超限的编辑；只覆盖注册特效，不计自编应用内部动画。\n已安装的市场组件：${addons}\n状态条：${status}\nDock：${workspace.dock ? `${workspace.dock.preset}${workspace.dock.css ? ' + 自定义 CSS' : ''}` : '默认（纸质卡片）'}，用 get_dock / set_dock\n主题：${activeTheme(workspace).name}（${activeTheme(workspace).id}）｜明暗 ${workspace.theme.mode}｜主题库 ${workspace.themes.length} 个，用 list_themes 查看\n模板库：我的 ${workspace.templates.length} 个 + 内置预设，用 list_templates 查看\nAI 应用：${listApplications(workspace).length} 个，用 list_applications 查看源码、分组、入口与设置；默认从组件市场打开。\n完整外观（默认样式、背景、组件外观及差异）用 get_appearance 查看；恢复默认外观用 reset_appearance，不要用布局或模板操作替代。`
+        return `${pages}\n\n特效页面上限：${JSON.stringify({desktop: FX_BUDGET_LIMITS, compact: FX_COMPACT_LIMITS, compactWidth: FX_COMPACT_WIDTH})}；图层与特效块共同计量，小于窄容器阈值的 WebGL/Spline 静态显示。旧页允许各维度不增加超限的编辑；只覆盖注册特效，不计自编应用内部动画。\n已安装的市场组件：${addons}\n状态条：${status}\nDock：${workspace.dock ? `${workspace.dock.preset}${workspace.dock.css ? ' + 自定义 CSS' : ''}` : '默认（玻璃）'}，用 get_dock / set_dock\n主题：${activeTheme(workspace).name}（${activeTheme(workspace).id}）｜明暗 ${workspace.theme.mode}｜主题库 ${workspace.themes.length} 个，用 list_themes 查看\n模板库：我的 ${workspace.templates.length} 个 + 内置预设，用 list_templates 查看\nAI 应用：${listApplications(workspace).length} 个，用 list_applications 查看源码、分组、入口与设置；默认从组件市场打开。\n完整外观（默认样式、背景、组件外观及差异）用 get_appearance 查看；恢复默认外观用 reset_appearance，不要用布局或模板操作替代。`
       },
     },
   ),
@@ -506,7 +506,7 @@ export const HOME_TOOLS = [
       name: 'set_theme',
       title: '调整主题',
       description:
-        '微调当前主题：mode 切当前明暗；overrides 放共享尺寸、外框或主色；light 和 dark 分别补丁合并两种模式配色，只写要改的。不要用一组固定 bg/text 代替两套适配；如只调深色，传 dark 即可，不影响浅色。修改后用 list_themes 核对两套分支，缺少的配色继承系统基础色。可改的变量（键不带 `--`）：main 主色；bg/bg2/bg3 背景层级；text/text2/text3/text4 文字层级；border、rule 线条；radius、radius-lg 圆角（默认 0，方角）；gutter 页面左右留白；frame 外框粗细（默认 7px，设 0px 就去掉外框，同时去掉外框占的边距）；frame-gap 外框占的边距（只想去掉红框但保留边距时，frame 设 0px 并把 frame-gap 设为 7px）；frame-color 外框颜色（默认跟随 main）；side-width 侧栏宽度。字体：用 fonts 从 Google Fonts 引入，例如 [{"family":"Playfair Display","role":"serif"},{"family":"Noto Sans SC","role":"sans"}]。role 决定它接管哪一类：serif=标题、大数字和正文（默认的衬线），sans=界面控件和小字，mono=数字、标签和顶栏的等宽字。不写 role 只加载不接管（再自己用 font-serif 等变量引用）。family 必须是 Google Fonts 上真实存在的名字，中文内容记得选支持中文的（Noto Serif SC、Noto Sans SC、ZCOOL XiaoWei、LXGW WenKai 等）。最多 4 个，一次传整个数组。当前是默认主题时会自动另存为「自定义 N」再改，默认主题不会被改坏。要整套新风格并起名保存，用 save_theme。',
+        '微调当前主题：mode 切当前明暗；overrides 放共享尺寸、外框或主色；light 和 dark 分别补丁合并两种模式配色，只写要改的。不要用一组固定 bg/text 代替两套适配；如只调深色，传 dark 即可，不影响浅色。修改后用 list_themes 核对两套分支，缺少的配色继承系统基础色。可改的变量（键不带 `--`）：main 主色；bg/bg2/bg3 背景层级；text/text2/text3/text4 文字层级；border、rule 线条；radius、radius-lg 圆角（纸张基底为 0，iOS 为 12px / 16px）；gutter 页面左右留白；frame 外框粗细（纸张基底为 7px，iOS 为 0px，设 0px 就去掉外框，同时去掉外框占的边距）；frame-gap 外框占的边距（只想去掉红框但保留边距时，frame 设 0px 并把 frame-gap 设为 7px）；frame-color 外框颜色（默认跟随 main）；side-width 侧栏宽度。字体：用 fonts 从 Google Fonts 引入，例如 [{"family":"Playfair Display","role":"serif"},{"family":"Noto Sans SC","role":"sans"}]。role 决定它接管哪一类：serif=标题、大数字和正文（按当前主题字体），sans=界面控件和小字，mono=数字、标签和顶栏的等宽字。不写 role 只加载不接管（再自己用 font-serif 等变量引用）。family 必须是 Google Fonts 上真实存在的名字，中文内容记得选支持中文的（Noto Serif SC、Noto Sans SC、ZCOOL XiaoWei、LXGW WenKai 等）。最多 4 个，一次传整个数组。当前是内置主题时会自动另存为「自定义 N」再改，默认主题不会被改坏。要整套新风格并起名保存，用 save_theme。',
       effect: 'write',
       highRisk: () => false,
       execute: (args) =>
@@ -563,7 +563,7 @@ export const HOME_TOOLS = [
       name: 'save_theme',
       title: '保存主题',
       description:
-        '把主题存进主题库并（默认）启用。用户让你「做一个xx风格的主题」时：先 list_themes，再起名字、写说明，并分别给 light 和 dark 两套配色；共享主色、尺寸、外框放 overrides，字体放 fonts。mode 只表示应用时的初始偏好，不能替代另一套配色。例：overrides:{main:"#397c95",radius:"8px"},light:{bg:"#f4fafb",text:"#172f38"},dark:{bg:"#10232b",text:"#e5f3f7"}。完整风格应配齐两边背景、文字层级和边线并检查可读性，不把固定 bg/text 写进一组共享覆盖。仅添加字体或外框可以不传配色；更新时允许只替换一套分支，其他分支保持。存完用 list_themes 核对两套覆盖和当前模式。可改的变量（键不带 `--`）：main 主色；bg/bg2/bg3 背景层级；text/text2/text3/text4 文字层级；border、rule 线条；radius、radius-lg 圆角（默认 0，方角）；gutter 页面左右留白；frame 外框粗细（默认 7px，0px 去掉外框与边距）；frame-gap 外框占的边距；frame-color 外框颜色（默认跟随 main）；side-width 侧栏宽度。字体用 fonts，例如 [{"family":"Playfair Display","role":"serif"},{"family":"Noto Sans SC","role":"sans"}]，role 为 serif（标题、大数字和正文）、sans（界面控件和小字）、mono（数字标签和顶栏）；不写 role 只加载。family 必须是 Google Fonts 上真实存在的名字，中文优先选支持中文的字体，最多 4 个，一次传整个数组。同名或同 id 的会被更新；默认主题不能改。',
+        '把主题存进主题库并（默认）启用。用户让你「做一个xx风格的主题」时：先 list_themes，再起名字、写说明，并分别给 light 和 dark 两套配色；共享主色、尺寸、外框放 overrides，字体放 fonts。mode 只表示应用时的初始偏好，不能替代另一套配色。例：overrides:{main:"#397c95",radius:"8px"},light:{bg:"#f4fafb",text:"#172f38"},dark:{bg:"#10232b",text:"#e5f3f7"}。完整风格应配齐两边背景、文字层级和边线并检查可读性，不把固定 bg/text 写进一组共享覆盖。仅添加字体或外框可以不传配色；更新时允许只替换一套分支，其他分支保持。存完用 list_themes 核对两套覆盖和当前模式。可改的变量（键不带 `--`）：main 主色；bg/bg2/bg3 背景层级；text/text2/text3/text4 文字层级；border、rule 线条；radius、radius-lg 圆角（纸张基底为 0，iOS 为 12px / 16px）；gutter 页面左右留白；frame 外框粗细（纸张基底为 7px，iOS 为 0px，0px 去掉外框与边距）；frame-gap 外框占的边距；frame-color 外框颜色（默认跟随 main）；side-width 侧栏宽度。字体用 fonts，例如 [{"family":"Playfair Display","role":"serif"},{"family":"Noto Sans SC","role":"sans"}]，role 为 serif（标题、大数字和正文）、sans（界面控件和小字）、mono（数字标签和顶栏）；不写 role 只加载。family 必须是 Google Fonts 上真实存在的名字，中文优先选支持中文的字体，最多 4 个，一次传整个数组。同名或同 id 的会被更新；默认主题不能改。',
       effect: 'write',
       highRisk: () => false,
       execute: (args) =>
@@ -614,7 +614,7 @@ export const HOME_TOOLS = [
     {
       name: 'reset_appearance',
       title: '恢复默认外观',
-      description: '用户说「还原默认主题」「恢复默认外观」用 scope:"all"：恢复默认纸张主题、字体、7px 外框与纸质卡片 Dock，清除所有页壁纸、特效图层、页面 CSS 和组件外观覆盖，首页恢复系统默认波浪背景。scope:"home" 仅还原首页装饰和组件外观，不改全局主题、字体、Dock 或明暗。保留页面和组件内容、顺序、宽度、配置、对齐以及业务数据，主题库和模板库也保留；独立特效组件和自编应用作为内容保留，其视觉需另查配置或源码。不要用恢复布局、套用模板或删除组件代替。操作一次提交可撤销；完成后用 get_appearance 核对差异。',
+      description: '用户说「还原默认主题」「恢复默认外观」用 scope:"all"：恢复默认 iOS 主题、字体、无外框与玻璃 Dock，清除所有页壁纸、特效图层、页面 CSS 和组件外观覆盖，首页恢复系统默认波浪背景。scope:"home" 仅还原首页装饰和组件外观，不改全局主题、字体、Dock 或明暗。保留页面和组件内容、顺序、宽度、配置、对齐以及业务数据，主题库和模板库也保留；独立特效组件和自编应用作为内容保留，其视觉需另查配置或源码。不要用恢复布局、套用模板或删除组件代替。操作一次提交可撤销；完成后用 get_appearance 核对差异。',
       effect: 'write',
       highRisk: () => false,
       execute: (args) =>
@@ -1451,14 +1451,14 @@ export const HOME_TOOLS = [
         properties: {
           preset: {type: 'string', enum: DOCK_PRESETS.map((item) => item.id), description: DOCK_PRESETS.map((item) => `${item.id}＝${item.name}`).join('，')},
           css: {type: 'string', description: '整套自定义 CSS，会叠在预设之上；传空字符串清掉自定义样式。要改就把完整的一份传回来（整体替换，不是追加）。'},
-          reset: {type: 'boolean', description: '回到默认的纸质卡片，并清掉自定义 CSS'},
+          reset: {type: 'boolean', description: '回到默认的玻璃 Dock，并清掉自定义 CSS'},
         },
       },
     },
     {
       name: 'set_dock',
       title: '设置 Dock 样式',
-      description: `设置 Dock（电脑的侧栏、手机的底部栏）的外观。默认是「纸质卡片」；可以选内置预设，也可以自己写一整份 CSS 做成全新的样子。改完用户马上能看到，不满意可以撤销。\n\n${DOCK_GUIDE}`,
+      description: `设置 Dock（电脑的侧栏、手机的底部栏）的外观。默认是「拟态液体玻璃」；可以选内置预设，也可以自己写一整份 CSS 做成全新的样子。改完用户马上能看到，不满意可以撤销。\n\n${DOCK_GUIDE}`,
       effect: 'write',
       highRisk: () => false,
       execute: (args) =>
@@ -1466,7 +1466,7 @@ export const HOME_TOOLS = [
           if (!args.reset && args.preset === undefined && args.css === undefined) throw new WorkspaceError('至少给 preset、css、reset 之一')
           commit(ops.setDock(getWorkspace(), args))
           const dock = getWorkspace().dock
-          return dock ? `Dock 已更新：预设 ${dock.preset}${dock.css ? `，带 ${dock.css.length} 字的自定义 CSS` : ''}。` : 'Dock 已回到默认的纸质卡片。'
+          return dock ? `Dock 已更新：预设 ${dock.preset}${dock.css ? `，带 ${dock.css.length} 字的自定义 CSS` : ''}。` : 'Dock 已回到默认的玻璃 Dock。'
         }),
     },
   ),
