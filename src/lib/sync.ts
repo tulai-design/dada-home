@@ -4,24 +4,36 @@ import {commitStorage, saveBarrier} from './storageCommit'
 import {createRemote, getProviderRetryAt, syncResourceIdentity} from './syncProviders'
 import {changes, collect, project, validateAssociations, validateRecord} from './syncData'
 import {canonical, compare, decode, digest, encode, object, recordHash, type Snapshot, type SyncRecord} from './syncProtocol'
+import {parseSyncKey} from './syncKey'
+import type {SyncConflictVersion, SyncRef} from './incrementalRows'
 import type {SyncConfig, SyncScope} from './syncTypes'
 export type {Backend, SyncConfig, SyncScope} from './syncTypes'
+
+export const SYNC_OPEN_FLAG = 'dada-open-sync'
 
 const CONFIG_KEY = 'fp.sync.config'
 const META_KEY = 'fp.sync.meta.v2'
 export const scopeForBackend = (backend: SyncConfig['backend']): SyncScope => backend === 'gist' ? 'configuration' : 'full'
-export const defaultSyncConfig = (): SyncConfig => ({backend: 'webdav', webdav: {url: '', user: '', pass: '', proxy: ''}, gist: {token: '', id: ''}, http: {url: '', token: '', proxy: ''}, secrets: false, passphrase: '', auto: true, device: crypto.randomUUID()})
+export const defaultSyncConfig = (): SyncConfig => ({backend: 'webdav', webdav: {url: '', user: '', pass: '', proxy: ''}, gist: {token: '', id: ''}, http: {url: '', token: '', proxy: ''}, sync: {key: ''}, secrets: false, passphrase: '', auto: true, device: crypto.randomUUID()})
 function validConfig(value: unknown): value is SyncConfig {
-  if (!object(value) || typeof value.backend !== 'string' || !['webdav', 'http', 'gist'].includes(value.backend) || typeof value.secrets !== 'boolean' || typeof value.auto !== 'boolean' || typeof value.passphrase !== 'string' || typeof value.device !== 'string' || !value.device || value.device.length > 200) return false
-  return [['webdav', ['url', 'user', 'pass', 'proxy']], ['gist', ['token', 'id']], ['http', ['url', 'token', 'proxy']]].every(([name, fields]) => {
-    const section = value[name as string]
-    return object(section) && (fields as string[]).every(key => typeof section[key] === 'string')
+  if (!object(value) || typeof value.backend !== 'string' || !['webdav', 'http', 'gist', 'sync'].includes(value.backend) || typeof value.secrets !== 'boolean' || typeof value.auto !== 'boolean' || typeof value.passphrase !== 'string' || typeof value.device !== 'string' || !value.device || value.device.length > 200) return false
+  const sections: [string, string[]][] = [['webdav', ['url', 'user', 'pass', 'proxy']], ['gist', ['token', 'id']], ['http', ['url', 'token', 'proxy']], ['sync', ['key']]]
+  return sections.every(([name, fields]) => {
+    const section = value[name]
+    return object(section) && fields.every(key => typeof section[key] === 'string')
   })
+}
+/** 旧配置没有同步密钥字段时补空串，避免一打开设置就把原来的 WebDAV 或 Gist 连接清掉。 */
+function storedConfig(value: unknown): unknown {
+  if (!object(value)) return value
+  const sync = object(value.sync) && typeof value.sync.key === 'string' ? value.sync : {key: ''}
+  return {...value, sync}
 }
 export function readSyncConfig(): SyncConfig {
   try {
     const saved: unknown = JSON.parse(localStorage.getItem(CONFIG_KEY) ?? 'null')
-    if (validConfig(saved)) return saved
+    const config = storedConfig(saved)
+    if (validConfig(config)) return config
   } catch { /* 设置页仍可修正损坏的本机连接配置。 */ }
   return defaultSyncConfig()
 }
@@ -32,17 +44,38 @@ export function writeSyncConfig(config: SyncConfig): void {
   setStatus({phase: 'idle', needsReload: status.needsReload})
 }
 export function syncConfigured(config = readSyncConfig()): boolean {
-  if (!validConfig(config)) return false
+  if (!validConfig(storedConfig(config))) return false
   if (config.backend === 'webdav') return Boolean(config.webdav.url.trim())
   if (config.backend === 'gist') return Boolean(config.gist.token.trim())
+  if (config.backend === 'sync') {try {parseSyncKey(config.sync.key); return true} catch {return false}}
   return Boolean(config.http.url.trim())
 }
 export function syncConfigProblem(config: SyncConfig): string {
-  if (!validConfig(config)) return '同步连接配置的格式无效。'
-  if (!syncConfigured(config)) return '先把连接信息填完整。'
-  if (config.secrets && !config.passphrase) return '同步密钥必须设置加密口令。'
-  if (!config.device || config.device.length > 200) return '设备标识无效。'
+  const stored = storedConfig(config)
+  if (!validConfig(stored)) return '同步连接配置的格式无效。'
+  if (stored.backend === 'sync') {
+    if (!stored.sync.key.trim()) return '先粘贴同步密钥。'
+    try {parseSyncKey(stored.sync.key)} catch (error) {return error instanceof Error ? error.message : '同步密钥无效。'}
+    return ''
+  }
+  if (!syncConfigured(stored)) return '先把连接信息填完整。'
+  if (stored.secrets && !stored.passphrase) return '同步密钥必须设置加密口令。'
+  if (!stored.device || stored.device.length > 200) return '设备标识无效。'
   return ''
+}
+
+/** 管理页用 `#sync=` 打开本站时，把密钥写入同步设置并清掉地址里的密钥。 */
+export function consumeSyncKeyFromLocation(): void {
+  if (typeof location === 'undefined') return
+  const params = new URLSearchParams(location.hash.startsWith('#') ? location.hash.slice(1) : '')
+  const key = params.get('sync')
+  if (!key) return
+  try {parseSyncKey(key)} catch {return}
+  try {writeSyncConfig({...readSyncConfig(), backend: 'sync', sync: {key: key.trim()}})} catch {return}
+  params.delete('sync')
+  const next = params.toString()
+  history.replaceState(null, '', `${location.pathname}${location.search}${next ? `#${next}` : ''}`)
+  sessionStorage.setItem(SYNC_OPEN_FLAG, '1')
 }
 export type SyncStatus = {phase: 'idle' | 'syncing' | 'ok' | 'error'; at?: number; message?: string; scope?: SyncScope; protection?: 'conditional' | 'unprotected'; downloadedBytes?: number; uploadedBytes?: number; retryAt?: number; needsReload?: boolean}
 let status: SyncStatus = {phase: 'idle'}
@@ -75,6 +108,7 @@ function assertConfig(original: string): void {if ((localStorage.getItem(CONFIG_
 /** 只读检查；Gist 尚未创建时没有网络调用，也不声称已验证令牌。 */
 export async function testConnection(config: SyncConfig, options: SyncOptions = {}): Promise<string> {
   const problem = syncConfigProblem(config); if (problem) throw new Error(problem)
+  if (config.backend === 'sync') return (await import('./syncService')).testServiceConnection(config.sync.key)
   if (config.backend === 'gist' && !config.gist.id.trim()) return '尚未创建 Gist，首次同步时创建；此检查没有验证令牌。'
   const {text} = await createRemote(config).read()
   if (text === null) return '连接成功，云端还没有数据。'
@@ -114,6 +148,7 @@ async function doSync(mode: SyncMode, options: SyncOptions): Promise<SyncResult>
   let protection: 'conditional' | 'unprotected' | undefined
   try {
     assertPersistenceWritable()
+    if (config.backend === 'sync') return await runServiceMode(mode, config.sync.key)
     await saveBarrier()
     const local = await collect(scope, config.secrets), key = await digest(binding(config)), previous = readMeta(key)
     const assertUnchanged = async () => {
@@ -208,8 +243,7 @@ export function startAutoSync(): void {
   const run = async () => {
     const config = readSyncConfig()
     if (!config.auto || !syncConfigured(config) || syncConfigProblem(config) || !navigator.onLine) return
-    // 已启用自建增量同步时，快照同步不再自动上传，避免两套协议并行写远端。
-    if ((await import('./incrementalClient')).incrementalConfigured()) return
+    if (config.backend !== 'sync' && (await import('./incrementalClient')).incrementalConfigured()) return
     await runSync('push')
   }
   const tick = () => void run().catch(() => undefined)
@@ -218,3 +252,20 @@ export function startAutoSync(): void {
   window.addEventListener('online', tick)
 }
 export const syncNow = (options: SyncOptions = {}): Promise<SyncResult> => runSync('full', options)
+
+async function runServiceMode(mode: SyncMode, key: string): Promise<SyncResult> {
+  const {runServiceSync} = await import('./syncService')
+  const result = await runServiceSync(key, mode)
+  const message = result.hasMore
+    ? `本次同步尚未完成，剩余进度已保存。${result.needsReload ? '请重新加载后继续。' : '请再次同步以继续。'}`
+    : result.conflicts ? `有 ${result.conflicts} 处需要选择保留哪一版。` : result.pulled || result.pushed ? `拉取 ${result.pulled} 条，上传 ${result.pushed} 条` : '已是最新'
+  setStatus({phase: result.hasMore ? 'error' : 'ok', at: Date.now(), scope: 'full', message, needsReload: result.needsReload})
+  return {pulled: result.pulled, pushed: result.pushed, scope: 'full', needsReload: result.needsReload}
+}
+
+/** 同一服务的两端改了同一条时，在同步页里选择保留哪一版。 */
+export async function resolveServiceConflict(ref: SyncRef, version: SyncConflictVersion, choice: 'local' | 'remote'): Promise<void> {
+  const {resolveService} = await import('./syncService')
+  const needsReload = await resolveService(readSyncConfig().sync.key, ref, version, choice)
+  if (needsReload) setStatus({...status, needsReload: true, message: choice === 'remote' ? '已采用另一端的版本，重新加载后生效。' : '已保留本机版本。'})
+}

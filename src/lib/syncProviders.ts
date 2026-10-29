@@ -25,6 +25,7 @@ function limitError(limit: number): never {throw new SyncProviderError(`同步�
 
 function connectionKey(config: SyncConfig): string {
   if (config.backend === 'gist') return `gist:${config.gist.id.trim()}`
+  if (config.backend === 'sync') return `sync:${config.sync.key.length}:${config.sync.key.slice(-8)}`
   const value = config.backend === 'webdav' ? config.webdav : config.http
   return `${config.backend}:${value.url.trim()}:${value.proxy.trim()}`
 }
@@ -57,6 +58,7 @@ function connectionUrl(value: string, proxy: string, directory: boolean): string
 /** 业务基线按实际目标绑定，凭据和代理路由不改变同一个远端资源。 */
 export function syncResourceIdentity(config: SyncConfig): {id: string} | {url: string; user?: string} {
   if (config.backend === 'gist') return {id: config.gist.id.trim()}
+  if (config.backend === 'sync') return {url: 'service'}
   const webdav = config.backend === 'webdav'
   const value = webdav ? config.webdav : config.http
   return {url: connectionUrl(value.url, '', webdav), ...(webdav ? {user: config.webdav.user} : {})}
@@ -260,6 +262,7 @@ function gistRemote(config: SyncConfig): SyncRemote {
 
 /** 网络层不解析搭搭业务协议，不访问本机存储，也不保存新建的 Gist ID。 */
 export function createRemote(config: SyncConfig): SyncRemote {
+  if (config.backend === 'sync') throw new SyncProviderError('自建同步服务不使用整包快照。', 'invalid-config')
   if (config.backend === 'gist') return gistRemote(config)
   return httpRemote(config)
 }

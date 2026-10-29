@@ -1,5 +1,5 @@
 /** 快照同步的连接与传输合同；不包含旧协议迁移分支。 */
-export type Backend = 'webdav' | 'gist' | 'http'
+export type Backend = 'webdav' | 'gist' | 'http' | 'sync'
 export type SyncScope = 'configuration' | 'full'
 
 export type SyncConfig = {
@@ -7,6 +7,8 @@ export type SyncConfig = {
   webdav: {url: string; user: string; pass: string; proxy: string}
   gist: {token: string; id: string}
   http: {url: string; token: string; proxy: string}
+  /** 自建同步服务的一把密钥，由管理页生成。 */
+  sync: {key: string}
   secrets: boolean
   passphrase: string
   auto: boolean

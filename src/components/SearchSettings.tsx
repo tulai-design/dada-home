@@ -51,7 +51,7 @@ export function SearchSettings() {
           title={info.name}
           footer={
             <>
-              {info.needsKey ? '请求直接发给服务商；启用自建增量同步后，密钥随配置加密同步。' : '这个服务不需要密钥。'}{' '}
+              {info.needsKey ? '请求直接发给服务商；使用自建同步服务时，密钥会随配置加密同步。' : '这个服务不需要密钥。'}{' '}
               <A href={info.signup} target="_blank" rel="noreferrer noopener">
                 {info.needsKey ? '去申请密钥' : '了解如何自己搭一个'}
               </A>

@@ -133,11 +133,11 @@ Applet 数据展示支持简单柱状图 `Bars` 和趋势折线图 `LineChart`�
 
 WebDAV / HTTP 服务需要支持 GET、PUT、条件请求和相应跨域访问，或使用独立的读写代理。搭搭内置取数代理只支持 GET，不能用于同步；连接测试只读取目标，不写远端。Gist ID 留空时尚未创建目标，连接测试不能验证令牌权限，首次同步才会尝试创建。
 
-### 自建加密增量同步
+### 自建同步服务
 
-「设置 → 增量同步」可连接独立服务，通过邀请配对设备。默认同步全部业务数据：主题与页面背景、应用定义和设置、AI/搜索的 API 密钥与服务地址、订阅、组件和应用数据，以及全部聊天和工具正文。数据在本机加密后上传；这里的空间加密密钥与业务 API 密钥是两件事，不需要再开启快照同步的「同步密钥」开关。
+「设置 → 同步」里选择「自建同步服务」，只粘贴一把同步密钥。密钥在同步服务的管理页生成：用管理员令牌登录后，每个已授权的应用各有一把，同一服务的各端填写同一把。一台服务器可以同时给多个应用使用。数据在上传前加密，不需要再设置快照同步的口令。
 
-各设备保留自己的操作授权、同步身份、缓存和当前运行状态。自动同步只上传，手动同步连续拉取；收到新数据后由用户重新加载以应用主题和内存状态。同记录冲突保留两边，需明确选择。详见[增量同步契约](docs/specs/application-incremental-sync.md)。
+自动同步只上传，手动同步会拉取；收到新数据后重新加载即可继续编辑。两端改了同一条时，在同步页选择保留哪一版。详见[增量同步契约](docs/specs/application-incremental-sync.md)。
 
 ## 部署
 
@@ -160,7 +160,7 @@ docker build -t dada-home .
 docker run -d --name dada-home -p 8080:80 dada-home
 ```
 
-Coolify 部署使用 [docker-compose.coolify.yml](docker-compose.coolify.yml)，其中包含 `web`（搭搭）和 `sync`（自建增量同步服务，不用可删），两个服务各绑定一个域名并自动 HTTPS；`sync` 必填 `TULAI_SYNC_ADMIN_TOKEN` 和 `DADA_ORIGIN`。镜像内由 Nginx 托管静态页面，Node 提供同源取数代理，`/healthz` 同时验证代理进程；任一进程退出都会结束容器，交给部署平台重启。GitHub Actions 已配置类型检查、前端构建、代理回归测试、容器冒烟测试，以及向 GHCR 发布 amd64 / arm64 镜像的工作流。
+Coolify 部署使用 [docker-compose.coolify.yml](docker-compose.coolify.yml)，其中包含 `web`（搭搭）和 `sync`（自建同步服务，不用可删），两个服务各绑定一个域名并自动 HTTPS；`sync` 必填 `TULAI_SYNC_ADMIN_TOKEN` 和 `DADA_ORIGIN`。打开 sync 的域名，用管理令牌登录后为每个服务生成密钥。镜像内由 Nginx 托管静态页面，Node 提供同源取数代理，`/healthz` 同时验证代理进程；任一进程退出都会结束容器，交给部署平台重启。GitHub Actions 已配置类型检查、前端构建、代理回归测试、容器冒烟测试，以及向 GHCR 发布 amd64 / arm64 镜像的工作流。
 
 容器可通过 `UMAMI_WEBSITE_ID`、`UMAMI_SRC`、`UMAMI_DOMAINS` 配置可选的 Umami 访问统计；未设置网站 ID 时不加载统计脚本，用户也可以在设置中关闭统计。
 

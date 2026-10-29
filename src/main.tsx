@@ -7,8 +7,7 @@ import '@lobehub/ui/style.css'
 import App from './App'
 import { initAnalytics } from './lib/analytics'
 import { initStorage } from './lib/storage'
-import { startAutoSync } from './lib/sync'
-import { startIncrementalAuto } from './lib/incrementalClient'
+import { consumeSyncKeyFromLocation, startAutoSync } from './lib/sync'
 import {StorageStartupError} from './components/PersistenceNotice'
 import './styles.css'
 import './theme.css'
@@ -63,8 +62,8 @@ async function start() {
   try {
     await initStorage()
     initAnalytics()
+    consumeSyncKeyFromLocation()
     startAutoSync()
-    startIncrementalAuto()
     root.render(
       <StrictMode>
         <ConfigProvider motion={motion}>

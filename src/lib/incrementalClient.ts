@@ -74,7 +74,7 @@ export const useIncrementalStatus = () => useSyncExternalStore(subscribe, () => 
  * 这里读出已解压的正文，去掉失真的长度头再交给 SDK；正文大小仍由 SDK 按实际读到的字节数限制。
  */
 const NO_BODY = new Set([101, 204, 205, 304])
-const normalizedFetch: typeof fetch = async (input, init) => {
+export const incrementalFetch: typeof fetch = async (input, init) => {
   const res = await fetch(input, init)
   if (NO_BODY.has(res.status) || res.body === null) return res
   const headers = new Headers(res.headers)
@@ -87,11 +87,11 @@ const controllerFor = (config: IncrementalConfig) => {
   if (problem) throw new Error(problem)
   return createIncrementalSyncController({
     endpoint: config.endpoint.trim(), appId: config.appId, spaceId: config.spaceId, deviceId: config.deviceId, token: config.token.trim(),
-    keyring: config.keyring!, collections: config.collections, fetchImpl: normalizedFetch,
+    keyring: config.keyring!, collections: config.collections, fetchImpl: incrementalFetch,
   })
 }
 const clientFor = (config: Pick<IncrementalConfig, 'endpoint' | 'appId' | 'spaceId' | 'token'>) =>
-  createSyncClient({baseUrl: config.endpoint.trim(), appId: config.appId, spaceId: config.spaceId, token: config.token.trim(), retries: 1, timeoutMs: 15000, fetchImpl: normalizedFetch})
+  createSyncClient({baseUrl: config.endpoint.trim(), appId: config.appId, spaceId: config.spaceId, token: config.token.trim(), retries: 1, timeoutMs: 15000, fetchImpl: incrementalFetch})
 const messageOf = (error: unknown) => error instanceof Error ? error.message : String(error)
 
 /** 只读预检：确认服务可达、令牌有效、协议能力齐全；不上传也不应用任何数据。 */

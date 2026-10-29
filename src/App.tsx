@@ -28,6 +28,7 @@ import { AssistantSplitPane } from './components/AssistantSplitPane'
 import { DEFAULT_ASSISTANT_RATIO, normalizeAssistantMode, type AssistantMode } from './lib/assistantLayout'
 import { CommandPalette } from './components/CommandPalette'
 import { SettingsPage } from './components/SettingsPage'
+import { SYNC_OPEN_FLAG } from './lib/sync'
 import type { AppSettingsContext } from './lib/apps'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { MonitorPage } from './components/Monitor'
@@ -228,6 +229,11 @@ export default function App() {
     }
     setView('settings')
   }, [])
+  useEffect(() => {
+    if (sessionStorage.getItem(SYNC_OPEN_FLAG) !== '1') return
+    sessionStorage.removeItem(SYNC_OPEN_FLAG)
+    openSettings('sync')
+  }, [openSettings])
   const openMonitor = useCallback(() => {
     if (!applicationMinimizedRef.current) setApplicationView(null)
     if (!splitActiveRef.current) setAssistantOpen(false)

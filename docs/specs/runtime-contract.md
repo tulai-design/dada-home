@@ -118,7 +118,7 @@ App 的 `tada.store.set` 在事务提交后才成功，读取和保存失败均 
 - WebDAV / HTTP 初次创建使用 `If-None-Match: *`，更新仅以强 ETag 发送 `If-Match`。Gist 及没有强 ETag 的服务标为无并发保护。冲突有界重试；限流和服务失败给出重试时间，冷却期零网络，不长时间阻塞本机保存。
 - 自动同步仅定期上传；完整拉取由手动同步触发。每次读取完整快照，有变更时完整写回；独立增量服务的应用数据程序接入另见下文。UTF-8 正文预算 Gist 8 MiB、WebDAV / HTTP 64 MiB，不是供应商或浏览器配额。Gist metadata、raw、出站 JSON 包装均校验；显示 Fetch 可见正文字节，不包含 HTTP 头或压缩后的物理流量。连接测试只读；Gist 无 ID 时未验证令牌，首次同步才创建。
 
-依据：[同步协调](../../src/lib/sync.ts)、[协议](../../src/lib/syncProtocol.ts)、[记录投影](../../src/lib/syncData.ts)、[网络提供方](../../src/lib/syncProviders.ts)、[同步设置](../../src/components/SyncSettings.tsx)。独立共用服务和固定 SDK 已交付；[自建加密增量同步](application-incremental-sync.md)已有单独设置入口，覆盖工作空间、业务配置与凭据、组件、应用、聊天。其完整加密策略与上面的快照模式分别定义。
+依据：[同步协调](../../src/lib/sync.ts)、[协议](../../src/lib/syncProtocol.ts)、[记录投影](../../src/lib/syncData.ts)、[网络提供方](../../src/lib/syncProviders.ts)、[同步设置](../../src/components/SyncSettings.tsx)。独立共用服务和固定 SDK 已交付；[自建加密增量同步](application-incremental-sync.md)是同步页里的一种方式，覆盖工作空间、业务配置与凭据、组件、应用、聊天。其完整加密策略与上面的快照模式分别定义。
 
 ## Applet 趋势图
 

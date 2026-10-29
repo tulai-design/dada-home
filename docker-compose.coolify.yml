@@ -37,7 +37,7 @@ services:
       # 管理令牌：32–128 位 [A-Za-z0-9_-]。生成：
       # node --input-type=module -e "import {randomBytes} from 'node:crypto'; console.log(randomBytes(32).toString('base64url'))"
       - TULAI_SYNC_ADMIN_TOKEN=${TULAI_SYNC_ADMIN_TOKEN:?必须设置管理令牌}
-      # 可访问的应用空间，格式 appId:spaceId，多个用逗号分隔；与搭搭设置里的应用标识、空间标识对应。
+      # 可访问的应用空间，格式 appId:spaceId，多个用逗号分隔。管理页把每一项显示成一个服务，各自发一把同步密钥。
       - TULAI_SYNC_SCOPES=${TULAI_SYNC_SCOPES:-dada:personal}
       # 搭搭的访问地址，精确的源（如 https://dada.example.com，不带末尾斜杠）。
       - TULAI_SYNC_ALLOWED_ORIGINS=${DADA_ORIGIN:?必须填写搭搭的访问地址，否则浏览器无法跨源访问同步服务}
