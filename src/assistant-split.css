@@ -131,7 +131,9 @@
     font-weight: 600;
     letter-spacing: 0;
     border-bottom: 0;
-    background: var(--bg);
+    background: color-mix(in srgb, var(--bg) 72%, transparent);
+    -webkit-backdrop-filter: blur(20px) saturate(1.6);
+    backdrop-filter: blur(20px) saturate(1.6);
   }
   :root[data-skin='ios'] .assistant-workspace .settings-page[data-pane='detail'] .ios-detail-head {
     display: grid;

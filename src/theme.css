@@ -2345,8 +2345,22 @@ body {
   letter-spacing: 0;
   text-transform: none;
 }
-:root[data-skin='ios'] .app:has(.settings-page) .canvas > .topbar {
-  background: var(--bg);
+/* 设置页用自己的标题当顶栏，系统顶栏让开。宽屏仍保留搜索和深浅色。 */
+@media (max-width: 760px) {
+  :root[data-skin='ios'] .app:has(.settings-page) .canvas > .topbar {
+    display: none;
+  }
+  :root[data-skin='ios'] .app:has(.settings-page) .canvas {
+    padding-top: 0;
+  }
+  /* 滚动区域铺到屏幕底，卡片从 Dock 玻璃后面经过；末行的空隙留在内容里 */
+  :root[data-skin='ios'] .app:has(.settings-page) .page {
+    padding-bottom: 0;
+  }
+  :root[data-skin='ios'] .settings-page .ios-side,
+  :root[data-skin='ios'] .settings-page .ios-detail-inner {
+    padding-bottom: calc(var(--dock-clear, 96px) + 8px);
+  }
 }
 :root[data-skin='ios'] .lobe-segmented {
   background: var(--bg3) !important;
@@ -2456,9 +2470,12 @@ body {
     padding: 28px 32px 72px 24px;
   }
 }
+:root[data-skin='ios'] .ios-large,
 :root[data-skin='ios'] .settings-page[data-pane='list'] .ios-large,
 :root[data-skin='ios'] .settings-page[data-pane='detail'] .ios-detail-head {
-  background: var(--bg);
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  backdrop-filter: blur(20px) saturate(1.6);
 }
 :root[data-skin='ios'] .ios-large {
   width: 100%;
@@ -2484,6 +2501,12 @@ body {
     font-weight: 600;
     letter-spacing: 0;
     border-bottom: 0;
+  }
+}
+@media (max-width: 760px) {
+  :root[data-skin='ios'] .settings-page[data-pane='list'] .ios-large,
+  :root[data-skin='ios'] .settings-page[data-pane='detail'] .ios-detail-head {
+    padding-top: calc(env(safe-area-inset-top) + 8px);
   }
 }
 :root[data-skin='ios'] .ios-detail-head h2 {
@@ -2513,7 +2536,9 @@ body {
     align-items: center;
     min-height: 56px;
     border-bottom: 0;
-    background: var(--bg);
+    background: color-mix(in srgb, var(--bg) 72%, transparent);
+    -webkit-backdrop-filter: blur(20px) saturate(1.6);
+    backdrop-filter: blur(20px) saturate(1.6);
   }
   :root[data-skin='ios'] .settings-page[data-pane='detail'] .ios-detail-head h2 {
     grid-column: 1 / -1;
