@@ -2322,14 +2322,48 @@ body {
 :root[data-skin='ios'] .lobe-tag {
   border-radius: var(--radius) !important;
 }
+:root[data-skin='ios'] .app::before {
+  display: none;
+}
+/* 首页不要分组灰。灰底只在设置打开时铺满窗口，和顶栏连成一片。 */
+:root[data-skin='ios'],
+:root[data-skin='ios'] body,
+:root[data-skin='ios'] .app {
+  background: var(--bg2) !important;
+}
+:root[data-skin='ios']:has(.settings-page),
+:root[data-skin='ios']:has(.settings-page) body,
+:root[data-skin='ios'] .app:has(.settings-page) {
+  background: var(--bg) !important;
+}
 :root[data-skin='ios'] .canvas > .topbar {
+  background: transparent;
+  backdrop-filter: none;
   border-bottom-color: transparent;
-  background: color-mix(in srgb, var(--bg) 72%, transparent);
-  backdrop-filter: blur(16px);
   font-family: var(--font-sans);
   font-size: 13px;
   letter-spacing: 0;
   text-transform: none;
+}
+:root[data-skin='ios'] .app:has(.settings-page) .canvas > .topbar {
+  background: var(--bg);
+}
+:root[data-skin='ios'] .lobe-segmented {
+  background: var(--bg3) !important;
+  padding: 2px !important;
+  border-radius: 9px !important;
+}
+:root[data-skin='ios'] .lobe-segmented__indicator,
+:root[data-skin='ios'] .lobe-segmented-indicator {
+  background: var(--bg2) !important;
+  border-radius: 7px !important;
+  box-shadow:
+    0 1px 2px color-mix(in srgb, var(--text) 16%, transparent),
+    0 0 0 0.5px color-mix(in srgb, var(--text) 8%, transparent) !important;
+}
+:root[data-skin='ios'] .lobe-segmented__item[aria-pressed='true'] {
+  color: var(--text) !important;
+  font-weight: 600;
 }
 :root[data-skin='ios'] .home-dateline {
   font-family: var(--font-sans) !important;
@@ -2517,16 +2551,19 @@ body {
 :root[data-skin='ios'] .settings-index .settings-nav:nth-child(4) .settings-nav-icon { background: #34c759; }
 :root[data-skin='ios'] .settings-index .settings-nav:nth-child(5) .settings-nav-icon { background: #5856d6; }
 :root[data-skin='ios'] .settings-index .settings-nav:nth-child(6) .settings-nav-icon { background: #ff2d55; }
+:root[data-skin='ios'] .ios-side {
+  border-right: 0;
+}
 :root[data-skin='ios'] .ios-card {
   border: 0;
   border-radius: 12px;
   background: var(--bg2);
-  padding: 0 16px;
+  padding: 0;
 }
 :root[data-skin='ios'] .ios-row {
   min-height: 48px;
   margin-inline: 0;
-  padding: 11px 0;
+  padding: 11px 16px;
   font-size: 16px;
 }
 :root[data-skin='ios'] .ios-row + .ios-row {
@@ -2536,16 +2573,17 @@ body {
   content: '';
   position: absolute;
   top: 0;
-  left: 0;
+  left: 16px;
   right: 0;
   height: 0.5px;
   background: var(--border);
 }
 :root[data-skin='ios'] .ios-row + .ios-row:has(.ios-row-icon)::before {
-  left: 40px;
+  left: 56px;
 }
+:root[data-skin='ios'] .ios-row[data-clickable='true']:hover,
 :root[data-skin='ios'] .settings-index .settings-nav:hover {
-  background: color-mix(in srgb, var(--text) 4%, var(--bg2));
+  background: color-mix(in srgb, var(--text) 8%, var(--bg2));
 }
 :root[data-skin='ios'] .ios-row-chevron,
 :root[data-skin='ios'] .settings-nav-summary,
