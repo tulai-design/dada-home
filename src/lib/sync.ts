@@ -258,7 +258,7 @@ async function runServiceMode(mode: SyncMode, key: string): Promise<SyncResult> 
   const result = await runServiceSync(key, mode)
   const message = result.hasMore
     ? `本次同步尚未完成，剩余进度已保存。${result.needsReload ? '请重新加载后继续。' : '请再次同步以继续。'}`
-    : result.conflicts ? `有 ${result.conflicts} 处需要选择保留哪一版。` : result.pulled || result.pushed ? `拉取 ${result.pulled} 条，上传 ${result.pushed} 条` : '已是最新'
+    : result.conflicts ? `有 ${result.conflicts} 处需要选择保留哪一版。` : result.recovered ? `已换回本机原来的同步密钥。${result.pulled || result.pushed ? `拉取 ${result.pulled} 条，上传 ${result.pushed} 条` : '服务器上的数据可以继续读取。'}` : result.pulled || result.pushed ? `拉取 ${result.pulled} 条，上传 ${result.pushed} 条` : mode === 'push' ? '本机没有新的变更。读取服务器上的数据需要手动同步。' : '已是最新'
   setStatus({phase: result.hasMore ? 'error' : 'ok', at: Date.now(), scope: 'full', message, needsReload: result.needsReload})
   return {pulled: result.pulled, pushed: result.pushed, scope: 'full', needsReload: result.needsReload}
 }

@@ -3,10 +3,10 @@ import {createIncrementalSyncController} from './incrementalSync'
 import {incrementalFetch} from './incrementalClient'
 import {incrementalStore} from './incrementalStore'
 import type {JsonValue, SyncConflictVersion, SyncRef} from './incrementalRows'
-import {parseSyncKey, type SyncKeyMaterial} from './syncKey'
+import {encodeSyncKey, parseSyncKey, syncKeyFromLegacyConfig, type SyncKeyMaterial} from './syncKey'
 
 export type ServiceConflict = {ref: SyncRef; version: SyncConflictVersion; remoteReady: boolean; remoteValue?: JsonValue | null}
-export type ServiceSyncResult = {pushed: number; pulled: number; conflicts: number; hasMore: boolean; needsReload: boolean}
+export type ServiceSyncResult = {pushed: number; pulled: number; conflicts: number; hasMore: boolean; needsReload: boolean; recovered?: boolean}
 
 const bindingDiffers = (error: unknown) => error instanceof Error && error.message.includes('已有不同的增量同步绑定')
 
@@ -49,9 +49,33 @@ export async function testServiceConnection(key: string): Promise<string> {
   return '连接正常。这把密钥可以同步。'
 }
 
+const CONFIG_KEY = 'fp.sync.config'
+const LEGACY_KEY = 'dada-incremental-config'
+const wantedKeyId = (error: unknown) => {
+  const message = error instanceof Error ? error.message : ''
+  const match = /由密钥 (\S+) 加密/.exec(message)
+  return match?.[1] ?? null
+}
+function rememberSyncKey(encoded: string) {
+  let saved: unknown
+  try {saved = JSON.parse(localStorage.getItem(CONFIG_KEY) ?? 'null')} catch {return}
+  if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return
+  localStorage.setItem(CONFIG_KEY, JSON.stringify({...saved, backend: 'sync', sync: {key: encoded}}))
+}
+/** 新生成的密钥读不了服务器上已有的记录时，改用本机旧设置里那把对得上的空间密钥。 */
+function legacyMaterial(current: SyncKeyMaterial, error: unknown): SyncKeyMaterial | null {
+  const wanted = wantedKeyId(error)
+  if (!wanted || typeof localStorage === 'undefined') return null
+  let raw: unknown
+  try {raw = JSON.parse(localStorage.getItem(LEGACY_KEY) ?? 'null')} catch {return null}
+  const key = syncKeyFromLegacyConfig(raw, wanted, current)
+  if (!key) return null
+  try {return parseSyncKey(key)} catch {return null}
+}
+
 /** 与其他同步方式一样：自动只上传，手动再拉取。 */
-export async function runServiceSync(key: string, mode: 'full' | 'push'): Promise<ServiceSyncResult> {
-  const controller = await openBound(parseSyncKey(key))
+async function runServiceOnce(material: SyncKeyMaterial, mode: 'full' | 'push'): Promise<ServiceSyncResult> {
+  const controller = await openBound(material)
   const total: ServiceSyncResult = {pushed: 0, pulled: 0, conflicts: 0, hasMore: false, needsReload: false}
   try {
     for (let round = 0; round < 100; round += 1) {
@@ -73,6 +97,23 @@ export async function runServiceSync(key: string, mode: 'full' | 'push'): Promis
     return total
   } finally {
     controller.close()
+  }
+}
+
+export async function runServiceSync(key: string, mode: 'full' | 'push'): Promise<ServiceSyncResult> {
+  const material = parseSyncKey(key)
+  try {
+    return await runServiceOnce(material, mode)
+  } catch (error) {
+    const legacy = legacyMaterial(material, error)
+    if (!legacy) throw error
+    rememberSyncKey(encodeSyncKey(legacy))
+    try {
+      return {...await runServiceOnce(legacy, mode), recovered: true}
+    } catch (again) {
+      rememberSyncKey(key)
+      throw again
+    }
   }
 }
 

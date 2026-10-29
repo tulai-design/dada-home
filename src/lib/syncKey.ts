@@ -54,6 +54,25 @@ export function parseSyncKey(raw: string): SyncKeyMaterial {
   return {endpoint: endpointOf(item.endpoint), appId, spaceId, deviceId, token, keyring: ring}
 }
 
+/**
+ * 旧设置页留在本机的空间密钥。只有它能解开当前远端记录、且和当前服务是同一个空间时，才重新包成同步密钥。
+ * 对不上或格式无效就返回空，不猜测。
+ */
+export function syncKeyFromLegacyConfig(raw: unknown, wantedKeyId: string, scope: {appId: string; spaceId: string}): string | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const item = raw as Record<string, unknown>
+  const keyring = item.keyring
+  if (!keyring || typeof keyring !== 'object' || Array.isArray(keyring)) return null
+  const ring = keyring as Keyring
+  if (ring.format !== 'tulai-keyring' || ring.version !== 1 || ring.appId !== scope.appId || ring.spaceId !== scope.spaceId || !Array.isArray(ring.keys) || !ring.keys.some(key => key?.id === wantedKeyId)) return null
+  if (typeof item.endpoint !== 'string' || typeof item.deviceId !== 'string' || typeof item.token !== 'string') return null
+  try {
+    const key = encodeSyncKey({endpoint: item.endpoint, appId: scope.appId, spaceId: scope.spaceId, deviceId: item.deviceId, token: item.token.trim(), keyring: ring})
+    parseSyncKey(key)
+    return key
+  } catch {return null}
+}
+
 /** 与管理页使用同一字段顺序，便于两边互相读取。 */
 export function encodeSyncKey(material: SyncKeyMaterial): string {
   const payload = {v: 1, endpoint: material.endpoint, appId: material.appId, spaceId: material.spaceId, deviceId: material.deviceId, token: material.token, keyring: material.keyring}
