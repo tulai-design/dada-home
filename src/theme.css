@@ -2448,6 +2448,51 @@ body {
   display: none;
 }
 
+/* iOS 内容方案：圆角白卡片里的分组。标题无衬线，书签是圆角芯片，列表用发丝分隔。 */
+:root[data-skin='ios'] .mark-board h3,
+:root[data-skin='ios'] .hot-grid h3 {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text2);
+}
+:root[data-skin='ios'] .feed-card h3 {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text);
+}
+:root[data-skin='ios'] .mark-cell,
+:root[data-skin='ios'] .mark-cell:hover {
+  border-radius: 10px;
+  background: transparent;
+}
+:root[data-skin='ios'] .mark-link {
+  height: 36px;
+  border-radius: 10px;
+  background: var(--bg);
+}
+:root[data-skin='ios'] .mark-cell:hover .mark-link:not(.mark-link-off) {
+  background: color-mix(in srgb, var(--main) 14%, var(--bg));
+}
+:root[data-skin='ios'] .hot-grid li {
+  border-bottom: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+}
+:root[data-skin='ios'] .feed-card {
+  border-bottom: 1px solid color-mix(in srgb, var(--text) 12%, transparent) !important;
+}
+:root[data-skin='ios'] .note-area,
+:root[data-skin='ios'] .note-area textarea {
+  background-image: none;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
 /* 设置：灰底，分组是白卡片。目录和详情都从边缘缩进来。 */
 :root[data-skin='ios'] .page.sys-view:has(.settings-page),
 :root[data-skin='ios'] .settings-page,
@@ -3035,11 +3080,55 @@ body {
   font-family: var(--font-mono);
   color: var(--text3);
 }
+:root[data-skin='pixel'] .mark-board {
+  gap: 0;
+}
+:root[data-skin='pixel'] .widget[data-type='bookmarks'] .page-pane {
+  padding: 0;
+  gap: 0;
+}
+:root[data-skin='pixel'] .widget[data-type='bookmarks'] .page-pane > :first-child {
+  padding: 14px 16px;
+  border-bottom: 2px solid var(--text);
+}
+:root[data-skin='pixel'] .mark-board > section {
+  padding: 12px 16px 14px;
+}
+:root[data-skin='pixel'] .mark-board > section + section {
+  border-top: 2px solid var(--text);
+}
+:root[data-skin='pixel'] .mark-board h3 {
+  margin: 0 0 10px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--text);
+  font-size: 14px;
+  color: var(--text);
+}
+:root[data-skin='pixel'] .mark-grid {
+  gap: 8px;
+}
+:root[data-skin='pixel'] .mark-cell,
+:root[data-skin='pixel'] .mark-cell:hover {
+  border-radius: 0;
+  background: transparent;
+}
 :root[data-skin='pixel'] .mark-link {
+  height: 36px;
   border: 2px solid var(--text);
   border-radius: 0;
-  padding: 8px 10px;
+  padding: 0 10px;
   background: var(--bg);
+}
+:root[data-skin='pixel'] .mark-cell:hover .mark-link:not(.mark-link-off) {
+  background: var(--text);
+  color: var(--bg);
+}
+:root[data-skin='pixel'] .mark-cell:hover .mark-link:not(.mark-link-off) .mark-name {
+  color: var(--bg);
+}
+:root[data-skin='pixel'] .mark-link .favicon,
+:root[data-skin='pixel'] .mark-link .favicon-letter {
+  border-radius: 0;
 }
 :root[data-skin='pixel'] .cal-grid,
 :root[data-skin='pixel'] .cal-cell {
