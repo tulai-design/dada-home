@@ -7,7 +7,7 @@ import {findApplication, listApplications, updateApplication} from './lib/applic
 import {ApplicationHost} from './components/ApplicationHost'
 import { applyTheme, resolveThemeOverrides, setMode } from './lib/themes'
 import { fontVars, syncFonts } from './lib/fonts'
-import { useStored } from './lib/store'
+import { uid, useStored } from './lib/store'
 import { SEARCH_ENGINES, defaultBookmarks, defaultFeeds, defaultSettings } from './lib/defaults'
 import { hotOrigin } from './lib/hot'
 import { probe, summarize, type MonitorState, type RangeId } from './lib/monitor'
@@ -69,6 +69,7 @@ export default function App() {
     return {
       ...base,
       ...storedSettings,
+      avatarSeed: typeof storedSettings.avatarSeed === 'string' && storedSettings.avatarSeed.length <= 100 ? storedSettings.avatarSeed : undefined,
       // 0.6 是旧版本的默认温度，而且当时根本没发给接口；当作「没设置」，别让升级悄悄改变模型的行为
       ai: { ...base.ai, ...(storedSettings.ai ?? {}), ...(storedSettings.ai?.temperature === 0.6 ? { temperature: undefined } : {}) },
       monitor: Array.isArray(storedSettings.monitor) ? storedSettings.monitor : [],
@@ -319,6 +320,13 @@ export default function App() {
   useEffect(() => {
     if (theme.id === SWITCH_THEME_ID) setSwitchBoard(true)
   }, [theme.id])
+
+  useEffect(() => {
+    if (theme.id === SWITCH_THEME_ID && !settings.avatarSeed) {
+      setSettings(current => typeof current.avatarSeed === 'string' && current.avatarSeed.length > 0 && current.avatarSeed.length <= 100
+        ? current : {...current, avatarSeed: uid()})
+    }
+  }, [theme.id, settings.avatarSeed, setSettings])
 
   // 已读记录是共享数据，订阅组件读写它；外壳只需要把当前值传给宿主
   const [readIds, setReadIds] = useStored<string[]>('read', [])
@@ -730,19 +738,6 @@ export default function App() {
           monitorInstalled={monitorOn}
           onSettings={() => openSettings()}
         />
-        {switchOn && (
-          <SwitchDock
-            view={view}
-            board={showSwitchBoard}
-            monitorInstalled={monitorOn}
-            onBoard={openSwitchBoard}
-            onAssistant={() => (assistantOpen ? setAssistantOpen(false) : openAssistant())}
-            onMarket={openMarket}
-            onMonitor={openMonitor}
-            onSettings={() => openSettings()}
-            onStart={showSwitchBoard ? () => openBoardSelection.current() : undefined}
-          />
-        )}
 
         <AssistantSplitPane
           enabled={assistantOpen && assistantMode === 'split'}
@@ -773,6 +768,19 @@ export default function App() {
           }
         >
           <div className="canvas" ref={setCanvasElement} data-split={splitActive || undefined} data-homepage-draft-active={homepageDraft ? true : undefined} data-switch-board={showSwitchBoard || undefined}>
+            {switchOn && (
+              <SwitchDock
+                view={view}
+                board={showSwitchBoard}
+                monitorInstalled={monitorOn}
+                onBoard={openSwitchBoard}
+                onAssistant={() => (assistantOpen ? setAssistantOpen(false) : openAssistant())}
+                onMarket={openMarket}
+                onMonitor={openMonitor}
+                onSettings={() => openSettings()}
+                onStart={showSwitchBoard && (workspace.pages.some(page => page.id !== 'home') || applications.some(app => app.dock)) ? () => openBoardSelection.current() : undefined}
+              />
+            )}
             <TopBar
               status={<StatusBar items={workspace.statusbar} host={host} onConfig={(id,patch) => applications.some((application) => application.id === id) ? onUpdateConfig(id,patch) : onStatusConfig(id,patch)} applications={applications} onApplication={openApplication} workspace={workspace} activeApplicationIds={activeApplicationIds} />}
               theme={workspace.theme.mode}
@@ -793,7 +801,7 @@ export default function App() {
             >
               <FxLayers page={currentPage} container={canvasElement} portal={fxRoot}>
                 {showSwitchBoard ? (
-                  <SwitchHome name={settings.name} pages={workspace.pages} applications={applications} onPage={goPage} onApplication={openApplication} bindOpen={(open) => { openBoardSelection.current = open }} />
+                  <SwitchHome avatarSeed={settings.avatarSeed || settings.name} onProfile={() => openSettings('profile')} name={settings.name} pages={workspace.pages} applications={applications} onPage={goPage} onApplication={openApplication} bindOpen={(open) => { openBoardSelection.current = open }} />
                 ) : currentPage && (
                   <PageView
                     page={currentPage}

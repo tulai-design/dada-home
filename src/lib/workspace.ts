@@ -460,25 +460,34 @@ export const PIXEL_THEME: ThemeEntry = {
   builtin: true,
 }
 
-/** 主机预设。深色主屏，读入时始终用这份。 */
+/** 主机预设。配色是唯一事实来源，主屏、设置和应用共用明暗分支。 */
 export const SWITCH_THEME_ID = 'switch'
 
 export const SWITCH_THEME: ThemeEntry = {
   id: SWITCH_THEME_ID,
   name: '主机',
-  description: '深色主屏、横排封面和圆形图标，像游戏机的主界面。',
-  overrides: {radius: '12px', 'radius-lg': '18px', frame: '0px', 'frame-gap': '0px'},
+  description: 'Switch 风格的横排封面、圆形入口与系统列表，支持浅色和深色。',
+  overrides: {
+    radius: '2px', 'radius-lg': '2px', frame: '0px', 'frame-gap': '0px',
+    'font-sans': '"Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif',
+    'font-serif': 'var(--font-sans)',
+    'switch-red': '#e60012', 'switch-blue': '#1677dc', 'switch-amber': '#eea200',
+    'switch-muted': '#727b78', 'switch-cover-ink': '#ffffff', 'switch-avatar': '#f5c346', 'switch-avatar-ink': '#40300a',
+    'switch-cover-blue': '#367ac8', 'switch-cover-red': '#df4c3f',
+    'switch-cover-green': '#168877', 'switch-cover-amber': '#b87913', 'switch-cover-violet': '#7264c8',
+  },
   light: {
-    bg: '#3a3a3c', bg2: '#48484a', bg3: '#636366',
-    text: '#f5f5f7', text2: '#e5e5ea', text3: '#aeaeb2', text4: '#8e8e93',
-    border: 'rgba(255, 255, 255, 0.16)', rule: '#f5f5f7', main: '#32d2ff',
+    bg: '#ebebeb', bg2: '#ffffff', bg3: '#dedede',
+    text: '#303030', text2: '#505050', text3: '#666666', text4: '#777777',
+    border: '#c7c7c7', rule: '#858585', main: '#007f7b',
+    'switch-focus': '#31cdbc', 'switch-orb': '#ffffff',
   },
   dark: {
-    bg: '#2c2c2e', bg2: '#3a3a3c', bg3: '#48484a',
-    text: '#f5f5f7', text2: '#d1d1d6', text3: '#8e8e93', text4: '#636366',
-    border: 'rgba(255, 255, 255, 0.12)', rule: '#f5f5f7', main: '#3cd5ff',
+    bg: '#2d2d2d', bg2: '#373737', bg3: '#454545',
+    text: '#f5f5f5', text2: '#d1d1d1', text3: '#b0b0b0', text4: '#969696',
+    border: '#484848', rule: '#808080', main: '#48d7ce',
+    'switch-focus': '#5de5dc', 'switch-orb': '#505050',
   },
-  fonts: [{family: 'Noto Sans SC', role: 'sans'}],
   mode: 'dark',
   builtin: true,
 }

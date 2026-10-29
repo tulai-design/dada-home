@@ -22,6 +22,7 @@
     "@tulai-design/agent-core": "^0.2.0",
     "@tulai-design/agent-providers": "^0.2.0",
     "@tulai-design/sync-sdk": "file:vendor/tulai-design-sync-sdk-0.1.0.tgz",
+    "boring-avatars": "^2.0.4",
     "chinese-days": "^1.5.9",
     "gsap": "^3.15.0",
     "ical.js": "^2.2.1",

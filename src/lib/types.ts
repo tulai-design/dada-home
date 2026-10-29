@@ -75,6 +75,8 @@ export type MonitorConfig = {
 
 export type Settings = {
   name: string
+  /** Boring Avatars 的随机种子；只在首次使用头像或主动换头像时生成。 */
+  avatarSeed?: string
   city: string
   lat: number
   lon: number

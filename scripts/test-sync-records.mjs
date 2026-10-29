@@ -67,6 +67,21 @@ await test('配置拉取保留接收设备的凭据、连接、权限与私有�
   assert.deepEqual(JSON.parse(h.entries.get('fp.workspace')).network, workspace().network)
   const p = JSON.parse(h.entries.get('fp.persona')); assert.equal(p.soul.text, '新性格'); assert.deepEqual(p.profile, persona().profile); assert.deepEqual(p.memory.items, persona().memory.items)
 })
+await test('随机头像种子随个人配置往返，拒绝损坏种子', async () => {
+  const h = runtime({'fp.settings': {name: '用户', avatarSeed: 'avatar-original'}})
+  for (const scope of ['configuration', 'full']) {
+    const local = await h.api.collect(scope, false)
+    assert.equal(local.values.get('config:settings').avatarSeed, 'avatar-original')
+    const incoming = {name: '用户', avatarSeed: 'avatar-new'}
+    h.api.validateRecord('config:settings', incoming, false, scope)
+    const restored = h.api.applyConfig('settings', incoming, {proxy: 'local'}, scope, false)
+    assert.equal(restored.avatarSeed, 'avatar-new')
+    assert.equal(restored.proxy, 'local')
+    for (const avatarSeed of ['', 42, {}, 'x'.repeat(101)]) {
+      assert.throws(() => h.api.validateRecord('config:settings', {avatarSeed}, false, scope))
+    }
+  }
+})
 await test('坏空配置不能伪装成删除残留，合法空settings仍保留为记录', async () => {
   for (const key of ['fp.workspace', 'fp.persona', 'fp.focusSettings', 'fp.search']) {
     const h = runtime({[key]: {}})

@@ -1,9 +1,15 @@
-import {useEffect, useRef, useState} from 'react'
-import {AppWindow, GameController, Gear, House, Monitor, Sparkle, SquaresFour} from '@phosphor-icons/react'
+import {useEffect, useRef, useState, type KeyboardEvent} from 'react'
+import {Empty} from '@lobehub/ui'
+import {AppWindow, BatteryCharging, BatteryFull, BatteryLow, BatteryMedium, GameController, Gear, House, Monitor, SquaresFour, WifiHigh, WifiSlash} from '@phosphor-icons/react'
+import {useNow} from '../hooks'
 import {pageIcon} from '../lib/pageIcons'
 import type {GeneratedApplication, Page} from '../lib/workspace'
+import {ProfileAvatar} from './ProfileAvatar'
+import '../switch-shell.css'
 
 type View = 'page' | 'settings' | 'monitor' | 'market' | 'application'
+type BatteryManager = EventTarget & {level: number; charging: boolean}
+type BatteryStatus = {level: number; charging: boolean}
 
 function tone(id: string) {
   let n = 0
@@ -11,62 +17,76 @@ function tone(id: string) {
   return String(n)
 }
 
-function clockText(date: Date) {
-  return date.toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'})
+/** 浏览器未提供电量时不展示；异步返回也必须遵循卸载清理。 */
+function useConsoleStatus() {
+  const [online, setOnline] = useState(() => navigator.onLine)
+  const [battery, setBattery] = useState<BatteryStatus | null>(null)
+  useEffect(() => {
+    const updateOnline = () => setOnline(navigator.onLine)
+    window.addEventListener('online', updateOnline)
+    window.addEventListener('offline', updateOnline)
+    const batteryApi = navigator as Navigator & {getBattery?: () => Promise<BatteryManager>}
+    let disposed = false
+    let manager: BatteryManager | undefined
+    const updateBattery = () => {
+      if (manager) setBattery({level: Math.round(manager.level * 100), charging: manager.charging})
+    }
+    void batteryApi.getBattery?.().then((result) => {
+      if (disposed) return
+      manager = result
+      updateBattery()
+      manager.addEventListener('levelchange', updateBattery)
+      manager.addEventListener('chargingchange', updateBattery)
+    }).catch(() => { /* 不支持或拒绝读取时，隐藏电量。 */ })
+    return () => {
+      disposed = true
+      window.removeEventListener('online', updateOnline)
+      window.removeEventListener('offline', updateOnline)
+      manager?.removeEventListener('levelchange', updateBattery)
+      manager?.removeEventListener('chargingchange', updateBattery)
+    }
+  }, [])
+  return {online, battery}
 }
 
-/** 主机主屏：页面和应用是横排封面。首页本身的时钟和搜索不铺在这里。 */
-export function SwitchHome({
-  name,
-  pages,
-  applications,
-  onPage,
-  onApplication,
-  bindOpen,
-}: {
+/** 主屏只编排已有入口；封面与选中标题在同一滚动轨道，避免标题漂移。 */
+export function SwitchHome({name, avatarSeed, pages, applications, onPage, onApplication, onProfile, bindOpen}: {
   name: string
+  avatarSeed: string
   pages: Page[]
   applications: GeneratedApplication[]
   onPage: (id: string) => void
   onApplication: (id: string) => void
+  onProfile?: () => void
   bindOpen: (open: () => void) => void
 }) {
   const covers = [
     ...pages.filter((page) => page.id !== 'home').map((page) => ({
-      id: page.id,
-      name: page.label || page.name,
-      icon: page.icon,
-      kind: 'page' as const,
+      id: page.id, name: page.label || page.name, icon: page.icon, kind: 'page' as const,
     })),
     ...applications.filter((item) => item.dock).map((item) => ({
-      id: item.id,
-      name: item.instance.title || '应用',
-      icon: undefined,
-      kind: 'application' as const,
+      id: item.id, name: item.instance.title || '应用', icon: undefined, kind: 'application' as const,
     })),
   ]
-  const [index, setIndex] = useState(0)
-  const [now, setNow] = useState(() => new Date())
-  const coversRef = useRef<HTMLDivElement>(null)
-  const dragged = useRef(false)
-  const startX = useRef(0)
-  const selected = covers[Math.min(index, Math.max(covers.length - 1, 0))]
-  const open = (cover: (typeof covers)[number]) => (cover.kind === 'page' ? onPage(cover.id) : onApplication(cover.id))
-  const initial = name.trim().slice(0, 1) || '搭'
+  const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  const keyOf = (cover: (typeof covers)[number]) => `${cover.kind}:${cover.id}`
+  const selectedIndex = Math.max(0, covers.findIndex((cover) => keyOf(cover) === selectedKey))
+  const selected = covers[selectedIndex]
+  const coversRef = useRef<HTMLUListElement>(null)
+  const gesture = useRef({x: 0, scroll: 0, active: false, dragged: false})
+  const now = useNow(1000)
+  const {online, battery} = useConsoleStatus()
+  const BatteryIcon = battery?.charging ? BatteryCharging : (battery?.level ?? 0) > 70 ? BatteryFull : (battery?.level ?? 0) > 30 ? BatteryMedium : BatteryLow
+  const open = (cover: (typeof covers)[number]) => cover.kind === 'page' ? onPage(cover.id) : onApplication(cover.id)
 
   useEffect(() => {
     bindOpen(() => { if (selected) open(selected) })
   })
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(new Date()), 1000)
-    return () => window.clearInterval(timer)
-  }, [])
-  useEffect(() => {
     const row = coversRef.current
     if (!row) return
     const onWheel = (event: WheelEvent) => {
-      if (row.scrollWidth <= row.clientWidth) return
-      if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return
+      if (row.scrollWidth <= row.clientWidth || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return
       row.scrollLeft += event.deltaY
       event.preventDefault()
     }
@@ -74,91 +94,95 @@ export function SwitchHome({
     return () => row.removeEventListener('wheel', onWheel)
   }, [covers.length])
   useEffect(() => {
-    coversRef.current?.querySelector<HTMLElement>(`[data-index="${index}"]`)?.scrollIntoView({inline: 'nearest', block: 'nearest'})
-  }, [index])
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      const tag = (event.target as HTMLElement | null)?.tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || (event.target as HTMLElement | null)?.isContentEditable) return
-      if (!covers.length) return
-      if (event.key === 'ArrowRight') {
-        event.preventDefault()
-        setIndex((value) => Math.min(value + 1, covers.length - 1))
-      } else if (event.key === 'ArrowLeft') {
-        event.preventDefault()
-        setIndex((value) => Math.max(value - 1, 0))
-      } else if (event.key === 'Enter' && selected && !(event.target as HTMLElement | null)?.closest('.switch-dock')) {
-        event.preventDefault()
-        open(selected)
-      }
+    coversRef.current?.querySelector<HTMLElement>(`[data-index="${selectedIndex}"]`)?.scrollIntoView({inline: 'nearest', block: 'nearest'})
+  }, [selectedIndex])
+
+  const onCoverKey = (event: KeyboardEvent<HTMLUListElement>) => {
+    if (!(event.target instanceof HTMLElement) || !event.target.closest('.switch-cover')) return
+    const next = event.key === 'ArrowRight' ? Math.min(selectedIndex + 1, covers.length - 1)
+      : event.key === 'ArrowLeft' ? Math.max(selectedIndex - 1, 0)
+      : event.key === 'Home' ? 0 : event.key === 'End' ? covers.length - 1 : null
+    if (next !== null && covers[next]) {
+      event.preventDefault()
+      setSelectedKey(keyOf(covers[next]))
+      coversRef.current?.querySelector<HTMLButtonElement>(`[data-index="${next}"]`)?.focus({preventScroll: true})
+    } else if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      event.currentTarget.closest('.canvas')?.querySelector<HTMLButtonElement>('.switch-dock-btn')?.focus()
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  })
+  }
 
   return (
-    <div className="switch-home">
+    <section className="switch-home" aria-label="主机主屏">
       <header className="switch-status">
-        <span className="switch-avatar" title={name}>{initial}</span>
-        <time className="switch-clock" dateTime={now.toISOString()}>{clockText(now)}</time>
+        {onProfile ? <button type="button" className="switch-avatar" aria-label={`${name || '朋友'}，个人设置`} onClick={onProfile}><ProfileAvatar seed={avatarSeed} /></button>
+          : <span className="switch-avatar" role="img" aria-label={name || '朋友'}><ProfileAvatar seed={avatarSeed} /></span>}
+        <div className="switch-status-side">
+          <time className="switch-clock" dateTime={now.toISOString()}>{now.toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'})}</time>
+          <span className="switch-network" role="img" aria-label={online ? '网络状态：在线' : '网络状态：离线'}>
+            {online ? <WifiHigh aria-hidden="true" /> : <WifiSlash aria-hidden="true" />}
+          </span>
+          {battery && <span className="switch-battery" role="img" aria-label={`电量 ${battery.level}%${battery.charging ? '，充电中' : ''}`}><BatteryIcon aria-hidden="true" /></span>}
+        </div>
       </header>
       <div className="switch-stage">
-        <div className="switch-title" data-empty={selected ? undefined : 'true'}>{selected?.name ?? '页面会出现在这里'}</div>
-        <div
-          className="switch-covers"
-          role="list"
-          ref={coversRef}
-          onPointerDown={(event) => { dragged.current = false; startX.current = event.clientX }}
-          onPointerMove={(event) => { if (event.buttons && Math.abs(event.clientX - startX.current) > 10) dragged.current = true }}
-        >
-          {covers.map((cover, coverIndex) => {
-            const Icon = cover.kind === 'page' ? pageIcon(cover.icon) : AppWindow
-            const on = coverIndex === index
-            return (
-              <button
-                key={`${cover.kind}:${cover.id}`}
-                type="button"
-                className="switch-cover"
-                data-index={coverIndex}
-                data-on={on ? 'true' : 'false'}
-                aria-current={on || undefined}
-                aria-label={on ? `${cover.name}，打开` : cover.name}
-                onClick={() => {
-                  if (dragged.current) return
-                  if (on) open(cover)
-                  else setIndex(coverIndex)
-                }}
-              >
-                <span className="switch-cover-art" data-tone={tone(cover.id)}>
-                  <Icon size={64} weight="fill" />
-                  <span className="switch-cover-label">{cover.name}</span>
-                </span>
-              </button>
-            )
-          })}
-          {!covers.length && (
-            <div className="switch-cover switch-cover-empty" aria-hidden="true">
-              <span className="switch-cover-art" />
-            </div>
-          )}
-        </div>
+        {covers.length ? (
+          <ul
+            className="switch-covers"
+            aria-label="页面和应用"
+            ref={coversRef}
+            onKeyDown={onCoverKey}
+            onPointerDown={(event) => {
+              gesture.current = {x: event.clientX, scroll: event.currentTarget.scrollLeft, active: true, dragged: false}
+            }}
+            onPointerMove={(event) => {
+              const current = gesture.current
+              if (!current.active || !event.buttons) return
+              const distance = event.clientX - current.x
+              if (Math.abs(distance) > 8) current.dragged = true
+              if (current.dragged && event.pointerType === 'mouse') event.currentTarget.scrollLeft = current.scroll - distance
+            }}
+            onPointerUp={() => { gesture.current.active = false }}
+            onPointerCancel={() => { gesture.current.active = false; gesture.current.dragged = true }}
+            onPointerLeave={() => { gesture.current.active = false }}
+          >
+            {covers.map((cover, index) => {
+              const Icon = cover.kind === 'page' ? pageIcon(cover.icon) : AppWindow
+              const selected = index === selectedIndex
+              return (
+                <li className="switch-cover-cell" key={keyOf(cover)}>
+                  <button
+                    type="button"
+                    className="switch-cover"
+                    data-index={index}
+                    data-on={selected || undefined}
+                    aria-current={selected || undefined}
+                    aria-label={`${cover.name}${selected ? '，打开' : '，选择'}`}
+                    tabIndex={selected ? 0 : -1}
+                    onClick={() => {
+                      if (gesture.current.dragged) { gesture.current.dragged = false; return }
+                      if (selected) open(cover)
+                      else setSelectedKey(keyOf(cover))
+                    }}
+                  >
+                    <span className="switch-title" aria-hidden="true">{cover.name}</span>
+                    <span className="switch-cover-art" data-tone={tone(cover.id)}>
+                      <Icon className="switch-cover-icon" weight="fill" aria-hidden="true" />
+                      <span className="switch-cover-label" aria-hidden="true">{cover.name}</span>
+                    </span>
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        ) : <div className="switch-empty"><Empty title="还没有页面" description="从市场添加内容，或让搭搭帮你创建一个页面。" /></div>}
       </div>
-    </div>
+    </section>
   )
 }
 
-/** 底部圆形系统图标。主屏时是白底圆钮，选中的上方有一个点。 */
-export function SwitchDock({
-  view,
-  board,
-  monitorInstalled,
-  onBoard,
-  onAssistant,
-  onMarket,
-  onMonitor,
-  onSettings,
-  onStart,
-}: {
+/** 主屏圆形菜单；进入内容后收成一条系统操作栏，给设置和内容留出空间。 */
+export function SwitchDock({view, board, monitorInstalled, onBoard, onAssistant, onMarket, onMonitor, onSettings, onStart}: {
   view: View
   board: boolean
   monitorInstalled: boolean
@@ -169,40 +193,47 @@ export function SwitchDock({
   onSettings: () => void
   onStart?: () => void
 }) {
+  const home = board && view === 'page'
   const items = [
-    {id: 'board', name: '主屏', icon: House, on: board && view === 'page', run: onBoard},
-    {id: 'ai', name: '搭搭', icon: Sparkle, on: false, run: onAssistant},
+    ...(!home ? [{id: 'board', name: '主屏', icon: House, on: false, run: onBoard}] : []),
+    {id: 'ai', name: '搭搭', icon: null, on: false, run: onAssistant},
     {id: 'market', name: '市场', icon: SquaresFour, on: view === 'market', run: onMarket},
     ...(monitorInstalled ? [{id: 'monitor', name: '监控', icon: Monitor, on: view === 'monitor', run: onMonitor}] : []),
     {id: 'settings', name: '设置', icon: Gear, on: view === 'settings', run: onSettings},
   ]
-  const home = board && view === 'page'
+  const onMenuKey = (event: KeyboardEvent<HTMLDivElement>) => {
+    const buttons = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('.switch-dock-btn')]
+    const index = buttons.indexOf(event.target as HTMLButtonElement)
+    if (index < 0) return
+    if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+      event.preventDefault()
+      buttons[(index + (event.key === 'ArrowRight' ? 1 : -1) + buttons.length) % buttons.length]?.focus()
+    } else if (home && event.key === 'ArrowUp') {
+      event.preventDefault()
+      event.currentTarget.closest('.canvas')?.querySelector<HTMLButtonElement>('.switch-cover[data-on="true"]')?.focus()
+    }
+  }
   return (
     <nav className="switch-dock" data-board={home || undefined} aria-label="主机菜单">
-      <div className="switch-dock-orbs">
+      <div className="switch-dock-orbs" onKeyDown={onMenuKey}>
         {items.map((item) => {
           const Icon = item.icon
           return (
-            <button key={item.id} type="button" className="switch-dock-btn" data-id={item.id} data-on={item.on ? 'true' : 'false'} aria-current={item.on || undefined} aria-label={item.name} onClick={item.run}>
-              <span className="switch-orb">
-                <Icon size={26} weight={item.on ? 'fill' : 'regular'} />
-              </span>
+            <button key={item.id} type="button" className="switch-dock-btn" data-id={item.id} data-on={item.on || undefined} aria-current={item.on ? 'page' : undefined} aria-label={item.name} onClick={item.run}>
+              <span className="switch-orb">{Icon ? <Icon weight="regular" aria-hidden="true" /> : <img className="switch-dada-logo" src={`${import.meta.env.BASE_URL}brand/dada-logo.png`} alt="" draggable={false} />}</span>
               <span className="switch-dock-name">{item.name}</span>
             </button>
           )
         })}
       </div>
-      {home ? (
-        <div className="switch-dock-foot">
-          <span className="switch-dock-mark" aria-hidden="true"><GameController size={18} /></span>
-          <button type="button" className="switch-start" onClick={onStart} disabled={!onStart}>
-            <span className="switch-start-key" aria-hidden="true">A</span>
-            打开
-          </button>
-        </div>
-      ) : (
-        <span className="switch-dock-mark" aria-hidden="true"><GameController size={18} /></span>
-      )}
+      <div className="switch-dock-foot">
+        <span className="switch-dock-mark" aria-hidden="true"><GameController weight="fill" /></span>
+        {home ? <button type="button" className="switch-start" onClick={onStart} disabled={!onStart}>
+          <span className="switch-start-key" aria-hidden="true">A</span>打开
+        </button> : <button type="button" className="switch-start" onClick={onBoard} aria-label="返回主屏">
+          <span className="switch-start-key" aria-hidden="true">B</span>返回
+        </button>}
+      </div>
     </nav>
   )
 }

@@ -1,0 +1,362 @@
+/* Switch 系统壳：尺寸依据宿主 canvas，分栏不会借用整个视口的宽度。 */
+:root[data-skin='switch'] .switch-home,
+:root[data-skin='switch'] .switch-dock {
+  --switch-cover-size: min(20cqw, 35.56cqh, 360px);
+  --switch-cover-gap: clamp(12px, 1.25cqw, 24px);
+  --switch-track-inset: clamp(24px, 7.8125cqw, 140px);
+  --switch-orb-size: clamp(40px, 12.22cqh, 112px);
+  --switch-foot-size: clamp(52px, 10.56cqh, 88px);
+  font-family: var(--font-sans);
+  color: var(--text);
+  pointer-events: auto;
+}
+:root[data-skin='switch'] .switch-home {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  background: var(--bg);
+  isolation: isolate;
+}
+:root[data-skin='switch'] .switch-status {
+  position: absolute;
+  inset: 5cqh 4.6875cqw auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+:root[data-skin='switch'] .switch-avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: clamp(36px, 7.78cqh, 80px);
+  height: clamp(36px, 7.78cqh, 80px);
+  padding: 0;
+  border: 3px solid var(--switch-cover-ink);
+  border-radius: 50%;
+  background: var(--switch-avatar);
+  color: var(--switch-avatar-ink, var(--switch-cover-amber));
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--text) 20%, transparent);
+  font: 600 clamp(18px, 3.33cqh, 32px) / 1 var(--font-sans);
+}
+:root[data-skin='switch'] .switch-avatar > svg { display: block; width: 100%; height: 100%; border-radius: 50%; }
+:root[data-skin='switch'] button.switch-avatar { cursor: pointer; }
+:root[data-skin='switch'] .switch-avatar:focus-visible {
+  outline: 3px solid var(--switch-focus);
+  outline-offset: 4px;
+}
+:root[data-skin='switch'] .switch-status-side {
+  display: flex;
+  align-items: center;
+  gap: clamp(12px, 1.875cqw, 28px);
+}
+:root[data-skin='switch'] .switch-clock {
+  font-size: clamp(18px, 3.89cqh, 36px);
+  font-weight: 500;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+:root[data-skin='switch'] .switch-network,
+:root[data-skin='switch'] .switch-battery { display: inline-flex; }
+:root[data-skin='switch'] .switch-network svg,
+:root[data-skin='switch'] .switch-battery svg {
+  width: clamp(24px, 4.44cqh, 40px);
+  height: clamp(24px, 4.44cqh, 40px);
+}
+:root[data-skin='switch'] .switch-stage {
+  position: absolute;
+  inset: calc(26.67cqh - 56px) 0 auto;
+}
+:root[data-skin='switch'] .switch-covers {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--switch-cover-gap);
+  width: 100%;
+  margin: 0;
+  padding: 56px var(--switch-track-inset) 16px;
+  list-style: none;
+  overflow-x: auto;
+  scroll-padding-inline: var(--switch-track-inset);
+  scroll-snap-type: x proximity;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
+  scrollbar-width: none;
+}
+:root[data-skin='switch'] .switch-covers::-webkit-scrollbar { display: none; }
+:root[data-skin='switch'] .switch-cover-cell {
+  flex: 0 0 var(--switch-cover-size);
+  min-width: 0;
+  scroll-snap-align: start;
+}
+:root[data-skin='switch'] .switch-cover {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  background: transparent;
+  color: var(--switch-cover-ink);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+:root[data-skin='switch'] .switch-title {
+  position: absolute;
+  bottom: calc(100% + 16px);
+  left: -6px;
+  right: -6px;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  font-size: clamp(18px, 3.89cqh, 32px);
+  font-weight: 400;
+  line-height: 1.3;
+  color: var(--main);
+  visibility: hidden;
+}
+:root[data-skin='switch'] .switch-cover-art {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8%;
+  width: 100%;
+  aspect-ratio: 1;
+  border: 3px solid var(--switch-cover-ink);
+  border-radius: 0;
+  background: var(--switch-cover-blue);
+  color: var(--switch-cover-ink);
+  outline: 3px solid transparent;
+  outline-offset: 4px;
+  transition: transform 120ms ease, outline-color 120ms ease;
+}
+:root[data-skin='switch'] .switch-cover-art[data-tone='1'] { background: var(--switch-cover-red); }
+:root[data-skin='switch'] .switch-cover-art[data-tone='2'] { background: var(--switch-cover-green); }
+:root[data-skin='switch'] .switch-cover-art[data-tone='3'] { background: var(--switch-cover-amber); }
+:root[data-skin='switch'] .switch-cover-art[data-tone='4'] { background: var(--switch-cover-violet); }
+:root[data-skin='switch'] .switch-cover-icon { width: 32%; height: 32%; }
+:root[data-skin='switch'] .switch-cover-label {
+  max-width: 88%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: clamp(14px, 2.8cqh, 26px);
+  font-weight: 500;
+  line-height: 1.4;
+}
+:root[data-skin='switch'] .switch-cover[data-on='true'] .switch-title { visibility: visible; }
+:root[data-skin='switch'] .switch-cover[data-on='true'] .switch-cover-art,
+:root[data-skin='switch'] .switch-cover:focus-visible .switch-cover-art { outline-color: var(--switch-focus); }
+:root[data-skin='switch'] .switch-cover:hover .switch-cover-art { outline-color: var(--switch-focus); }
+:root[data-skin='switch'] .switch-cover:active .switch-cover-art { transform: scale(.985); }
+:root[data-skin='switch'] .switch-empty {
+  display: grid;
+  place-items: center;
+  min-height: var(--switch-cover-size);
+  padding: 56px 24px 0;
+}
+
+/* 主屏保留圆菜单与底部操作条，内容页只显示紧凑操作条。 */
+:root[data-skin='switch'] .switch-dock {
+  position: absolute;
+  z-index: 30;
+  inset: auto 0 0;
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--bg);
+}
+:root[data-skin='switch'] .switch-dock-orbs {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(16px, 1.56cqw, 28px);
+  padding: 8px 24px clamp(20px, 6.39cqh, 64px);
+}
+:root[data-skin='switch'] .switch-dock-btn {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+:root[data-skin='switch'] .switch-orb {
+  display: grid;
+  place-items: center;
+  width: var(--switch-orb-size);
+  height: var(--switch-orb-size);
+  border-radius: 50%;
+  background: var(--switch-orb);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--text) 12%, transparent);
+  outline: 3px solid transparent;
+  outline-offset: 4px;
+  transition: transform 120ms ease, outline-color 120ms ease;
+}
+:root[data-skin='switch'] .switch-orb svg { width: 48%; height: 48%; }
+:root[data-skin='switch'] .switch-dada-logo { display: block; width: 76%; height: 76%; object-fit: contain; }
+:root[data-skin='switch'] .switch-dock-btn[data-id='board'] .switch-orb { color: var(--switch-red); }
+:root[data-skin='switch'] .switch-dock-btn[data-id='ai'] .switch-orb { color: var(--switch-red); }
+:root[data-skin='switch'] .switch-dock-btn[data-id='market'] .switch-orb { color: var(--switch-amber); }
+:root[data-skin='switch'] .switch-dock-btn[data-id='monitor'] .switch-orb { color: var(--switch-blue); }
+:root[data-skin='switch'] .switch-dock-btn[data-id='settings'] .switch-orb { color: var(--switch-muted); }
+:root[data-skin='switch'] .switch-dock[data-board='true'] .switch-dock-btn[data-id='ai'] .switch-orb {
+  color: var(--switch-cover-ink);
+  background: var(--switch-red);
+}
+:root[data-skin='switch'] .switch-dock-btn:hover .switch-orb,
+:root[data-skin='switch'] .switch-dock-btn:focus-visible .switch-orb { outline-color: var(--switch-focus); }
+:root[data-skin='switch'] .switch-dock-btn:active .switch-orb { transform: scale(.96); }
+:root[data-skin='switch'] .switch-dock-name {
+  position: absolute;
+  top: calc(100% + 10px);
+  width: max-content;
+  max-width: 120px;
+  color: var(--main);
+  font-size: clamp(12px, 2.22cqh, 18px);
+  line-height: 1;
+  opacity: 0;
+}
+:root[data-skin='switch'] .switch-dock-btn:hover .switch-dock-name,
+:root[data-skin='switch'] .switch-dock-btn:focus-visible .switch-dock-name { opacity: 1; }
+:root[data-skin='switch'] .switch-dock-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--switch-foot-size);
+  margin-inline: clamp(16px, 2.34cqw, 40px);
+  padding-inline: clamp(8px, 2.34cqw, 40px);
+  border-top: 1px solid var(--rule);
+}
+:root[data-skin='switch'] .switch-dock-mark { display: inline-flex; }
+:root[data-skin='switch'] .switch-dock-mark svg {
+  width: clamp(28px, 4.44cqh, 44px);
+  height: clamp(28px, 4.44cqh, 44px);
+}
+:root[data-skin='switch'] .switch-start {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: 400 clamp(16px, 3.33cqh, 28px) / 1.4 var(--font-sans);
+  cursor: pointer;
+}
+:root[data-skin='switch'] .switch-start:focus-visible { outline: 3px solid var(--switch-focus); outline-offset: 3px; }
+:root[data-skin='switch'] .switch-start:hover { color: var(--main); }
+:root[data-skin='switch'] .switch-start:disabled { color: var(--text4); opacity: .6; cursor: default; }
+:root[data-skin='switch'] .switch-start-key {
+  display: grid;
+  place-items: center;
+  width: 1.25em;
+  height: 1.25em;
+  border-radius: 50%;
+  background: var(--text);
+  color: var(--bg);
+  font-weight: 600;
+  font-size: .85em;
+}
+:root[data-skin='switch'] .switch-dock:not([data-board='true']) {
+  --switch-foot-size: 72px;
+  --switch-orb-size: 32px;
+}
+:root[data-skin='switch'] .switch-dock:not([data-board='true']) .switch-dock-orbs {
+  position: absolute;
+  top: 0;
+  bottom: env(safe-area-inset-bottom);
+  left: clamp(64px, 8cqw, 120px);
+  right: 132px;
+  justify-content: flex-start;
+  gap: clamp(8px, 2cqw, 28px);
+  padding: 0;
+}
+:root[data-skin='switch'] .switch-dock:not([data-board='true']) .switch-dock-btn {
+  flex-direction: row;
+  gap: 6px;
+  min-height: 44px;
+}
+:root[data-skin='switch'] .switch-dock:not([data-board='true']) .switch-orb {
+  width: 28px;
+  height: 32px;
+  border-radius: 2px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text2);
+}
+:root[data-skin='switch'] .switch-dock:not([data-board='true']) .switch-orb svg { width: 24px; height: 24px; }
+:root[data-skin='switch'] .switch-dock:not([data-board='true']) .switch-dada-logo { width: 28px; height: 28px; }
+:root[data-skin='switch'] .switch-dock:not([data-board='true']) .switch-dock-name {
+  position: static;
+  color: var(--text2);
+  font-size: 14px;
+  opacity: 1;
+}
+:root[data-skin='switch'] .switch-dock:not([data-board='true']) .switch-dock-btn[data-on='true'] .switch-dock-name,
+:root[data-skin='switch'] .switch-dock:not([data-board='true']) .switch-dock-btn[data-on='true'] .switch-orb { color: var(--main); }
+:root[data-skin='switch'] .switch-dock:not([data-board='true']) .switch-start { font-size: 18px; }
+:root[data-skin='switch'] .switch-dock:not([data-board='true']) .switch-dock-mark svg { width: 28px; height: 28px; }
+
+@container switch-canvas (max-width: 720px) {
+  :root[data-skin='switch'] .switch-home,
+  :root[data-skin='switch'] .switch-dock {
+    --switch-cover-size: min(62cqw, 36cqh, 280px);
+    --switch-track-inset: 24px;
+    --switch-cover-gap: 16px;
+    --switch-orb-size: clamp(44px, 14cqw, 64px);
+    --switch-foot-size: 64px;
+  }
+  :root[data-skin='switch'] .switch-status { inset: 28px 24px auto; }
+  :root[data-skin='switch'] .switch-status-side { gap: 12px; }
+  :root[data-skin='switch'] .switch-avatar { width: 44px; height: 44px; font-size: 20px; }
+  :root[data-skin='switch'] .switch-clock { font-size: 20px; }
+  :root[data-skin='switch'] .switch-network svg,
+  :root[data-skin='switch'] .switch-battery svg { width: 24px; height: 24px; }
+  :root[data-skin='switch'] .switch-stage { top: calc(27cqh - 56px); }
+  :root[data-skin='switch'] .switch-title { font-size: 24px; }
+  :root[data-skin='switch'] .switch-cover-label { font-size: 18px; }
+  :root[data-skin='switch'] .switch-dock-orbs { gap: 16px; padding: 8px 20px 32px; }
+  :root[data-skin='switch'] .switch-dock-foot { padding-inline: 4px; }
+  :root[data-skin='switch'] .switch-start { font-size: 18px; }
+  :root[data-skin='switch'] .switch-dock:not([data-board='true']) .switch-dock-name { display: none; }
+  :root[data-skin='switch'] .switch-dock:not([data-board='true']) .switch-dock-orbs { left: 64px; right: 104px; gap: 12px; }
+}
+@container switch-canvas (max-width: 360px) {
+  :root[data-skin='switch'] .switch-status { inset-inline: 20px; }
+  :root[data-skin='switch'] .switch-dock-orbs { gap: 12px; padding-inline: 16px; }
+  :root[data-skin='switch'] .switch-dock:not([data-board='true']) .switch-dock-mark { visibility: hidden; }
+  :root[data-skin='switch'] .switch-dock:not([data-board='true']) .switch-dock-orbs { left: 20px; }
+}
+@container switch-canvas (max-height: 480px) {
+  :root[data-skin='switch'] .switch-home,
+  :root[data-skin='switch'] .switch-dock {
+    --switch-cover-size: min(24cqw, 35cqh, 200px);
+    --switch-orb-size: 40px;
+    --switch-foot-size: 44px;
+  }
+  :root[data-skin='switch'] .switch-status { inset-block-start: 16px; }
+  :root[data-skin='switch'] .switch-avatar { width: 32px; height: 32px; font-size: 16px; }
+  :root[data-skin='switch'] .switch-stage { top: calc(27cqh - 40px); }
+  :root[data-skin='switch'] .switch-covers { padding-top: 40px; }
+  :root[data-skin='switch'] .switch-title { bottom: calc(100% + 10px); font-size: 18px; }
+  :root[data-skin='switch'] .switch-cover-label { font-size: 14px; }
+  :root[data-skin='switch'] .switch-dock-orbs { padding-bottom: 20px; }
+  :root[data-skin='switch'] .switch-dock-name { top: calc(100% + 5px); font-size: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-skin='switch'] .switch-cover-art,
+  :root[data-skin='switch'] .switch-orb { transition: none; }
+}

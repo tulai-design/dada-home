@@ -41,6 +41,7 @@ export function ProfileForm() {
         <Row stack>
           <TextArea
             className="ai-textarea"
+            aria-label="偏好"
             variant="borderless"
             autoSize={{minRows: 2, maxRows: 6}}
             maxLength={600}
@@ -54,6 +55,7 @@ export function ProfileForm() {
         <Row stack>
           <TextArea
             className="ai-textarea"
+            aria-label="备注"
             variant="borderless"
             autoSize={{minRows: 3, maxRows: 10}}
             maxLength={1000}

@@ -92,7 +92,7 @@ export function TextRow({
   const Field = secret ? InputPassword : Input
   return (
     <Row label={label} hint={hint} stack={stack}>
-      <Field className="ios-input" variant="borderless" value={value} placeholder={placeholder} onValueChange={onChange} onPressEnter={onEnter} />
+      <Field className="ios-input" aria-label={label} variant="borderless" value={value} placeholder={placeholder} onValueChange={onChange} onPressEnter={onEnter} />
     </Row>
   )
 }

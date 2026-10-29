@@ -1,0 +1,191 @@
+/* 主机内容皮肤。几何由画布容器决定，颜色只读取 SWITCH_THEME。 */
+:root[data-skin='switch'] .dock-shell,
+:root[data-skin='switch'] .app::before,
+:root[data-skin='switch'] .waves,
+:root[data-skin='switch'] .fx-static-backdrop[data-effect='waves'] { display: none; }
+:root[data-skin='switch'] .canvas {
+  container: switch-canvas assistant-page / size;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--bg);
+}
+:root[data-skin='switch'] .canvas > .topbar { background: var(--bg); border-bottom: 1px solid var(--border); }
+:root[data-skin='switch'] .canvas[data-switch-board='true'] > .topbar,
+:root[data-skin='switch'] .canvas:has(.settings-page) > .topbar { display: none; }
+:root[data-skin='switch'] .canvas > .page {
+  padding-bottom: calc(72px + env(safe-area-inset-bottom));
+}
+:root[data-skin='switch'] .canvas[data-switch-board='true'] > .page {
+  padding: 0;
+  overflow: hidden !important;
+  background: var(--bg);
+}
+:root[data-skin='switch'] .canvas[data-switch-board='true'] > .page::before { display: none; }
+:root[data-skin='switch'] .page.sys-view:has(.settings-page) {
+  overflow: hidden !important;
+}
+:root[data-skin='switch'] .settings-page {
+  grid-template-columns: minmax(200px, 28%) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  padding: 0 clamp(20px, 2.4cqw, 48px);
+  background: var(--bg);
+}
+:root[data-skin='switch'] .console-settings-header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: clamp(72px, 11cqh, 104px);
+  padding: 12px clamp(12px, 2cqw, 32px);
+  border-bottom: 1px solid var(--rule);
+}
+:root[data-skin='switch'] .console-settings-header h1 {
+  margin: 0;
+  font: 400 clamp(22px, 2cqw, 32px)/1.3 var(--font-sans);
+}
+:root[data-skin='switch'] .settings-page .ios-side {
+  padding: 24px clamp(16px, 2.5cqw, 48px) 32px 12px;
+  border: 0;
+  background: transparent;
+  scrollbar-width: thin;
+  scrollbar-color: var(--text4) transparent;
+}
+:root[data-skin='switch'] .settings-index + .settings-index {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+:root[data-skin='switch'] .settings-index-title {
+  margin: 0 20px 8px;
+  font: 400 12px/1.5 var(--font-sans);
+  color: var(--text3);
+}
+:root[data-skin='switch'] .settings-index .settings-nav {
+  position: relative;
+  min-height: clamp(44px, 6.8cqh, 60px);
+  margin: 0;
+  padding: 8px 20px;
+  border-radius: 0;
+  background: transparent;
+  font-size: clamp(16px, 1.55cqw, 22px);
+  color: var(--text2);
+}
+:root[data-skin='switch'] .settings-nav-icon,
+:root[data-skin='switch'] .settings-nav-summary { display: none; }
+:root[data-skin='switch'] .settings-nav[data-selected='true'] { box-shadow: none; color: var(--main); }
+:root[data-skin='switch'] .settings-nav[data-selected='true']::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  background: var(--switch-focus);
+}
+:root[data-skin='switch'] .settings-nav[data-selected='true'] .settings-nav-name { font-weight: 400; }
+:root[data-skin='switch'] .settings-index .settings-nav:hover { background: var(--bg3); }
+:root[data-skin='switch'] .settings-nav:focus-visible { outline: 3px solid var(--switch-focus); outline-offset: -3px; }
+:root[data-skin='switch'] .settings-page .ios-detail {
+  border-left: 1px solid var(--border);
+  scrollbar-width: thin;
+  scrollbar-color: var(--text4) transparent;
+}
+:root[data-skin='switch'] .settings-page .ios-detail-inner {
+  max-width: 1040px;
+  padding: 32px clamp(24px, 4cqw, 80px) 48px;
+}
+:root[data-skin='switch'] .settings-page .ios-detail-head {
+  margin-bottom: 24px;
+  padding: 0;
+  border: 0;
+  background: var(--bg);
+}
+:root[data-skin='switch'] .ios-detail-head h2 {
+  font: 400 clamp(18px, 1.7cqw, 24px)/1.5 var(--font-sans);
+}
+:root[data-skin='switch'] .ios-detail-desc { display: none; }
+:root[data-skin='switch'] .ios-group { margin-bottom: 28px; }
+:root[data-skin='switch'] .ios-group-title {
+  margin: 0 16px 12px;
+  font: 400 16px/1.5 var(--font-sans);
+  color: var(--text);
+}
+:root[data-skin='switch'] .ios-group-footer { margin: 12px 16px 0; line-height: 1.7; color: var(--text3); }
+:root[data-skin='switch'] .ios-card { overflow: visible; border: 0; border-radius: 0; background: transparent; }
+:root[data-skin='switch'] .ios-row {
+  min-height: 56px;
+  margin: 0;
+  padding: 12px 16px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg2);
+  font-size: 16px;
+}
+:root[data-skin='switch'] .ios-row + .ios-row { border-top: 0; }
+:root[data-skin='switch'] .ios-row[data-stack='true'] { row-gap: 12px; }
+:root[data-skin='switch'] .ios-row[data-clickable='true']:hover { background: var(--bg3); }
+:root[data-skin='switch'] .ios-row[data-selected='true'] { background: var(--bg3); }
+:root[data-skin='switch'] .ios-row:has(.ios-input :is(input, textarea):focus-visible, textarea:focus-visible),
+:root[data-skin='switch'] .ios-row[data-clickable='true']:focus-visible {
+  outline: 3px solid var(--switch-focus);
+  outline-offset: -3px;
+  z-index: 1;
+}
+:root[data-skin='switch'] .ios-row-value { color: var(--text2); }
+:root[data-skin='switch'] .ios-row-check { color: var(--main); }
+:root[data-skin='switch'] .ios-row :is(button, [role='switch'], [role='combobox']):focus-visible {
+  outline: 3px solid var(--switch-focus) !important;
+  outline-offset: 2px;
+  box-shadow: none;
+}
+:root[data-skin='switch'] .settings-page .lobe-input,
+:root[data-skin='switch'] .settings-page textarea { border-radius: 0 !important; }
+:root[data-skin='switch'] .settings-page textarea { background: var(--bg2); }
+/* 文本行统一由外层承担焦点。按钮、开关等独立控件保留自己的焦点。 */
+:root[data-skin='switch'] .ios-row :is(.ios-input, textarea):focus-within,
+:root[data-skin='switch'] .ios-row .ios-input :is(input, textarea):focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+:root[data-skin='switch'] .settings-page textarea:focus-visible:not(.ios-row textarea) { outline: 3px solid var(--switch-focus); outline-offset: 0; }
+:root[data-skin='switch'] .settings-page .lobe-segmented { border-radius: 2px; background: var(--bg3); }
+:root[data-skin='switch'] .widget .page-pane,
+:root[data-skin='switch'] .widget .weather-card {
+  border: 0 !important;
+  border-radius: var(--radius-lg) !important;
+  background: var(--bg2);
+  box-shadow: none;
+}
+:root[data-skin='switch'] .widget .page-pane h2::before,
+:root[data-skin='switch'] .widget .weather-card h2::before { display: none; }
+:root[data-skin='switch'] .widget h2,
+:root[data-skin='switch'] .widget h3 { font-family: var(--font-sans); letter-spacing: 0; text-transform: none; }
+:root[data-skin='switch'] .hot-grid li,
+:root[data-skin='switch'] .feed-card,
+:root[data-skin='switch'] .monitor-mini-row { border-bottom: 1px solid var(--border); }
+:root[data-skin='switch'] .feed-card { border-radius: 0 !important; }
+:root[data-skin='switch'] .mark-cell,
+:root[data-skin='switch'] .mark-cell:hover { border-radius: var(--radius); background: transparent; }
+:root[data-skin='switch'] .mark-link { border-radius: var(--radius); background: var(--bg); }
+:root[data-skin='switch'] .mark-cell:hover .mark-link:not(.mark-link-off) { outline: 2px solid var(--switch-focus); }
+:root[data-skin='switch'] .note-area,
+:root[data-skin='switch'] .note-area textarea,
+:root[data-skin='switch'] .page-pane .lobe-input { background-image: none !important; border-radius: var(--radius) !important; }
+
+/* 同一断点同时覆盖手机和 AI 分栏，返回设置列表始终可达。 */
+@container switch-canvas (max-width: 860px) {
+  :root[data-skin='switch'] .settings-page { grid-template-columns: minmax(0, 1fr); padding-inline: 16px; }
+  :root[data-skin='switch'] .settings-page[data-pane='detail'] .ios-side,
+  :root[data-skin='switch'] .settings-page[data-pane='list'] .ios-detail { display: none; }
+  :root[data-skin='switch'] .settings-page[data-pane='list'] .ios-side { display: block; }
+  :root[data-skin='switch'] .settings-page .ios-side { padding: 20px 4px 32px; }
+  :root[data-skin='switch'] .settings-page .ios-detail { border: 0; }
+  :root[data-skin='switch'] .settings-page .ios-detail-inner { padding: 16px 4px 32px; }
+  :root[data-skin='switch'] .settings-page .ios-back { display: inline-flex !important; }
+  :root[data-skin='switch'] .settings-page .ios-detail-head { position: sticky; top: 0; z-index: 3; min-height: 48px; margin-bottom: 16px; }
+  :root[data-skin='switch'] .settings-page .ios-row { font-size: 14px; padding: 12px; }
+  :root[data-skin='switch'] .console-settings-header { min-height: 64px; padding-inline: 12px; }
+}
+
+:root[data-skin='switch'] .console-avatar-preview { display: inline-flex; margin-right: 16px; }

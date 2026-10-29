@@ -6,7 +6,7 @@ import type {SyncScope} from './syncTypes'
 import {WORKSPACE_VERSION} from './workspace'
 
 export const configNames = ['workspace', 'settings', 'search', 'persona', 'focusSettings', 'searchMode', 'sidebarAi', 'assistantPanelMode', 'range']
-const settingsFields = ['name', 'city', 'lat', 'lon', 'theme', 'showFavicons', 'showSeconds', 'wallpaper', 'wallpaperIndex', 'wallpaperUrl', 'hotSource', 'hotBoards', 'ai']
+const settingsFields = ['name', 'avatarSeed', 'city', 'lat', 'lon', 'theme', 'showFavicons', 'showSeconds', 'wallpaper', 'wallpaperIndex', 'wallpaperUrl', 'hotSource', 'hotBoards', 'ai']
 const aiFields = ['model', 'protocol', 'temperature', 'topP', 'maxTokens', 'presencePenalty', 'frequencyPenalty', 'reasoningEffort', 'contextTurns', 'maxRounds', 'apiKey']
 export const secretFields = new Set(['apiKey', 'token', 'password', 'secret', 'keys'])
 const own = (value: object, key: string) => Object.prototype.hasOwnProperty.call(value, key)
@@ -158,6 +158,7 @@ export function validateRecord(id: string, value: unknown, deleted: boolean, sco
   } else if (name === 'settings') {
     fields(value, settingsFields)
     for (const key of ['name', 'city', 'wallpaperUrl', 'hotSource']) if (value[key] !== undefined && typeof value[key] !== 'string') fail()
+    if (value.avatarSeed !== undefined && (typeof value.avatarSeed !== 'string' || !value.avatarSeed || value.avatarSeed.length > 100)) fail()
     for (const key of ['lat', 'lon', 'wallpaperIndex']) if (value[key] !== undefined && (typeof value[key] !== 'number' || !Number.isFinite(value[key]))) fail()
     for (const key of ['showFavicons', 'showSeconds']) if (value[key] !== undefined && typeof value[key] !== 'boolean') fail()
     if (value.theme !== undefined && !oneOf(value.theme, ['light', 'dark'])) fail()
