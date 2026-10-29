@@ -90,6 +90,7 @@ export default function App() {
 
   const [pageId, setPageId] = useStored<string>('page', 'home')
   const [switchBoard, setSwitchBoard] = useState(true)
+  const openBoardSelection = useRef<() => void>(() => {})
   const [pendingPage, setPendingPage] = useState<string | null>(null)
 
   const [reader, setReader] = useState<Article | null>(null)
@@ -701,7 +702,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <PersistenceNotice />
-      <div className="app" inert={persistence.busy || persistence.errors.some(error => error.source === 'backup-restore') || undefined} data-fx={view === 'page' && hasBackdrop(currentPage?.layers) ? 'on' : undefined}>
+      <div className="app" inert={persistence.busy || persistence.errors.some(error => error.source === 'backup-restore') || undefined} data-fx={view === 'page' && !showSwitchBoard && hasBackdrop(currentPage?.layers) ? 'on' : undefined}>
         {/* 页面背景特效铺在最底层，覆盖整个窗口，侧栏和顶栏透明地叠在上面 */}
         <div className="fx-root" ref={setFxRoot} aria-hidden="true" />
         {/* 外框：四条红边进场时从各自的方向滑进来（来自 anyway.fm 的做法） */}
@@ -739,6 +740,7 @@ export default function App() {
             onMarket={openMarket}
             onMonitor={openMonitor}
             onSettings={() => openSettings()}
+            onStart={showSwitchBoard ? () => openBoardSelection.current() : undefined}
           />
         )}
 
@@ -791,7 +793,7 @@ export default function App() {
             >
               <FxLayers page={currentPage} container={canvasElement} portal={fxRoot}>
                 {showSwitchBoard ? (
-                  <SwitchHome pages={workspace.pages} applications={applications} onPage={goPage} onApplication={openApplication} />
+                  <SwitchHome name={settings.name} pages={workspace.pages} applications={applications} onPage={goPage} onApplication={openApplication} bindOpen={(open) => { openBoardSelection.current = open }} />
                 ) : currentPage && (
                   <PageView
                     page={currentPage}
