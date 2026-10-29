@@ -1,23 +1,41 @@
-import {useState} from 'react'
+import {useEffect, useState} from 'react'
 import {Button} from '@lobehub/ui'
 import {retryPersistence, usePersistenceStatus} from '../lib/persistence'
 import '../persistence.css'
 
 /** 只在保存失败时出现，直到真正重试成功；不能以当前内存可读代替落盘。 */
+const editing = () => {
+  const el = document.activeElement
+  if (!(el instanceof HTMLElement) || el === document.body) return false
+  return el.isContentEditable || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT'
+}
+
 export function PersistenceNotice() {
-  const {errors, busy} = usePersistenceStatus()
+  const {errors, busy, holding} = usePersistenceStatus()
   const [retrying, setRetrying] = useState(false)
-  const unsaved = errors.some(error => error.blocking)
+  const unsaved = errors.some(error => error.blocking && error.source !== 'sync-reload')
   const interruptedRestore = errors.some(error => error.source === 'backup-restore')
   const syncReload = errors.some(error => error.source === 'sync-reload')
   const databaseReload = errors.some(error => error.source === 'db-reload')
-  const currentError = errors.find(error => error.source === 'backup-restore') ?? errors.find(error => error.source === 'db-reload') ?? errors.find(error => error.source === 'sync-reload') ?? errors.find(error => error.blocking) ?? errors[0]
+  const currentError = errors.find(error => error.source === 'backup-restore') ?? errors.find(error => error.source === 'db-reload') ?? errors.find(error => error.blocking && error.source !== 'sync-reload') ?? errors[0]
+  useEffect(() => {
+    if (!syncReload || holding || busy) return
+    const reload = () => {if (!editing()) location.reload()}
+    if (!editing()) {
+      const timer = window.setTimeout(reload, 0)
+      return () => window.clearTimeout(timer)
+    }
+    const onLeave = () => {window.setTimeout(reload, 0)}
+    document.addEventListener('focusout', onLeave)
+    return () => document.removeEventListener('focusout', onLeave)
+  }, [syncReload, holding, busy])
   if (!errors.length && !busy) return null
   if (busy) return (
     <div className="persistence-restoring" role="status" aria-live="polite">
       <span>正在恢复数据，请稍候…</span>
     </div>
   )
+  if (syncReload && !interruptedRestore && !databaseReload && !unsaved) return null
   return (
     <aside className="persistence-notice" role="alert" aria-label={interruptedRestore ? '本地保存失败' : databaseReload ? '本地数据库待加载' : syncReload ? '同步数据待加载' : '本地保存失败'}>
       <div className="persistence-notice-copy">

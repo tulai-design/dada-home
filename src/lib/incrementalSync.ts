@@ -71,7 +71,7 @@ export function createIncrementalSyncController(options: IncrementalSyncControll
         return withPersistenceExclusive(async () => {
           await flushSources(); cancelled(signal)
           return incrementalStore.bind(binding)
-        })
+        }, {quiet: true})
       })
     },
     async run(settings: IncrementalSyncRunOptions = {}): Promise<IncrementalSyncRunResult> {
@@ -94,7 +94,7 @@ export function createIncrementalSyncController(options: IncrementalSyncControll
             reportPersistenceError('sync-reload', new Error('同步配置尚未完成，请重新加载后重试。'))
             throw error
           }
-        })
+        }, {quiet: true})
         if (recovered) return {...result, hasMore: true, needsReload: true}
         await reconcileConfig(binding.epoch); cancelled(signal)
         const capabilities = await client.capabilities({signal})
@@ -172,7 +172,7 @@ export function createIncrementalSyncController(options: IncrementalSyncControll
             if (!page.hasMore || index + 1 === maxPull) break
             next = await downloadPage(cursor)
           }
-        })
+        }, {quiet: true})
         const pending = await incrementalStore.inspect(binding.epoch)
         result.hasMore ||= pending.records.some(record => enabled.includes(record.collection) && !record.conflict && Boolean(record.draft || record.inFlight))
         return result
@@ -188,14 +188,14 @@ export function createIncrementalSyncController(options: IncrementalSyncControll
           const result = await incrementalStore.resolve(binding.epoch, ref, version, choice)
           if (result.changed) {reloadRequired(); await applyPendingConfig()}
           return {...result, needsReload: result.changed}
-        })
+        }, {quiet: true})
       })
     },
     /** 重新开启同步范围之后调用：从头核对远端，补上关闭期间跳过的记录。 */
     async rewind(settings: {signal?: AbortSignal} = {}) {
       return locked(settings.signal, async () => {
         const binding = await checkBinding()
-        await withPersistenceExclusive(() => incrementalStore.rewind(binding.epoch))
+        await withPersistenceExclusive(() => incrementalStore.rewind(binding.epoch), {quiet: true})
       })
     },
     async detach(settings: {signal?: AbortSignal} = {}) {
@@ -204,7 +204,7 @@ export function createIncrementalSyncController(options: IncrementalSyncControll
         await withPersistenceExclusive(async () => {
           await flushSources(); cancelled(signal)
           await incrementalStore.detach(binding.epoch)
-        })
+        }, {quiet: true})
       })
     },
     close() {closed = true; for (const controller of active) controller.abort()},
