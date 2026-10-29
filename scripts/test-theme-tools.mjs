@@ -170,7 +170,7 @@ await test('get_appearance 读取真实默认、当前和差异且不提交', as
   const count = commits
   const appearance = JSON.parse(await run('get_appearance'))
   assert.equal(appearance.defaults.theme.shared.frame, '7px')
-  assert.equal(appearance.defaults.dock.preset, 'glass')
+  assert.equal(appearance.defaults.dock.preset, 'solid')
   assert.deepEqual(appearance.defaults.home.layers, plain(model.DEFAULT_HOME_LAYERS))
   assert.equal(appearance.current.mode, 'dark')
   assert.equal(appearance.current.theme.resolved.bg, palettes.dark.bg)

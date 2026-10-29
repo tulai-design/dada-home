@@ -1,7 +1,8 @@
 /**
  * Dock（桌面左侧的侧栏 / 手机底部的标签栏）的样式。
  *
- * 默认是「拟态液体玻璃」：一颗悬浮的玻璃胶囊，当前页下面有一块会滑动的液态玻璃。
+ * 默认是「纸质卡片」：悬浮的实色卡片，细边线，没有玻璃。
+ * 玻璃胶囊和通栏仍是可选预设。
  * 想换成别的：内置几种预设，或者让 AI 完整地写一份新的 CSS（custom css），
  * 它能改位置、形状、材质、动画，什么都行。
  *
@@ -10,8 +11,8 @@
  */
 
 export const DOCK_PRESETS = [
-  {id: 'glass', name: '拟态液体玻璃', description: '悬浮的玻璃胶囊，当前页下有一块会流动的液态玻璃。默认。'},
-  {id: 'solid', name: '纸质卡片', description: '悬浮的实色卡片，细边线，没有玻璃效果，安静、省性能。'},
+  {id: 'glass', name: '拟态液体玻璃', description: '悬浮的玻璃胶囊，当前页下有一块会流动的液态玻璃。'},
+  {id: 'solid', name: '纸质卡片', description: '悬浮的实色卡片，细边线，没有玻璃效果。默认。'},
   {id: 'bar', name: '通栏', description: '贴边的整条栏：电脑上是通高的侧栏，手机上是通宽的底栏。'},
 ] as const
 
@@ -23,7 +24,7 @@ export type DockStyle = {
   css?: string
 }
 
-export const DEFAULT_DOCK_PRESET: DockPreset = 'glass'
+export const DEFAULT_DOCK_PRESET: DockPreset = 'solid'
 export const DOCK_CSS_LIMIT = 6000
 /** 所有自定义样式都挂在这个选择器下面。 */
 export const DOCK_SCOPE = '.dock-shell[data-dock]'

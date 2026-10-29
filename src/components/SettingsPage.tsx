@@ -9,7 +9,7 @@ import {listApplications} from '../lib/applications'
 import {PROXY_PRESETS} from '../lib/rss'
 import {useStored} from '../lib/store'
 import {SEARCH_KEY, defaultSearchConfig, normalizeSearchConfig, providerInfo, searchReady} from '../lib/webSearch'
-import {Group, Row, TextRow, Tile} from './ios'
+import {Group, Row, TextRow} from './ios'
 import {SidebarSettings, StatusbarSettings} from './LayoutSettings'
 import {exportBackupSnapshot, importBackup, MAX_BACKUP_BYTES, parseBackup, type BackupSummary} from '../lib/storage'
 import {useIsMobile} from '../lib/useMedia'
@@ -27,18 +27,14 @@ import {ApplicationSettings} from './ApplicationSettings'
 import type {AssistantMode} from '../lib/assistantLayout'
 
 /**
- * 设置页，仿 iOS 设置：左边是分组列表，右边是当前项的详情。
- *
- * 全局设置只留真正全局的几项（个人、外观、AI、网络、数据）。
- * 热榜、订阅、书签、天气、监控这些功能的设置由各自组件注册（lib/apps.ts），
- * 统一出现在「应用」分组里。
+ * 设置页：左边是分组目录，右边是当前项。
+ * 热榜、订阅、书签、天气、监控由各自组件注册（lib/apps.ts），出现在「应用」里。
  */
 
 type Section = {
   id: string
   name: string
   icon: PhosphorIcon
-  color: string
   description?: string
   summary?: string
   render: () => ReactNode
@@ -111,7 +107,6 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest,
       id: 'profile',
       name: '个人',
       icon: User,
-      color: '#8e8e93',
       summary: settings.name,
       description: '搭搭怎么称呼你，以及它该了解你的哪些背景。',
       render: () => (
@@ -127,7 +122,6 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest,
       id: 'appearance',
       name: '外观',
       icon: Palette,
-      color: '#0a84ff',
       summary: themeMode === 'dark' ? '深色' : '浅色',
       description: '配色和主题库。页面的壁纸、特效和版式，直接对搭搭说就行。',
       render: () => <AppearanceSettings mode={themeMode} onMode={onThemeMode} />,
@@ -136,7 +130,6 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest,
       id: 'templates',
       name: '模板',
       icon: LayoutDashboard,
-      color: '#bf5af2',
       summary: `${ctx.workspace.templates.length} 个`,
       description: '把整套页面设计存下来，随时切换；也可以从内置预设起步。',
       render: () => <TemplateSettings />,
@@ -145,7 +138,6 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest,
       id: 'sidebar',
       name: '侧栏',
       icon: PanelLeft,
-      color: '#5e5ce6',
       summary: `${ctx.workspace.pages.length} 页`,
       description: '管理侧栏里的页面：名称、图标、顺序和删除。首页等系统入口是固定的。',
       render: () => <SidebarSettings />,
@@ -154,7 +146,6 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest,
       id: 'statusbar',
       name: '状态条',
       icon: PanelTop,
-      color: '#ff9f0a',
       summary: `${ctx.workspace.statusbar.length + listApplications(ctx.workspace).filter((app) => app.status).length} 项`,
       description: '顶栏右侧的实时状态与应用入口。AI 应用的启动按钮或紧凑视图，在各自的应用设置中管理。',
       render: () => <StatusbarSettings />,
@@ -166,7 +157,6 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest,
       id: 'ai',
       name: '搭搭 AI',
       icon: Sparkles,
-      color: '#ff453a',
       summary: settings.ai.apiKey ? settings.ai.model : '未配置',
       description: '接入 OpenAI 或 Anthropic 兼容服务。密钥只保存在这台浏览器里。',
       render: () => (
@@ -193,7 +183,6 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest,
       id: 'search',
       name: '联网搜索',
       icon: Search,
-      color: '#0a84ff',
       summary: searchSummary,
       description: '让搭搭自己上网查资料：Tavily、Firecrawl、SearXNG 等。也可以管理「搜索并跳转」是否每次询问。',
       render: () => <SearchSettings />,
@@ -202,7 +191,6 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest,
       id: 'soul',
       name: '灵魂',
       icon: Heart,
-      color: '#ff375f',
       summary: persona.soul.name,
       description: '搭搭是谁、怎么说话、按什么原则做事。你可以改，它自己也可以（可关）。',
       render: () => <SoulSettings />,
@@ -211,7 +199,6 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest,
       id: 'memory',
       name: '记忆',
       icon: Brain,
-      color: '#bf5af2',
       summary: `${persona.memory.items.length} 条`,
       description: '搭搭在聊天里积累的、对你的认识。看得见，改得了，删得掉。',
       render: () => <MemorySettings />,
@@ -220,7 +207,6 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest,
       id: 'network',
       name: '网络',
       icon: Globe,
-      color: '#30d158',
       summary: PROXY_PRESETS.find((p) => p.template === settings.proxy)?.label.split(' ')[0] ?? '自定义',
       description: '订阅、热榜、监控取数时共用的代理。浏览器直接请求会被跨域拦住，需要走代理。',
       render: () => (
@@ -247,28 +233,19 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest,
       id: 'sync',
       name: '同步',
       icon: ArrowsClockwise,
-      color: '#0a84ff',
       summary: syncConfigured(readSyncConfig()) ? (syncStatus.phase === 'error' ? '出错了' : readSyncConfig().auto ? '自动' : '手动') : '未开启',
       description: '把数据同步到你自己的存储里，在多台设备间保持一致。',
       render: () => <SyncSettings />,
     },
     {
-      id: 'storage',
-      name: '容量与清理',
-      icon: Database,
-      color: '#5e5ce6',
-      description: '看清各类数据占多少空间，按时间清理旧聊天。',
-      render: () => <StorageSettings />,
-    },
-    {
       id: 'data',
       name: '数据',
       icon: Database,
-      color: '#8e8e93',
-      description: '所有数据都只在这台浏览器里。',
+      description: '看本机占用，导出备份，或恢复到初始状态。数据只留在这台浏览器里。',
       render: () => (
         <>
-          <Group footer={importError ? <span style={{color: 'var(--lobe-color-error, #d4380d)'}}>{importError}</span> : '导出订阅、书签、待办、页面、对话和配置，密钥也在其中，请妥善保管。导入会用备份整体替换现在的数据。'}>
+          <StorageSettings />
+          <Group footer={importError ? <Text type="danger">{importError}</Text> : '导出订阅、书签、待办、页面、对话和配置，密钥也在其中。导入会用备份整体替换现在的数据。'}>
             <Row label={exporting ? '正在导出…' : '导出备份'} icon={<Download size={16} />} chevron onClick={() => void runExport()} />
             <Row label="导入备份" icon={<Upload size={16} />} chevron onClick={() => fileRef.current?.click()} />
           </Group>
@@ -288,7 +265,6 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest,
       id: 'about',
       name: '关于',
       icon: Info,
-      color: '#d43f2d',
       description: '认识一下搭搭。',
       render: () => <AboutPanel />,
     },
@@ -298,7 +274,6 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest,
     id: app.id,
     name: app.name,
     icon: app.icon,
-    color: app.color,
     description: app.description,
     summary: app.summary?.(ctx),
     render: () => <app.Panel />,
@@ -307,7 +282,6 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest,
     id: `application:${app.id}`,
     name: app.instance.title || '未命名应用',
     icon: Sparkles,
-    color: 'var(--main)',
     description: app.description || '搭搭为你制作的应用。在这里管理打开方式、入口和应用设置。',
     summary: app.group || 'AI 应用',
     render: () => <ApplicationSettings key={app.id} application={app} />,
@@ -315,43 +289,54 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest,
   const apps = [...builtinApps, ...generatedApps]
 
   const all = [...general, ...system, ...apps]
-  const current = all.find((item) => item.id === section) ?? general[0]
+  const resolved = section === 'storage' ? 'data' : section
+  const current = all.find((item) => item.id === resolved) ?? general[0]
+  const indexes = [
+    {title: '画像', ids: ['profile', 'soul', 'memory']},
+    {title: '版面', ids: ['appearance', 'templates', 'sidebar', 'statusbar']},
+    {title: '搭搭', ids: ['ai', 'search']},
+    ...(apps.length ? [{title: '应用', ids: apps.map((app) => app.id)}] : []),
+    {title: '本机', ids: ['network', 'sync', 'data', 'about']},
+  ]
 
   const select = (id: string) => {
     onSection(id)
     setPane('detail')
   }
-  const row = (item: Section) => (
-    <Row
-      key={item.id}
-      icon={<Tile icon={item.icon} color={item.color} />}
-      label={item.name}
-      chevron
-      selected={item.id === current.id}
-      onClick={() => select(item.id)}
-    >
-      {item.summary ? <span className="ios-summary">{item.summary}</span> : undefined}
-    </Row>
-  )
+  const entry = (id: string) => {
+    const item = all.find((sectionItem) => sectionItem.id === id)
+    if (!item) return null
+    const Icon = item.icon
+    const selected = item.id === current.id
+    return (
+      <button key={item.id} type="button" className="settings-nav" data-selected={selected || undefined} aria-current={selected ? 'page' : undefined} onClick={() => select(item.id)}>
+        <span className="settings-nav-icon"><Icon size={16} /></span>
+        <span className="settings-nav-name">{item.name}</span>
+        {item.summary ? <span className="settings-nav-summary">{item.summary}</span> : null}
+      </button>
+    )
+  }
 
   return (
     <AppSettingsCtx.Provider value={ctx}>
       <div className="settings-page" data-pane={pane}>
         <aside className="ios-side">
           <h1 className="ios-large">设置</h1>
-          <Group>{general.slice(0, 2).map(row)}</Group>
-          <Group>{general.slice(2).map(row)}</Group>
-          <Group>{system.slice(0, 3).map(row)}</Group>
-          {apps.length > 0 && <Group title="应用">{apps.map(row)}</Group>}
-          <Group>{system.slice(3).map(row)}</Group>
+          <nav aria-label="设置分类">
+            {indexes.map((index) => (
+              <div key={index.title} className="settings-index">
+                <div className="settings-index-title">{index.title}</div>
+                {index.ids.map(entry)}
+              </div>
+            ))}
+          </nav>
         </aside>
 
         <main className="ios-detail">
           <div className="ios-detail-inner">
             <header className="ios-detail-head">
               <ActionIcon className="ios-back" icon={ChevronLeft} aria-label="返回设置列表" title="返回" onClick={() => setPane('list')} />
-              <Tile icon={current.icon} color={current.color} size={34} />
-              <h1>{current.name}</h1>
+              <h2>{current.name}</h2>
             </header>
             {current.description && <p className="ios-detail-desc">{current.description}</p>}
             {current.render()}
@@ -374,6 +359,7 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest,
         title="导入备份"
         onCancel={() => setPendingImport(null)}
         okText="替换并导入"
+        okButtonProps={{className: 'ink-button'}}
         cancelText="取消"
         confirmLoading={importing}
         onOk={async () => {
@@ -401,6 +387,7 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest,
         title="恢复默认"
         onCancel={() => setResetOpen(false)}
         okText="确定"
+        okButtonProps={{danger: true}}
         cancelText="取消"
         onOk={() => {
           if (generating) {setImportError('请先停止回答，再恢复数据。'); setResetOpen(false); return}

@@ -1,24 +1,13 @@
-import type {CSSProperties, KeyboardEvent, ReactNode} from 'react'
+import type {KeyboardEvent, ReactNode} from 'react'
 import {Input, InputPassword} from '@lobehub/ui'
 import {Check, CaretRight as ChevronRight} from '@phosphor-icons/react'
-import type {Icon as PhosphorIcon} from '@phosphor-icons/react'
 
 /**
- * iOS 设置风格的基础件：圆角分组卡片 + 左标签右控件的行。
- * 设置页和各应用自己的设置面板共用，保证风格一致。
+ * 设置里的分组和行。纸面：标题、发丝线、左标签右控件。
+ * 设置页和各应用自己的设置面板共用。
  */
 
-/** 彩色圆角图标块，iOS 设置里每个入口前面那个。 */
-export function Tile({icon: Icon, color, size = 28}: {icon: PhosphorIcon; color: string; size?: number}) {
-  const style: CSSProperties = {background: color, width: size, height: size}
-  return (
-    <span className="ios-tile" style={style}>
-      <Icon size={Math.round(size * 0.58)} />
-    </span>
-  )
-}
-
-/** 一组行，白色圆角卡片，上方可有小标题，下方可有说明。 */
+/** 一组行。上方可有小标题，下方可有说明。 */
 export function Group({title, footer, children}: {title?: ReactNode; footer?: ReactNode; children: ReactNode}) {
   return (
     <section className="ios-group">

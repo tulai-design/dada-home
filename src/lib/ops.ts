@@ -187,7 +187,7 @@ export function setStatusbar(workspace: Workspace, raw: unknown): Workspace {
  * 设置 Dock 的样式：选预设，和 / 或 换上一份完整的自定义 CSS。
  *   - preset 不填：沿用现在的预设
  *   - css 不填：沿用现在的自定义样式；传空字符串：清掉，回到预设本身的样子
- *   - reset：整个回到默认的拟态液体玻璃
+ *   - reset：整个回到默认的纸质卡片
  */
 export function setDock(workspace: Workspace, patch: {preset?: string; css?: string; reset?: boolean}): Workspace {
   const {dock: _old, ...rest} = workspace

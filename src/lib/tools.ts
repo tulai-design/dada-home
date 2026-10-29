@@ -17,7 +17,7 @@ import type {ApplicationOpenMode} from './workspace'
 import {PRESETS} from './presets'
 import {MEMORY_KINDS, addMemory, aiEditSoul, getPersona, removeMemory} from './persona'
 import {isSynced, summarize} from './templates'
-import {DOCK_GUIDE, DOCK_PRESETS} from './dock'
+import {DEFAULT_DOCK_PRESET, DOCK_GUIDE, DOCK_PRESETS} from './dock'
 import {SITE_TOOLS} from './siteTools'
 import {SEARCH_TOOLS} from './searchTools'
 import {LIFE_TOOLS} from './lifeTools'
@@ -185,7 +185,7 @@ export const HOME_TOOLS = [
           .join('\n')
         const status = workspace.statusbar.map((item) => `${item.type} ${JSON.stringify(item.config)}`).join('；') || '（空）'
         const addons = workspace.addons.map((id) => ADDONS.find((a) => a.id === id)?.name ?? id).join('、') || '（无）'
-        return `${pages}\n\n特效页面上限：${JSON.stringify({desktop: FX_BUDGET_LIMITS, compact: FX_COMPACT_LIMITS, compactWidth: FX_COMPACT_WIDTH})}；图层与特效块共同计量，小于窄容器阈值的 WebGL/Spline 静态显示。旧页允许各维度不增加超限的编辑；只覆盖注册特效，不计自编应用内部动画。\n已安装的市场组件：${addons}\n状态条：${status}\nDock：${workspace.dock ? `${workspace.dock.preset}${workspace.dock.css ? ' + 自定义 CSS' : ''}` : '默认（拟态液体玻璃）'}，用 get_dock / set_dock\n主题：${activeTheme(workspace).name}（${activeTheme(workspace).id}）｜明暗 ${workspace.theme.mode}｜主题库 ${workspace.themes.length} 个，用 list_themes 查看\n模板库：我的 ${workspace.templates.length} 个 + 内置预设，用 list_templates 查看\nAI 应用：${listApplications(workspace).length} 个，用 list_applications 查看源码、分组、入口与设置；默认从组件市场打开。\n完整外观（默认样式、背景、组件外观及差异）用 get_appearance 查看；恢复默认外观用 reset_appearance，不要用布局或模板操作替代。`
+        return `${pages}\n\n特效页面上限：${JSON.stringify({desktop: FX_BUDGET_LIMITS, compact: FX_COMPACT_LIMITS, compactWidth: FX_COMPACT_WIDTH})}；图层与特效块共同计量，小于窄容器阈值的 WebGL/Spline 静态显示。旧页允许各维度不增加超限的编辑；只覆盖注册特效，不计自编应用内部动画。\n已安装的市场组件：${addons}\n状态条：${status}\nDock：${workspace.dock ? `${workspace.dock.preset}${workspace.dock.css ? ' + 自定义 CSS' : ''}` : '默认（纸质卡片）'}，用 get_dock / set_dock\n主题：${activeTheme(workspace).name}（${activeTheme(workspace).id}）｜明暗 ${workspace.theme.mode}｜主题库 ${workspace.themes.length} 个，用 list_themes 查看\n模板库：我的 ${workspace.templates.length} 个 + 内置预设，用 list_templates 查看\nAI 应用：${listApplications(workspace).length} 个，用 list_applications 查看源码、分组、入口与设置；默认从组件市场打开。\n完整外观（默认样式、背景、组件外观及差异）用 get_appearance 查看；恢复默认外观用 reset_appearance，不要用布局或模板操作替代。`
       },
     },
   ),
@@ -614,7 +614,7 @@ export const HOME_TOOLS = [
     {
       name: 'reset_appearance',
       title: '恢复默认外观',
-      description: '用户说「还原默认主题」「恢复默认外观」用 scope:"all"：恢复默认纸张主题、字体、7px 外框与玻璃 Dock，清除所有页壁纸、特效图层、页面 CSS 和组件外观覆盖，首页恢复系统默认波浪背景。scope:"home" 仅还原首页装饰和组件外观，不改全局主题、字体、Dock 或明暗。保留页面和组件内容、顺序、宽度、配置、对齐以及业务数据，主题库和模板库也保留；独立特效组件和自编应用作为内容保留，其视觉需另查配置或源码。不要用恢复布局、套用模板或删除组件代替。操作一次提交可撤销；完成后用 get_appearance 核对差异。',
+      description: '用户说「还原默认主题」「恢复默认外观」用 scope:"all"：恢复默认纸张主题、字体、7px 外框与纸质卡片 Dock，清除所有页壁纸、特效图层、页面 CSS 和组件外观覆盖，首页恢复系统默认波浪背景。scope:"home" 仅还原首页装饰和组件外观，不改全局主题、字体、Dock 或明暗。保留页面和组件内容、顺序、宽度、配置、对齐以及业务数据，主题库和模板库也保留；独立特效组件和自编应用作为内容保留，其视觉需另查配置或源码。不要用恢复布局、套用模板或删除组件代替。操作一次提交可撤销；完成后用 get_appearance 核对差异。',
       effect: 'write',
       highRisk: () => false,
       execute: (args) =>
@@ -1434,7 +1434,7 @@ export const HOME_TOOLS = [
       effect: 'read',
       highRisk: () => false,
       execute: async () => {
-        const dock = getWorkspace().dock ?? {preset: 'glass'}
+        const dock = getWorkspace().dock ?? {preset: DEFAULT_DOCK_PRESET}
         return [
           `当前预设：${dock.preset}（${DOCK_PRESETS.find((item) => item.id === dock.preset)?.name}）`,
           dock.css ? `自定义 CSS（${dock.css.length} 字）：\n${dock.css}` : '没有自定义 CSS',
@@ -1451,14 +1451,14 @@ export const HOME_TOOLS = [
         properties: {
           preset: {type: 'string', enum: DOCK_PRESETS.map((item) => item.id), description: DOCK_PRESETS.map((item) => `${item.id}＝${item.name}`).join('，')},
           css: {type: 'string', description: '整套自定义 CSS，会叠在预设之上；传空字符串清掉自定义样式。要改就把完整的一份传回来（整体替换，不是追加）。'},
-          reset: {type: 'boolean', description: '回到默认的拟态液体玻璃，并清掉自定义 CSS'},
+          reset: {type: 'boolean', description: '回到默认的纸质卡片，并清掉自定义 CSS'},
         },
       },
     },
     {
       name: 'set_dock',
       title: '设置 Dock 样式',
-      description: `设置 Dock（电脑的侧栏、手机的底部栏）的外观。默认是「拟态液体玻璃」；可以选内置预设，也可以自己写一整份 CSS 做成全新的样子。改完用户马上能看到，不满意可以撤销。\n\n${DOCK_GUIDE}`,
+      description: `设置 Dock（电脑的侧栏、手机的底部栏）的外观。默认是「纸质卡片」；可以选内置预设，也可以自己写一整份 CSS 做成全新的样子。改完用户马上能看到，不满意可以撤销。\n\n${DOCK_GUIDE}`,
       effect: 'write',
       highRisk: () => false,
       execute: (args) =>
@@ -1466,7 +1466,7 @@ export const HOME_TOOLS = [
           if (!args.reset && args.preset === undefined && args.css === undefined) throw new WorkspaceError('至少给 preset、css、reset 之一')
           commit(ops.setDock(getWorkspace(), args))
           const dock = getWorkspace().dock
-          return dock ? `Dock 已更新：预设 ${dock.preset}${dock.css ? `，带 ${dock.css.length} 字的自定义 CSS` : ''}。` : 'Dock 已回到默认的拟态液体玻璃。'
+          return dock ? `Dock 已更新：预设 ${dock.preset}${dock.css ? `，带 ${dock.css.length} 字的自定义 CSS` : ''}。` : 'Dock 已回到默认的纸质卡片。'
         }),
     },
   ),

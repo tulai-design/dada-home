@@ -71,7 +71,7 @@ test('默认查询包含纸张双模式、字体、外框、Dock与真正默认�
   assert.deepEqual(defaults.theme.dark, DEFAULT_THEME_PALETTES.dark)
   assert.deepEqual(defaults.theme.fonts, DEFAULT_STACKS)
   assert.equal(defaults.theme.shared.frame, '7px')
-  assert.equal(defaults.dock.preset, 'glass')
+  assert.equal(defaults.dock.preset, 'solid')
   assert.equal(defaults.home.wallpaper.mode, 'off')
   assert.deepEqual(defaults.home.layers, DEFAULT_HOME_LAYERS)
   assert.equal(defaults.home.layers[0].effect, 'waves')

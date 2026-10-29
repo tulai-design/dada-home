@@ -1190,13 +1190,14 @@ body {
 }
 
 /* ============================================================
-   设置页：仿 iOS 设置（左列表 + 右详情，圆角分组卡片）
+   设置页：左目录 + 右详情。目录按纸面排，当前项只留一道红线。
    ============================================================ */
 .settings-page {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 340px minmax(0, 1fr);
+  grid-template-columns: 300px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   width: 100%;
 }
 .ios-side,
@@ -1205,52 +1206,113 @@ body {
   overflow-y: auto;
 }
 .ios-side {
-  padding: 18px 16px 40px var(--gutter);
+  padding: 32px 24px 48px var(--gutter);
+  border-right: 1px solid var(--border);
 }
 .ios-large {
-  margin: 4px 8px 14px;
+  margin: 0 0 32px 12px;
   font-family: var(--font-serif);
-  font-size: 34px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-size: 24px;
+  font-weight: 500;
+}
+.settings-index + .settings-index {
+  margin-top: 24px;
+}
+.settings-index-title {
+  margin: 0 0 4px 12px;
+  font-size: 11px;
+  color: var(--text3);
+}
+.settings-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 32px;
+  margin: 0;
+  padding: 8px 0 8px 12px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.settings-nav:hover {
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+}
+.settings-nav:focus-visible {
+  outline: 1px solid var(--text);
+  outline-offset: 2px;
+}
+.settings-nav[data-selected='true'] {
+  box-shadow: inset 2px 0 0 var(--main);
+}
+.settings-nav-icon {
+  display: inline-flex;
+  flex: none;
+  color: var(--text2);
+}
+.settings-nav[data-selected='true'] .settings-nav-icon {
+  color: var(--text);
+}
+.settings-nav-name {
+  flex: 1;
+  min-width: 0;
+}
+.settings-nav[data-selected='true'] .settings-nav-name {
+  font-weight: 600;
+}
+.settings-nav-summary {
+  flex: none;
+  max-width: 96px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text3);
 }
 .ios-detail-inner {
-  max-width: 680px;
+  max-width: 640px;
   margin: 0;
-  padding: 22px var(--gutter) 60px 24px;
+  padding: 32px var(--gutter) 64px 32px;
 }
 .ios-detail-head {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 6px;
+  gap: 8px;
+  margin-bottom: 8px;
 }
-.ios-detail-head h1 {
+.ios-detail-head h2 {
   margin: 0;
   font-family: var(--font-serif);
-  font-size: 30px;
-  font-weight: 700;
+  font-size: 24px;
+  font-weight: 500;
 }
 .ios-detail-desc {
-  margin: 0 0 18px;
+  margin: 0 0 32px;
   color: var(--text2);
-  font-size: 13px;
+  font-size: 14px;
 }
 .ios-back {
   display: none !important;
 }
 
 .ios-group {
-  margin-bottom: 22px;
+  margin-bottom: 32px;
 }
 .ios-group-title {
-  margin: 0 14px 6px;
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  color: var(--text3);
+  margin: 0 0 8px;
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--text);
 }
 .ios-group-footer {
-  margin: 7px 14px 0;
+  margin: 8px 0 0;
   font-size: 12px;
   line-height: 1.5;
   color: var(--text3);
@@ -1267,16 +1329,8 @@ body {
 }
 .ios-card {
   overflow: hidden;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--text) 5%, var(--bg));
-}
-.ios-tile {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  border-radius: 7px;
-  color: #fff;
+  border-radius: var(--radius);
+  border-top: 1px solid var(--rule);
 }
 
 .ios-row {
@@ -1285,54 +1339,28 @@ body {
   align-items: center;
   flex-wrap: nowrap;
   gap: 12px;
-  min-height: 46px;
-  padding: 7px 14px;
+  min-height: 48px;
+  margin-inline: -8px;
+  padding: 12px 8px;
   font-size: 14px;
   color: var(--text);
   outline: none;
 }
-.ios-row + .ios-row::before,
-.ios-item + .ios-item::before,
-.ios-item > .ios-row:first-child::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 14px;
-  right: 0;
-  height: 1px;
-  background: var(--border);
-}
-.ios-item {
-  position: relative;
-}
-.ios-item + .ios-item::before {
-  left: 0;
-  height: 6px;
-  background: color-mix(in srgb, var(--text) 5%, var(--bg));
-  filter: brightness(0.96);
-}
-.ios-item > .ios-row:first-child::before {
-  display: none;
+.ios-row + .ios-row {
+  border-top: 1px solid var(--border);
 }
 .ios-row[data-clickable='true'] {
   cursor: pointer;
 }
 .ios-row[data-clickable='true']:hover {
-  background: color-mix(in srgb, var(--text) 5%, transparent);
+  background: color-mix(in srgb, var(--text) 4%, transparent);
 }
-.ios-row[data-selected='true'] {
-  background: var(--main);
-  color: #fff;
-}
-.ios-row[data-selected='true']:hover {
-  background: var(--main);
-}
-.ios-row[data-selected='true'] .ios-summary,
-.ios-row[data-selected='true'] .ios-row-chevron {
-  color: rgba(255, 255, 255, 0.8);
+.ios-row[data-clickable='true']:focus-visible {
+  outline: 1px solid var(--text);
+  outline-offset: 2px;
 }
 .ios-row[data-danger='true'] {
-  color: var(--main);
+  color: var(--c-red);
 }
 .ios-row-icon {
   display: inline-flex;
@@ -1340,7 +1368,7 @@ body {
   color: var(--text2);
 }
 .ios-row[data-danger='true'] .ios-row-icon {
-  color: var(--main);
+  color: var(--c-red);
 }
 .ios-row-text {
   display: flex;
@@ -1380,7 +1408,7 @@ body {
 /* 控件很宽：标签在上，控件占满下一行 */
 .ios-row[data-stack='true'] {
   flex-wrap: wrap;
-  row-gap: 2px;
+  row-gap: 8px;
 }
 .ios-row[data-stack='true'] .ios-row-value {
   flex-basis: 100%;
@@ -1415,12 +1443,12 @@ body {
 .ios-chips {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 14px;
+  gap: 16px;
+  padding: 16px 0;
 }
 .ios-chip-label {
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   font-size: 12px;
   color: var(--text3);
 }
@@ -1435,12 +1463,45 @@ body {
   }
   .ios-side {
     padding-right: var(--gutter);
+    border-right: 0;
   }
   .ios-detail-inner {
     padding-left: var(--gutter);
   }
   .ios-back {
     display: inline-flex !important;
+  }
+  /* 单栏时目录标题和详情顶栏留在滚动区域顶部，返回不用滑回最上面 */
+  .settings-page[data-pane='list'] .ios-side {
+    padding-top: 0;
+  }
+  .settings-page[data-pane='list'] .ios-large {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    margin: 0 calc(var(--gutter) * -1) 24px;
+    padding: 16px var(--gutter) 12px calc(var(--gutter) + 12px);
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+  }
+  .settings-page[data-pane='detail'] .ios-detail-inner {
+    padding-top: 0;
+  }
+  .settings-page[data-pane='detail'] .ios-detail-head {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    min-height: 48px;
+    margin: 0 calc(var(--gutter) * -1) 16px;
+    padding: 8px var(--gutter);
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+  }
+  .settings-nav[data-selected='true'] {
+    box-shadow: none;
+  }
+  .settings-nav[data-selected='true'] .settings-nav-name {
+    font-weight: 400;
   }
 }
 
@@ -2130,18 +2191,6 @@ body {
   }
 }
 
-@media (max-width: 760px) {
-  /* 手机上设置是「先列表、再详情」，列表里不需要高亮当前项 */
-  .ios-row[data-selected='true'],
-  .ios-row[data-selected='true']:hover {
-    background: transparent;
-    color: inherit;
-  }
-  .ios-row[data-selected='true'] .ios-summary,
-  .ios-row[data-selected='true'] .ios-row-chevron {
-    color: var(--muted, inherit);
-  }
-}
 
 /* ===== AI 设置：服务商 / 模型下拉 ===== */
 .ai-select {

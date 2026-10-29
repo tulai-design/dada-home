@@ -326,7 +326,7 @@ export type TemplateSnapshot = {
   applications?: GeneratedApplication[]
   /** 带上配色。不填表示套用模板时保持当前主题不变。 */
   theme?: ThemeEntry
-  /** Dock 样式。不填就是默认的液体玻璃。 */
+  /** Dock 样式。不填就是默认的纸质卡片。 */
   dock?: DockStyle
 }
 
@@ -356,7 +356,7 @@ export type Workspace = {
   network: NetworkGrant[]
   /** 状态条：顶栏右侧的实时小组件，默认只有一个时钟 */
   statusbar: StatusItem[]
-  /** Dock（侧栏 / 手机底栏）的样式；不填就是默认的拟态液体玻璃 */
+  /** Dock（侧栏 / 手机底栏）的样式；不填就是默认的纸质卡片 */
   dock?: DockStyle
   /** 已安装的市场组件（见 market.ts）。没装的组件不出现在页面、侧栏和 AI 的可用清单里。 */
   addons: string[]

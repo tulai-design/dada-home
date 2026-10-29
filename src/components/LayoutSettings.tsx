@@ -3,7 +3,7 @@ import { ActionIcon, Flexbox, Modal, Select, Switch, Text, toast } from '@lobehu
 import {ArrowDown, ArrowUp, Lock, Plus, Trash as Trash2, X} from '@phosphor-icons/react'
 import { useAppSettings } from '../lib/apps'
 import { removeData } from '../lib/componentData'
-import { DOCK_PRESETS } from '../lib/dock'
+import { DEFAULT_DOCK_PRESET, DOCK_PRESETS } from '../lib/dock'
 import { listStatusTypes, movePage, removePage, renamePage, setDock, setStatusbar } from '../lib/ops'
 import { PAGE_ICONS, PAGE_ICON_LABELS, pageIcon } from '../lib/pageIcons'
 import { getDefinition, type ConfigField } from '../lib/registry'
@@ -90,12 +90,12 @@ export function SidebarSettings() {
             key={item.id}
             label={item.name}
             hint={item.description}
-            checked={(dock?.preset ?? 'glass') === item.id}
+            checked={(dock?.preset ?? DEFAULT_DOCK_PRESET) === item.id}
             onClick={() => edit((ws) => setDock(ws, { preset: item.id }))}
           />
         ))}
         {dock?.css && <Row label="去掉搭搭写的自定义样式" icon={<RotateCcw size={16} />} onClick={() => edit((ws) => setDock(ws, { css: '' }))} />}
-        {dock && <Row label="恢复默认（拟态液体玻璃）" icon={<RotateCcw size={16} />} danger onClick={() => edit((ws) => setDock(ws, { reset: true }))} />}
+        {dock && <Row label="恢复默认（纸质卡片）" icon={<RotateCcw size={16} />} danger onClick={() => edit((ws) => setDock(ws, { reset: true }))} />}
       </Group>
 
       <Group title="固定项" footer="这些是系统入口，不能修改、删除或挪动。">

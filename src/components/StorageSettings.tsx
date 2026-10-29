@@ -1,5 +1,5 @@
 import {useCallback, useEffect, useState} from 'react'
-import {Button, Text} from '@lobehub/ui'
+import {Button, SkeletonText, Text} from '@lobehub/ui'
 import {Download} from '@phosphor-icons/react'
 import {cleanupConversations, exportChatFile, measureUsage, previewCleanup, type CleanupPreview, type Usage} from '../lib/storageUsage'
 import {Group, Row} from './ios'
@@ -34,7 +34,7 @@ export function StorageSettings() {
           {usage.items.map(item => <Row key={item.id} label={item.label} hint={`${item.count} 条`}>{bytes(item.bytes)}</Row>)}
           <Row label="合计">{bytes(usage.total)}</Row>
           {usage.quota !== undefined && <Row label="浏览器配额" hint="本站点可用空间的上限，由浏览器决定。">{bytes(usage.browserUsage ?? 0)} / {bytes(usage.quota)}</Row>}
-        </> : <Row label="正在统计…" />}
+        </> : <Row stack><SkeletonText rows={4} animated /></Row>}
         <Row label="重新统计"><Button size="small" disabled={Boolean(busy)} onClick={() => void load()}>刷新</Button></Row>
       </Group>
 

@@ -21,7 +21,7 @@ const BACKENDS: {id: Backend; name: string; note: string}[] = [
   {id: 'webdav', name: 'WebDAV', note: '同步配置、业务数据和已结束的聊天。服务需开放跨域访问。'},
   {id: 'gist', name: 'GitHub Gist', note: '只同步配置；需要有 gist 权限的令牌。'},
   {id: 'http', name: '自建 HTTP', note: '同步配置、业务数据和已结束的聊天；接口提供 GET / PUT。'},
-  {id: 'sync', name: '自建同步服务', note: '只填一把同步密钥。密钥在同步服务的管理页生成，同一服务的各端填同一把。'},
+  {id: 'sync', name: '自建同步服务', note: '只填一把同步密钥。管理页用管理员令牌登录，每个服务一把，各端填同一把。'},
 ]
 const preview = (value: unknown) => {
   const text = JSON.stringify(value, (key, item) => ['apiKey', 'token', 'password', 'secret', 'keys'].includes(key) ? '••••' : item) ?? '已删除'
@@ -127,11 +127,11 @@ export function SyncSettings() {
 
   return (
     <>
-      <Group title="存到哪里" footer={config.backend === 'sync' ? '打开同步服务的管理页，用管理员令牌登录。每个已授权的应用是一个服务，生成一把密钥；一台服务器可以同时给多个应用使用。' : '每次读取和写入整份快照，按记录合并。组件的一份数据容器是一个记录，容器里的待办或日程不会逐项合并。'}>
-        {BACKENDS.map((backend) => <Row key={backend.id} label={backend.name} hint={backend.note} checked={config.backend === backend.id} onClick={() => set({backend: backend.id})} />)}
+      <Group title="存到哪里" footer={BACKENDS.find((backend) => backend.id === config.backend)?.note}>
+        {BACKENDS.map((backend) => <Row key={backend.id} label={backend.name} checked={config.backend === backend.id} onClick={() => set({backend: backend.id})} />)}
       </Group>
 
-      <Group title="同步范围" footer={config.backend === 'sync' ? '上传前已经加密。自动同步只上传本机变更；手动同步会拉取，拉取后重新加载即可看到新数据。' : protection}>
+      <Group title="同步范围" footer={config.backend === 'sync' ? '上传前已经加密。' : protection}>
         <Row label={configurationOnly ? '仅配置' : '完整业务数据'} hint={configurationOnly
           ? '页面与主题、应用源码和设置、宿主偏好、当前 AI 性格。聊天、画像、累积记忆和业务状态留在本机。'
           : '页面与主题、应用配置、组件与应用业务状态、画像和记忆、已结束的聊天。网络授权和运行状态留在本机。'} />
@@ -172,7 +172,7 @@ export function SyncSettings() {
         {showOriginalPassphrase && <Field label="原云端口令" secret stack value={originalPassphrase} hint="只用于本次读取，不保存；同步成功后清空" onChange={setOriginalPassphrase} />}
       </Group>}
 
-      <Group title="同步" footer={config.backend === 'sync' ? '自动同步会在启动、恢复联网和定时检查时上传本机变更。手动同步会同时拉取；拉取后暂停保存，重新加载即可继续编辑。' : '自动同步会在启动、恢复联网和定时检查时上传本机变更。手动同步会同时拉取；拉取后暂停保存，重新加载即可继续编辑。首次连接时同名记录以远端为基线，本机独有记录仍会上传。同步为快照合并，不是实时协作。'}>
+      <Group title="同步" footer={config.backend === 'sync' ? '启动、恢复联网和定时检查时上传。手动同步才会拉取。' : '启动、恢复联网和定时检查时上传。手动同步才会拉取。首次连接时，同名记录以远端为基线，本机独有记录仍会上传。'}>
         <Row label="自动同步"><Switch aria-label="自动同步" checked={config.auto} onChange={enabled => set({auto: enabled})} /></Row>
         <Row label={syncing ? '同步中…' : status.phase === 'ok' ? `${ago(status.at)}同步完成` : '手动同步'} hint={problem || undefined}>
           <Button size="small" icon={<ArrowsClockwise size={16} />} loading={syncing} disabled={blocked || status.needsReload} onClick={() => void sync()}>立即同步</Button>
