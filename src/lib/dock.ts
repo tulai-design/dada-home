@@ -25,6 +25,18 @@ export type DockStyle = {
 }
 
 export const DEFAULT_DOCK_PRESET: DockPreset = 'solid'
+
+/**
+ * 纸张主题用存下来的样式（默认纸质卡片）。
+ * iOS 主题里，没改成通栏、也没单独选过玻璃时，侧栏显示玻璃。
+ * 不写回存储，回到纸张后仍是原来的选择。
+ */
+export function visibleDock(dock: DockStyle | undefined, ios: boolean): DockStyle | undefined {
+  if (!ios) return dock
+  const preset = dock?.preset ?? DEFAULT_DOCK_PRESET
+  if (preset !== 'solid') return dock
+  return {preset: 'glass', ...(dock?.css ? {css: dock.css} : {})}
+}
 export const DOCK_CSS_LIMIT = 6000
 /** 所有自定义样式都挂在这个选择器下面。 */
 export const DOCK_SCOPE = '.dock-shell[data-dock]'

@@ -26,6 +26,7 @@ import { Reader } from './components/Reader'
 import { ChatAssistant } from './components/ChatAssistant'
 import { AssistantSplitPane } from './components/AssistantSplitPane'
 import { DEFAULT_ASSISTANT_RATIO, normalizeAssistantMode, type AssistantMode } from './lib/assistantLayout'
+import { visibleDock } from './lib/dock'
 import { CommandPalette } from './components/CommandPalette'
 import { SettingsPage } from './components/SettingsPage'
 import { SYNC_OPEN_FLAG } from './lib/sync'
@@ -695,7 +696,7 @@ export default function App() {
           page={currentPage?.id ?? ''}
           onPage={goPage}
           view={view}
-          dock={workspace.dock}
+          dock={visibleDock(workspace.dock, activeTheme(workspace).id === IOS_THEME_ID)}
           onMore={() => setSwitcherOpen(true)}
           onAssistant={() => (assistantOpen ? setAssistantOpen(false) : openAssistant())}
           onLogo={openAssistantPanel}

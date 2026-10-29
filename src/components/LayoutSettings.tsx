@@ -3,11 +3,11 @@ import { ActionIcon, Flexbox, Modal, Select, Switch, Text, toast } from '@lobehu
 import {ArrowDown, ArrowUp, Lock, Plus, Trash as Trash2, X} from '@phosphor-icons/react'
 import { useAppSettings } from '../lib/apps'
 import { removeData } from '../lib/componentData'
-import { DEFAULT_DOCK_PRESET, DOCK_PRESETS } from '../lib/dock'
+import { DEFAULT_DOCK_PRESET, DOCK_PRESETS, visibleDock } from '../lib/dock'
 import { listStatusTypes, movePage, removePage, renamePage, setDock, setStatusbar } from '../lib/ops'
 import { PAGE_ICONS, PAGE_ICON_LABELS, pageIcon } from '../lib/pageIcons'
 import { getDefinition, type ConfigField } from '../lib/registry'
-import { FROZEN_PAGE_ID, MAX_STATUS_ITEMS, type Page } from '../lib/workspace'
+import { activeTheme, FROZEN_PAGE_ID, IOS_THEME_ID, MAX_STATUS_ITEMS, type Page } from '../lib/workspace'
 import { Group, Row, TextRow } from './ios'
 import {ArrowCounterClockwise as RotateCcw} from '@phosphor-icons/react'
 import {configureApplication, listApplications} from '../lib/applications'
@@ -75,6 +75,8 @@ export function SidebarSettings() {
   const editingPage = editingIndex >= 0 ? pages[editingIndex] : null
 
   const dock = workspace.dock
+  const ios = activeTheme(workspace).id === IOS_THEME_ID
+  const shown = visibleDock(dock, ios)?.preset ?? DEFAULT_DOCK_PRESET
   return (
     <>
       <Group
@@ -82,7 +84,9 @@ export function SidebarSettings() {
         footer={
           dock?.css
             ? '搭搭给它写了一份自定义样式，叠在上面的预设之上。想换成别的样子，直接对搭搭说，或者先恢复默认。'
-            : '想要完全不同的样子（换位置、换形状、换材质），直接对搭搭说，它能写一份全新的样式。'
+            : ios && shown === 'glass' && (dock?.preset ?? DEFAULT_DOCK_PRESET) === 'solid'
+              ? 'iOS 主题的侧栏是玻璃。纸质卡片要回到纸张主题才看得到。'
+              : '想要完全不同的样子（换位置、换形状、换材质），直接对搭搭说，它能写一份全新的样式。'
         }
       >
         {DOCK_PRESETS.map((item) => (
@@ -90,7 +94,7 @@ export function SidebarSettings() {
             key={item.id}
             label={item.name}
             hint={item.description}
-            checked={(dock?.preset ?? DEFAULT_DOCK_PRESET) === item.id}
+            checked={shown === item.id}
             onClick={() => edit((ws) => setDock(ws, { preset: item.id }))}
           />
         ))}

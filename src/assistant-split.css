@@ -119,6 +119,13 @@
     background: var(--bg);
     border-bottom: 1px solid var(--border);
   }
+  :root[data-skin='ios'] .assistant-workspace .settings-page {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  :root[data-skin='ios'] .assistant-workspace .settings-page[data-pane='list'] .ios-large,
+  :root[data-skin='ios'] .assistant-workspace .settings-page[data-pane='detail'] .ios-detail-head {
+    background: var(--bg);
+  }
 }
 
 @container assistant-page (max-width: 760px) {
