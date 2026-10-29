@@ -184,7 +184,8 @@ function readThemeState(data: Partial<Workspace>): { themes: ThemeEntry[]; confi
     try {
       const overrides = cleanOverrides(raw.overrides)
       if (Object.keys(overrides).length) {
-        themes.push(...readThemes([{ id: 'mine', name: '我的主题', description: '升级前你调过的配色', overrides, mode }], mode).slice(1))
+        const migrated = readThemes([{ id: 'mine', name: '我的主题', description: '升级前你调过的配色', overrides, mode }], mode).find((item) => item.id === 'mine')
+        if (migrated) themes.push(migrated)
         return { themes, config: { active: 'mine', mode, base } }
       }
     } catch {

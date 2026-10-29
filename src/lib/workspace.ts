@@ -435,6 +435,29 @@ export const IOS_THEME: ThemeEntry = {
   builtin: true,
 }
 
+/** 掌机预设。灰绿四色，读入时始终用这份。 */
+export const PIXEL_THEME_ID = 'pixel'
+
+export const PIXEL_THEME: ThemeEntry = {
+  id: PIXEL_THEME_ID,
+  name: '掌机',
+  description: '灰绿液晶、实线和错位阴影，像掌机主屏。',
+  overrides: {radius: '0px', 'radius-lg': '0px', frame: '8px', 'frame-gap': '8px', 'frame-color': '#0f380f'},
+  light: {
+    bg: '#8bac0f', bg2: '#9bbc0f', bg3: '#306230',
+    text: '#0f380f', text2: '#306230', text3: '#306230', text4: '#306230',
+    border: '#0f380f', rule: '#0f380f', main: '#0f380f',
+  },
+  dark: {
+    bg: '#0f380f', bg2: '#306230', bg3: '#8bac0f',
+    text: '#9bbc0f', text2: '#8bac0f', text3: '#8bac0f', text4: '#8bac0f',
+    border: '#9bbc0f', rule: '#9bbc0f', main: '#9bbc0f',
+  },
+  fonts: [{family: 'Silkscreen'}],
+  mode: 'light',
+  builtin: true,
+}
+
 /** 当前启用的主题；id 失效时回落到默认主题。 */
 export function activeTheme(workspace: Pick<Workspace, 'themes' | 'theme'>): ThemeEntry {
   return workspace.themes.find((item) => item.id === workspace.theme.active) ?? workspace.themes.find((item) => item.id === DEFAULT_THEME_ID) ?? DEFAULT_THEME

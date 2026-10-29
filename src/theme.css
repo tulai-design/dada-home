@@ -2684,3 +2684,210 @@ body {
   background: var(--c-red);
   color: #fff;
 }
+
+/* ============================================================
+   掌机：灰绿液晶。直角、实线、错位阴影，没有纸纹和模糊。
+   ============================================================ */
+:root[data-skin='pixel'] {
+  --pixel-font: Silkscreen, var(--font-sans);
+  --pixel-shadow: 2px 2px 0 var(--text);
+}
+:root[data-skin='pixel'][data-theme='dark'] .frame-bar {
+  background: #9bbc0f;
+}
+:root[data-skin='pixel'] .app::before,
+:root[data-skin='pixel'] .waves,
+:root[data-skin='pixel'] .fx-static-backdrop[data-effect='waves'],
+:root[data-skin='pixel'] .topbar::after {
+  display: none;
+}
+:root[data-skin='pixel'] .brand-title,
+:root[data-skin='pixel'] .home-clock,
+:root[data-skin='pixel'] .ios-large,
+:root[data-skin='pixel'] .ios-detail-head h2,
+:root[data-skin='pixel'] .settings-index-title,
+:root[data-skin='pixel'] .ios-group-title {
+  font-family: var(--pixel-font);
+  letter-spacing: 0;
+}
+:root[data-skin='pixel'] .page-grid > .widget[data-type='clock'] .home-clock {
+  font-family: var(--pixel-font);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0;
+}
+:root[data-skin='pixel'] .home-clock-sec {
+  font-family: var(--pixel-font);
+  color: var(--text);
+}
+:root[data-skin='pixel'] .canvas > .topbar {
+  border-bottom: 2px solid var(--text);
+  background: var(--bg);
+}
+:root[data-skin='pixel'] .hero-box {
+  border: 2px solid var(--text) !important;
+  border-radius: 0 !important;
+  background: var(--bg2) !important;
+  box-shadow: var(--pixel-shadow);
+}
+:root[data-skin='pixel'] .hero-box:focus-within {
+  box-shadow: var(--pixel-shadow), 0 0 0 2px var(--bg3);
+}
+:root[data-skin='pixel'] .hero-box .hero-input input {
+  font-family: var(--pixel-font);
+}
+:root[data-skin='pixel'] .widget .page-pane,
+:root[data-skin='pixel'] .widget .weather-card,
+:root[data-skin='pixel'] .quick-icon {
+  border: 2px solid var(--text) !important;
+  border-radius: 0 !important;
+  background: var(--bg2);
+  box-shadow: var(--pixel-shadow);
+}
+:root[data-skin='pixel'] .lobe-button,
+:root[data-skin='pixel'] .lobe-input,
+:root[data-skin='pixel'] .lobe-tag,
+:root[data-skin='pixel'] .lobe-segmented,
+:root[data-skin='pixel'] .lobe-segmented__indicator,
+:root[data-skin='pixel'] .lobe-segmented-indicator {
+  border-radius: 0 !important;
+}
+:root[data-skin='pixel'] .lobe-segmented {
+  background: var(--bg3) !important;
+  padding: 2px !important;
+}
+:root[data-skin='pixel'] .lobe-segmented__indicator,
+:root[data-skin='pixel'] .lobe-segmented-indicator {
+  background: var(--bg2) !important;
+  box-shadow: var(--pixel-shadow) !important;
+}
+:root[data-skin='pixel'] .page.sys-view:has(.settings-page),
+:root[data-skin='pixel'] .settings-page,
+:root[data-skin='pixel'] .ios-side,
+:root[data-skin='pixel'] .ios-detail {
+  background: var(--bg);
+}
+:root[data-skin='pixel'] .ios-large,
+:root[data-skin='pixel'] .ios-detail-head h2 {
+  text-align: center;
+}
+:root[data-skin='pixel'] .settings-index {
+  padding-inline: 16px;
+}
+:root[data-skin='pixel'] .settings-index .settings-nav,
+:root[data-skin='pixel'] .ios-card {
+  border: 2px solid var(--text);
+  border-radius: 0;
+  background: var(--bg2);
+  box-shadow: var(--pixel-shadow);
+}
+:root[data-skin='pixel'] .settings-index .settings-nav {
+  min-height: 48px;
+  margin-bottom: 8px;
+}
+:root[data-skin='pixel'] .ios-card {
+  padding: 0;
+}
+:root[data-skin='pixel'] .ios-row {
+  margin-inline: 0;
+  padding: 11px 16px;
+  border-radius: 0;
+}
+:root[data-skin='pixel'] .settings-nav-icon,
+:root[data-skin='pixel'] .ios-row-icon {
+  border-radius: 0;
+  background: var(--text);
+  color: var(--bg);
+}
+:root[data-skin='pixel'] .settings-nav[data-selected='true'] {
+  background: var(--text);
+  color: var(--bg);
+  box-shadow: var(--pixel-shadow);
+}
+:root[data-skin='pixel'] .settings-nav[data-selected='true'] .settings-nav-name,
+:root[data-skin='pixel'] .settings-nav[data-selected='true'] .settings-nav-summary,
+:root[data-skin='pixel'] .settings-nav[data-selected='true'] .ios-row-value {
+  color: var(--bg);
+}
+:root[data-skin='pixel'] .settings-nav[data-selected='true'] .settings-nav-icon {
+  background: var(--bg);
+  color: var(--text);
+}
+:root[data-skin='pixel'] .ios-row[data-clickable='true']:hover,
+:root[data-skin='pixel'] .settings-index .settings-nav:hover {
+  background: var(--bg3);
+  color: var(--bg);
+}
+:root[data-skin='pixel'] .ios-back {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 0 !important;
+  border: 2px solid var(--text) !important;
+  background: var(--bg2) !important;
+  color: var(--text) !important;
+  box-shadow: var(--pixel-shadow);
+}
+:root[data-skin='pixel'] .dock-shell {
+  --dock-surface: var(--bg2);
+  --dock-ink: var(--text);
+  --dock-muted: var(--text2);
+  --dock-active: var(--text);
+  --dock-shadow: var(--pixel-shadow);
+  --dock-glider-shadow: none;
+}
+:root[data-skin='pixel'] .dock-shell .dock {
+  border: 2px solid var(--text);
+  border-radius: 0 !important;
+  background: var(--bg2);
+  box-shadow: var(--pixel-shadow);
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+:root[data-skin='pixel'] .dock-glider,
+:root[data-skin='pixel'] .dock .rail-btn {
+  border-radius: 0 !important;
+}
+:root[data-skin='pixel'] .dock .rail-btn,
+:root[data-skin='pixel'] .dock .rail-btn:hover,
+:root[data-skin='pixel'] .dock .rail-btn[data-on='true']:hover {
+  scale: 1;
+}
+:root[data-skin='pixel'] .dock .rail-btn[data-on='true'] {
+  color: var(--bg);
+}
+@media (max-width: 860px) {
+  :root[data-skin='pixel'] .settings-page[data-pane='detail'] .ios-detail-head {
+    display: grid;
+    grid-template-columns: 32px 1fr 32px;
+    align-items: center;
+    min-height: 56px;
+    background: var(--bg);
+  }
+  :root[data-skin='pixel'] .settings-page[data-pane='detail'] .ios-detail-head h2 {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    margin: 0;
+    padding-inline: 44px;
+    pointer-events: none;
+  }
+  :root[data-skin='pixel'] .settings-page[data-pane='detail'] .ios-back {
+    grid-column: 1;
+    grid-row: 1;
+    z-index: 1;
+  }
+}
+@media (max-width: 760px) {
+  :root[data-skin='pixel'] .app:has(.settings-page) .canvas > .topbar {
+    display: none;
+  }
+  :root[data-skin='pixel'] .app:has(.settings-page) .canvas {
+    padding-top: 0;
+  }
+  :root[data-skin='pixel'] .app:has(.settings-page) .page {
+    padding-bottom: 0;
+  }
+  :root[data-skin='pixel'] .settings-page .ios-side,
+  :root[data-skin='pixel'] .settings-page .ios-detail-inner {
+    padding-bottom: calc(var(--dock-clear, 96px) + 8px);
+  }
+}
