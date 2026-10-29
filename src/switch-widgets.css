@@ -6,7 +6,7 @@
 }
 /* 解除旧版一屏布局的两层定高，末项与 Dock 之间的留白也参与滚动。 */
 :root[data-skin='switch'] .page:has(.page-grid) .fx-page-content,
-:root[data-skin='switch'] .page:has(.page-grid) .fx-page-content > div {
+:root[data-skin='switch'] .page:has(.page-grid) .fx-page-content > .fx-page-surface {
   height: auto !important;
   min-height: 100%;
 }
@@ -183,7 +183,6 @@
   :root[data-skin='switch'] .cal-cell { min-height: 64px; padding: 8px 3px; }
   :root[data-skin='switch'] .cal-weekday { padding-inline: 3px; text-align: center; }
   :root[data-skin='switch'] :is(.cal-day, .cd-hero) { padding: 16px !important; }
-  :root[data-skin='switch'] .cal-day > :last-child { flex-wrap: wrap; }
   :root[data-skin='switch'] .music-deck { flex-basis: 100%; max-width: 320px; margin-inline: auto; }
   :root[data-skin='switch'] .music-queue { flex-basis: 100%; padding: 16px; }
   :root[data-skin='switch'] .pomo-stats { padding: 16px !important; }

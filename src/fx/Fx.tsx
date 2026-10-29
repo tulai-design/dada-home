@@ -202,7 +202,7 @@ export function FxLayers({layers, page, container, children, portal}: {layers?: 
     <FxContext.Provider value={{plan, compact, report}}>
       {/* Keep this business-content parent stable when spark/policy/media changes. */}
       <div ref={setRoot} className="fx-page-content" style={{...contentHeight, minWidth: 0, position: 'relative'}}>
-        <ClickSpark {...sparkParams} disabled={sparkDisabled} style={contentHeight}>
+        <ClickSpark {...sparkParams} className="fx-page-surface" disabled={sparkDisabled} style={contentHeight}>
           {backdrop && (portal ? createPortal(backdrop, portal) : backdrop)}
           {children}
           {above.map(({layer, key}) => <div className="fx-overlay" key={key} aria-hidden="true"><FxEffect id={layer.effect} params={layer.params} effectKey={key} /></div>)}

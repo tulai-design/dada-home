@@ -146,6 +146,12 @@
   font-size: 18px;
 }
 
+/* 输入区按实际可用宽度换行，手机与桌面窄组件都保留时间、添加按钮。 */
+.cal-add { min-width: 0; width: 100%; }
+.cal-add .cal-add-title { flex: 1 1 180px; min-width: 0; }
+.cal-add .cal-add-time { flex: 0 0 116px; width: 116px; min-width: 0; }
+.cal-add .cal-add-submit { flex: none; }
+
 /* 一条日程：日历的当天详情和「日程」组件共用 */
 .ev-list {
   display: flex;

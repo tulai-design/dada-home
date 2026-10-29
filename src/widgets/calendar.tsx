@@ -226,17 +226,19 @@ function Calendar({config, host}: ComponentProps<CalendarConfig>) {
           </Text>
         )}
 
-        <Flexbox horizontal gap={8} align="center">
+        <Flexbox className="cal-add" role="group" aria-label="新增日程" horizontal gap={8} align="center" wrap="wrap">
           <Input
-            style={{flex: 1}}
+            className="cal-add-title"
+            aria-label="日程标题"
             placeholder={`给 ${Number(selected.slice(5, 7))}月${Number(selected.slice(8))}日添一条日程`}
             value={title}
             onValueChange={setTitle}
             onPressEnter={add}
           />
           <DatePicker.TimePicker
+            className="cal-add-time"
+            aria-label="日程时间"
             locale={datePickerLocaleZhCN}
-            style={{width: 116}}
             format="HH:mm"
             minuteStep={5}
             needConfirm={false}
@@ -244,7 +246,7 @@ function Calendar({config, host}: ComponentProps<CalendarConfig>) {
             value={toDate(time)}
             onChange={(value) => setTime(fromDate(value as Date | null))}
           />
-          <Button className="ink-button" type="primary" icon={<Plus size={14} />} disabled={!title.trim()} onClick={add}>
+          <Button className="ink-button cal-add-submit" type="primary" icon={<Plus size={14} />} disabled={!title.trim()} onClick={add}>
             添加
           </Button>
         </Flexbox>

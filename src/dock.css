@@ -309,6 +309,13 @@
   .app .page {
     padding-bottom: var(--dock-clear);
   }
+  /* 移动页已改为整页滚动，特效包装也须按内容增高，尾部 Dock 留白才计入滚动范围。
+     只处理实际页面栅格；系统页和主机主屏各自保留原有高度合同。 */
+  .app .page:has(.page-grid) > .fx-page-content,
+  .app .page:has(.page-grid) > .fx-page-content > .fx-page-surface {
+    height: auto !important;
+    min-height: 100%;
+  }
   .dock-shell[data-dock='bar'] {
     padding: 0 0 env(safe-area-inset-bottom);
   }

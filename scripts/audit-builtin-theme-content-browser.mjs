@@ -3,14 +3,14 @@ import {createRequire} from 'node:module'
 import {writeFile} from 'node:fs/promises'
 import {routeBuiltinFixtures, seedBuiltinFixtures} from './browser-builtin-fixtures.mjs'
 
-// 通过公开工具构建内容，用真实导航和 DOM 几何审计各主题；只运行在全新隔离 context。
+// 通过公开工具构建内容，用真实导航和 DOM 几何回归各主题；只运行在全新隔离 context。
 const require = createRequire(import.meta.url)
 const {chromium} = require(process.env.DADA_PLAYWRIGHT_PATH || 'playwright')
 const base = (process.env.DADA_QA_URL || 'http://127.0.0.1:5175').replace(/\/$/, '')
 const requested = process.env.DADA_QA_THEMES?.split(',').filter(Boolean)
 const browser = await chromium.launch({headless: true})
 const context = await browser.newContext({viewport: {width: 1440, height: 900}, reducedMotion: 'reduce', timezoneId: 'Asia/Shanghai'})
-const samples = [], failures = [], errors = []
+const samples = [], failures = [], errors = [], calendarInteractions = []
 let builtinThemes = []
 const cases = [
   {label: '热榜', slug: 'hot', target: '.hot-grid li a', text: '.hot-grid li a', control: '.hot-grid li a'},
@@ -84,7 +84,7 @@ try {
       const {width, timer, workspace} = sample.focusLayout
       if (width >= 680 ? timer.right > workspace.left + 1 : timer.bottom > workspace.top + 1) failures.push(`${label}: 专注横纵布局交叠`)
     }
-    if (failures.length > previousFailureCount) await page.screenshot({path: `/tmp/dada-builtin-${label.replaceAll(' ', '-')}-end.png`})
+    if (failures.length > previousFailureCount || page.viewportSize().width < 500 && ['hot', 'feeds', 'bookmarks', 'calendar'].includes(item.slug)) await page.screenshot({path: `/tmp/dada-builtin-${label.replaceAll(' ', '-')}-end.png`})
     const control = page.locator(item.control).first()
     if (await control.count()) {
       await control.scrollIntoViewIfNeeded(); await control.focus(); await page.keyboard.press('Shift')
@@ -95,6 +95,42 @@ try {
       })
     }
     samples.push(sample)
+  }
+  const calendarInteraction = async label => {
+    const calendar = page.locator('.cal-day'), input = calendar.getByPlaceholder(/添一条日程/), time = calendar.getByPlaceholder('全天')
+    const add = calendar.getByRole('button', {name: '添加', exact: true})
+    const clickTitle = `${label} 点击添加`, enterTitle = `${label} 回车添加`
+    await input.fill(clickTitle)
+    const controls = []
+    for (const [name, control] of [['日程', input], ['时间', time], ['添加', add]]) {
+      // 浮动 Dock 不参与 IntersectionObserver，显式滚入中央再验实际命中，模拟用户把表单滚到可操作位置。
+      await control.evaluate(element => element.scrollIntoView({block: 'center', inline: 'nearest'})); await settle()
+      const geometry = await control.evaluate(element => {
+        const rect = e => {const b = e.getBoundingClientRect(); return {left: b.left, right: b.right, top: b.top, bottom: b.bottom, width: b.width, height: b.height}}
+        const panel = rect(element.closest('.cal-day')), box = rect(element), root = rect(document.querySelector('.canvas > .page'))
+        const frame = rect(element.closest('.cal-add-title, .cal-add-time, .cal-add-submit') || element)
+        const dock = [...document.querySelectorAll('.switch-dock,.dock')].find(e => e.getBoundingClientRect().height > 0), footer = dock && rect(dock)
+        const visibleBottom = Math.min(root.bottom, innerHeight, footer && box.left < footer.right && box.right > footer.left ? footer.top : root.bottom)
+        const points = [box.top + 2, (box.top + box.bottom) / 2, box.bottom - 2].map(y => document.elementFromPoint((box.left + box.right) / 2, y))
+        return {box, frame, panel, root, visibleBottom, hittable: points.every(hit => element === hit || element.contains(hit))}
+      })
+      controls.push({name, ...geometry})
+      const {box, frame, panel, root, visibleBottom, hittable} = geometry
+      if (Math.min(box.left, frame.left) < Math.max(panel.left, root.left) - 1 || Math.max(box.right, frame.right) > Math.min(panel.right, root.right) + 1 || box.top < root.top - 1 || box.bottom > visibleBottom + 1 || !hittable) failures.push(`${label}: ${name}控件裁切或无法点击 ${JSON.stringify(geometry)}`)
+    }
+    await add.click()
+    assert.equal(await input.inputValue(), '', `${label}: 点击添加后清空输入`)
+    const firstEvents = await call('list_events', {})
+    assert.ok(firstEvents.includes(`｜${clickTitle}｜`), `${label}: 点击提交已持久化日程`)
+    await input.fill(enterTitle); await input.press('Enter')
+    assert.equal(await input.inputValue(), '', `${label}: 回车添加后清空输入`)
+    const secondEvents = await call('list_events', {})
+    assert.ok(secondEvents.includes(`｜${enterTitle}｜`), `${label}: 回车提交已持久化日程`)
+    await calendar.getByRole('button', {name: `删除「${clickTitle}」`, exact: true}).click()
+    await calendar.getByRole('button', {name: `删除「${enterTitle}」`, exact: true}).click()
+    await calendar.locator('.cal-add').evaluate(element => element.scrollIntoView({block: 'center', inline: 'nearest'})); await settle()
+    await page.screenshot({path: `/tmp/dada-builtin-${label.replaceAll(' ', '-')}-calendar-form.png`})
+    calendarInteractions.push({label, clickSaved: true, enterSaved: true, controls})
   }
   for (const theme of themes) {
     await call('apply_theme', {ref: theme.id})
@@ -111,16 +147,30 @@ try {
           })
           await page.mouse.move(0, 0); await settle()
           await page.screenshot({path: `/tmp/dada-builtin-${theme.id}-${item.slug}-${mode}-${viewport.width}.png`})
+          if (item.slug === 'calendar' && viewport.width < 500) await calendarInteraction(`${theme.id} ${viewport.width} ${mode}`)
+        }
+      }
+    }
+    // 更窄设备验证长内容末项及日历表单实际交互；保留各主题自己的视觉密度。
+    for (const width of [320, 360]) {
+      await page.setViewportSize({width, height: 844})
+      for (const mode of ['light', 'dark']) {
+        await call('set_theme', {mode})
+        for (const item of cases.filter(item => ['hot', 'feeds', 'bookmarks', 'calendar'].includes(item.slug))) {
+          await open(item.label); await measure(`${theme.id} ${width} ${mode} ${item.slug}`, item)
+          if (item.slug === 'calendar') await calendarInteraction(`${theme.id} ${width} ${mode}`)
         }
       }
     }
   }
-  const report = {builtinThemes, auditedThemes: themes, fontNote: '外网被隔离，Google 字体用本机 fallback；视觉结论限于此条件。', errors, failures, samples}
+  const report = {builtinThemes, auditedThemes: themes, fontNote: '外网被隔离，Google 字体用本机 fallback；视觉结论限于此条件。', errors, failures, samples, calendarInteractions}
   await writeFile('/tmp/dada-builtin-theme-content-report.json', JSON.stringify(report, null, 2))
-  console.log(JSON.stringify(report, null, 2))
-  console.log(`审计完成：${themes.length} 个内置主题，${samples.length} 个页面/视口/模式场景，${failures.length} 个布局待改项，${errors.length} 个运行异常。此报告不作为 Switch 主题的通过门槛。`)
+  assert.deepEqual(errors, [], '浏览器无运行异常')
+  assert.deepEqual(failures, [], '内置主题内容可达、无横溢且日历表单可操作')
+  console.log(`通过：${themes.length} 个内置主题，${samples.length} 个页面/视口/模式场景；${calendarInteractions.length} 组手机日历点击及回车添加；无横溢、底栏遮挡或运行异常。详情 /tmp/dada-builtin-theme-content-report.json`)
 } catch (error) {
   await context.pages()[0]?.screenshot({path: '/tmp/dada-builtin-theme-failure.png'})
-  console.error(JSON.stringify({builtinThemes, errors, failures, samples}, null, 2))
+  await writeFile('/tmp/dada-builtin-theme-content-report.json', JSON.stringify({builtinThemes, errors, failures, samples, calendarInteractions}, null, 2))
+  console.error(JSON.stringify({errors, failures, completedScenarios: samples.length}, null, 2))
   throw error
 } finally {await context.close(); await browser.close()}
