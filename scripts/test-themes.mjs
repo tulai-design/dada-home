@@ -29,7 +29,7 @@ function load(relative) {
 const model = load('src/lib/workspace.ts')
 const themes = load('src/lib/themes.ts')
 const {DEFAULT_THEME, DEFAULT_THEME_ID, IOS_THEME, IOS_THEME_ID, PIXEL_THEME, PIXEL_THEME_ID, activeTheme} = model
-const {saveTheme, tweakTheme, applyTheme, setMode, readThemes, removeTheme, resolveThemeOverrides, swatch} = themes
+const {saveTheme, tweakTheme, applyTheme, setMode, setSkinFrame, readThemes, removeTheme, resolveThemeOverrides, swatch} = themes
 const base = () => ({
   version: model.WORKSPACE_VERSION,
   pages: [{id: model.FROZEN_PAGE_ID, name: '首页', label: '首页', components: []}],
@@ -248,13 +248,20 @@ test('掌机是内置预设，读入时覆盖同 id 旧副本，不能改删', (
   assert.equal(loaded[1].id, IOS_THEME_ID)
   assert.equal(loaded[2].id, PIXEL_THEME_ID)
   assert.equal(loaded[2].light.main, PIXEL_THEME.light.main)
-  assert.equal(loaded[2].light.bg, '#8bac0f')
-  assert.equal(loaded[2].dark.bg, '#0f380f')
+  assert.equal(loaded[2].light.bg, '#c5d2ae')
+  assert.equal(loaded[2].dark.bg, '#1a2218')
   assert.equal(loaded.filter((item) => item.id === 'pixel').length, 1)
   const ws = {...base(), themes: loaded}
   assert.equal(applyTheme(ws, 'pixel').workspace.theme.active, PIXEL_THEME_ID)
   assert.throws(() => removeTheme(ws, 'pixel'), /内置主题不能删除/)
   assert.throws(() => saveTheme(ws, {id: 'pixel', name: '改掉'}), /内置主题不能修改/)
+  const off = setSkinFrame(applyTheme({...base(), themes: loaded}, 'pixel').workspace, false)
+  assert.equal(off.theme.active, PIXEL_THEME_ID)
+  assert.equal(off.theme.frameOff, true)
+  assert.equal(off.themes.some((item) => item.name.startsWith('自定义')), false)
+  assert.equal(setSkinFrame(off, true).theme.frameOff, undefined)
+  assert.equal(setSkinFrame(base(), false).theme.frameOff, undefined)
+  assert.equal(applyTheme(off, 'ios').workspace.theme.frameOff, undefined)
 })
 
 console.log(`主题回归：${count - failures.length}/${count}`)

@@ -307,6 +307,8 @@ export type ThemeConfig = {
   mode: 'light' | 'dark'
   /** 用户自己选的明暗。切到不指定明暗的主题（比如默认主题）时回到它，这样「还原」才是真的还原。 */
   base: 'light' | 'dark'
+  /** 内置皮肤上关掉外框时为 true。不另存主题，切走后丢掉。 */
+  frameOff?: boolean
 }
 
 /** 模板库最多存多少个（内置预设不占名额）。 */
@@ -442,16 +444,16 @@ export const PIXEL_THEME: ThemeEntry = {
   id: PIXEL_THEME_ID,
   name: '掌机',
   description: '灰绿液晶、实线和错位阴影，像掌机主屏。',
-  overrides: {radius: '0px', 'radius-lg': '0px', frame: '8px', 'frame-gap': '8px', 'frame-color': '#0f380f'},
+  overrides: {radius: '0px', 'radius-lg': '0px', frame: '8px', 'frame-gap': '8px', 'frame-color': '#243024'},
   light: {
-    bg: '#8bac0f', bg2: '#9bbc0f', bg3: '#306230',
-    text: '#0f380f', text2: '#306230', text3: '#306230', text4: '#306230',
-    border: '#0f380f', rule: '#0f380f', main: '#0f380f',
+    bg: '#c5d2ae', bg2: '#e4ecd6', bg3: '#a3b48a',
+    text: '#243024', text2: '#4d6248', text3: '#6e8268', text4: '#a3b09a',
+    border: '#243024', rule: '#243024', main: '#243024',
   },
   dark: {
-    bg: '#0f380f', bg2: '#306230', bg3: '#8bac0f',
-    text: '#9bbc0f', text2: '#8bac0f', text3: '#8bac0f', text4: '#8bac0f',
-    border: '#9bbc0f', rule: '#9bbc0f', main: '#9bbc0f',
+    bg: '#1a2218', bg2: '#2c3828', bg3: '#465842',
+    text: '#e4ecd6', text2: '#b7c7aa', text3: '#8a9b80', text4: '#5c6b56',
+    border: '#e4ecd6', rule: '#e4ecd6', main: '#d5e2c4',
   },
   fonts: [{family: 'Silkscreen'}],
   mode: 'light',

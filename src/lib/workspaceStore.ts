@@ -192,10 +192,11 @@ function readThemeState(data: Partial<Workspace>): { themes: ThemeEntry[]; confi
       /* 旧的变量不合法就当没有 */
     }
   }
+  const frameOff = (data.theme as {frameOff?: unknown} | undefined)?.frameOff === true
   const active = typeof raw.active === 'string' && themes.some((item) => item.id === raw.active) ? raw.active : DEFAULT_THEME_ID
   const entry = themes.find((item) => item.id === active)
   // 初始偏好只在 applyTheme 时采用；刷新必须尊重用户已保存的实际模式。
-  return { themes, config: { active, mode: raw.mode === 'light' || raw.mode === 'dark' ? raw.mode : entry?.mode ?? mode, base } }
+  return { themes, config: { active, mode: raw.mode === 'light' || raw.mode === 'dark' ? raw.mode : entry?.mode ?? mode, base, ...(frameOff ? {frameOff: true} : {}) } }
 }
 
 /** 状态条：旧数据没有这个字段，用默认；有就逐项校验，失效的组件丢掉。 */

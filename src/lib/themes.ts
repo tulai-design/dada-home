@@ -121,7 +121,18 @@ function uniqueId(workspace: Workspace, name: string): string {
 }
 
 function activate(workspace: Workspace, entry: ThemeEntry): Workspace {
-  return {...workspace, theme: {...workspace.theme, active: entry.id, mode: entry.mode ?? workspace.theme.base}}
+  const {frameOff: _frameOff, ...theme} = workspace.theme
+  return {...workspace, theme: {...theme, active: entry.id, mode: entry.mode ?? workspace.theme.base}}
+}
+
+/** 掌机和 iOS 的外框开关留在当前主题上。另存会丢掉皮肤。 */
+export function setSkinFrame(workspace: Workspace, on: boolean): Workspace {
+  const active = activeTheme(workspace)
+  if (!active.builtin || (active.id !== IOS_THEME_ID && active.id !== PIXEL_THEME_ID)) return workspace
+  const theme = {...workspace.theme}
+  if (on) delete theme.frameOff
+  else theme.frameOff = true
+  return {...workspace, theme}
 }
 
 /** fonts 字段：空数组表示清掉，所以不写进主题。 */

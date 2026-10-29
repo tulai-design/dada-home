@@ -98,9 +98,10 @@ export function resetAppearance(workspace: Workspace, input: {scope?: string; mo
   if (scope === 'home') return {...workspace, pages}
   const {dock: _dock, ...rest} = workspace
   const mode = input.mode ?? workspace.theme.mode
+  const {frameOff: _frameOff, ...theme} = workspace.theme
   return {
     ...rest, pages,
-    themes: [clone(DEFAULT_THEME), ...workspace.themes.filter((theme) => theme.id !== DEFAULT_THEME_ID)],
-    theme: {...workspace.theme, active: DEFAULT_THEME_ID, mode, base: mode},
+    themes: [clone(DEFAULT_THEME), ...workspace.themes.filter((item) => item.id !== DEFAULT_THEME_ID)],
+    theme: {...theme, active: DEFAULT_THEME_ID, mode, base: mode},
   }
 }

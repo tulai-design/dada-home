@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { ActionIcon, Flexbox, Modal, Segmented, Switch, Text } from '@lobehub/ui'
 import {PencilSimple as Pencil, Trash as Trash2} from '@phosphor-icons/react'
 import { useAppSettings } from '../lib/apps'
-import { applyTheme, removeTheme, resolveThemeOverrides, saveTheme, swatch, tweakTheme } from '../lib/themes'
-import { activeTheme, type ThemeEntry } from '../lib/workspace'
+import { applyTheme, removeTheme, resolveThemeOverrides, saveTheme, setSkinFrame, swatch, tweakTheme } from '../lib/themes'
+import { activeTheme, IOS_THEME_ID, PIXEL_THEME_ID, type ThemeEntry } from '../lib/workspace'
 import { applyDecor, currentDecor, DECORS } from '../lib/decor'
 import { Group, Row, TextRow } from './ios'
 
@@ -31,9 +31,11 @@ export function AppearanceSettings({ mode, onMode }: { mode: 'light' | 'dark'; o
   const [pending, setPending] = useState<ThemeEntry | null>(null)
 
   const current = activeTheme(workspace)
-  const frameOn = !['0', '0px'].includes(resolveThemeOverrides(current, mode).frame ?? '')
+  const skin = current.id === IOS_THEME_ID || current.id === PIXEL_THEME_ID
+  const frameOn = workspace.theme.frameOff ? false : !['0', '0px'].includes(resolveThemeOverrides(current, mode).frame ?? '')
   const setFrame = (on: boolean) =>
     edit((ws) => {
+      if (skin) return setSkinFrame(ws, on)
       const next = !on && activeTheme(ws).builtin ? tweakTheme(ws, { overrides: { frame: '0px' } }).workspace : ws
       const active = activeTheme(next)
       if (active.builtin) return next
@@ -71,7 +73,7 @@ export function AppearanceSettings({ mode, onMode }: { mode: 'light' | 'dark'; o
         </Row>
       </Group>
 
-      <Group title="窗口" footer="窗口四周那圈红框。关掉会另存为一个新主题，默认主题不受影响。粗细、颜色和字体，对搭搭说就行。">
+      <Group title="窗口" footer={skin ? '窗口四周那圈边。关掉只收起这圈边，还是当前这套主题。' : '窗口四周那圈红框。关掉会另存为一个新主题，默认主题不受影响。粗细、颜色和字体，对搭搭说就行。'}>
         <Row label="外框">
           <Switch checked={frameOn} onChange={setFrame} />
         </Row>

@@ -12,16 +12,17 @@
 
 | 角色 | 浅色 | 深色 |
 | --- | --- | --- |
-| bg 屏幕 | `#8bac0f` | `#0f380f` |
-| bg2 面板 | `#9bbc0f` | `#306230` |
-| bg3 凹槽、按下 | `#306230` | `#8bac0f` |
-| text | `#0f380f` | `#9bbc0f` |
-| text2 | `#306230` | `#8bac0f` |
-| text3 / text4 | `#306230` | `#8bac0f` |
-| border / rule | `#0f380f` | `#9bbc0f` |
-| main | `#0f380f` | `#9bbc0f` |
+| bg 屏幕 | `#c5d2ae` | `#1a2218` |
+| bg2 面板 | `#e4ecd6` | `#2c3828` |
+| bg3 凹槽、按下 | `#a3b48a` | `#465842` |
+| text | `#243024` | `#e4ecd6` |
+| text2 | `#4d6248` | `#b7c7aa` |
+| text3 | `#6e8268` | `#8a9b80` |
+| text4 | `#a3b09a` | `#5c6b56` |
+| border / rule | `#243024` | `#e4ecd6` |
+| main | `#243024` | `#d5e2c4` |
 
-共享：`radius` 和 `radius-lg` 为 `0`，`frame` 为 `8px`，`frame-gap` 为 `8px`，`frame-color` 为 `#0f380f`。桌面外框是机身边，不是纸张的红线。手机上现有样式已经不画整屏外框。
+共享：`radius` 和 `radius-lg` 为 `0`，`frame` 为 `8px`，`frame-gap` 为 `8px`，`frame-color` 为 `#243024`。桌面外框是机身边，不是纸张的红线。掌机和 iOS 关掉外框时写 `theme.frameOff`，不另存。手机上现有样式已经不画整屏外框。
 
 ## 材料
 

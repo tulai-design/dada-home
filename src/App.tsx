@@ -293,11 +293,15 @@ export default function App() {
     for (const name of appliedVars.current) root.style.removeProperty(`--${name}`)
     // 字体接管的变量在前，主题自己写的变量在后（后者优先）
     const vars = { ...fontVars(theme.fonts), ...resolveThemeOverrides(theme, workspace.theme.mode) }
+    if (workspace.theme.frameOff) {
+      vars.frame = '0px'
+      vars['frame-gap'] = '0px'
+    }
     appliedVars.current = Object.keys(vars)
     for (const [name, value] of Object.entries(vars)) root.style.setProperty(`--${name}`, value)
     syncFonts(theme.fonts, (family) => toast.error(`字体「${family}」没加载出来：检查名字是否是 Google Fonts 上的，或网络能不能访问 fonts.googleapis.com。`))
     document.title = `${settings.name === '朋友' ? '' : `${settings.name} · `}搭搭`
-  }, [workspace.theme.mode, theme, settings.name])
+  }, [workspace.theme.mode, workspace.theme.frameOff, theme, settings.name])
 
   // 已读记录是共享数据，订阅组件读写它；外壳只需要把当前值传给宿主
   const [readIds, setReadIds] = useStored<string[]>('read', [])
