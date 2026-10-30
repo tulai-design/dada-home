@@ -1,7 +1,7 @@
 /* Switch 系统壳：尺寸依据宿主 canvas，分栏不会借用整个视口的宽度。 */
 :root[data-skin='switch'] .switch-home,
 :root[data-skin='switch'] .switch-dock {
-  --switch-cover-size: min(20cqw, 35.56cqh, 360px);
+  --switch-cover-size: min(calc(min(20cqw, 35.56cqh, 360px) * var(--switch-cover-scale, 1)), 38cqh, 432px);
   --switch-cover-gap: clamp(12px, 1.25cqw, 24px);
   --switch-track-inset: clamp(24px, 7.8125cqw, 140px);
   --switch-orb-size: clamp(40px, 12.22cqh, 112px);
@@ -313,7 +313,7 @@
 @container switch-canvas (max-width: 720px) {
   :root[data-skin='switch'] .switch-home,
   :root[data-skin='switch'] .switch-dock {
-    --switch-cover-size: min(62cqw, 36cqh, 280px);
+    --switch-cover-size: min(calc(min(62cqw, 36cqh, 280px) * var(--switch-cover-scale, 1)), 38cqh, 336px);
     --switch-track-inset: 24px;
     --switch-cover-gap: 16px;
     --switch-orb-size: clamp(44px, 14cqw, 64px);
@@ -343,7 +343,7 @@
 @container switch-canvas (max-height: 480px) {
   :root[data-skin='switch'] .switch-home,
   :root[data-skin='switch'] .switch-dock {
-    --switch-cover-size: min(24cqw, 35cqh, 200px);
+    --switch-cover-size: min(calc(min(24cqw, 35cqh, 200px) * var(--switch-cover-scale, 1)), 36cqh, 240px);
     --switch-orb-size: 40px;
     --switch-foot-size: 44px;
   }

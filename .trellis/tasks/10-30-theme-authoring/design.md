@@ -1,6 +1,6 @@
 # 主题作者与隔离预览具体设计
 
-状态：待主会话审读与激活；不是已交付合同。前置为 theme-identity 与 shell-host。本文基于当前源码，旧 research 中丢 skin/shell、模板误选和 Switch 舞台卸载已由前项解决，不再作为本项待修缺陷。
+状态：2026-10-30 已实施并验收；本项实际合同见 docs/specs/theme-authoring.md。前置为 theme-identity 与 shell-host。本文基于当前源码，旧 research 中丢 skin/shell、模板误选和 Switch 舞台卸载已由前项解决，不再作为本项待修缺陷。
 
 ## 1. 最小完整切片
 
@@ -119,4 +119,4 @@ finish 的 JSON schema 为判别 action。纯主题操作与现有 set/save/appl
 
 真实浏览器同时保持正式iOS与预览Switch/Win98不同色/模式，检查父root/inline/font links、overlay/portal归属、业务init/保存/网络计数不增加；全双模式/窄容器/减少动画、字体404/离线/迟到与恢复。测试既看配置又看真实computedStyle/geometry与截图；inspect报告仅schema、资源与有限几何，颜色可读性/审美/全部应用内部为unknown。Web/MV3分别真实加载预览入口，不能只声称build文件存在。
 
-本设计待审读；主会话激活后实施，检查与本地提交归档沿当前授权执行。不推送、不清数据、不接真实远端。
+本设计已审读并激活；实施、检查与本地提交归档沿当前授权执行。不推送、不清数据、不接真实远端。

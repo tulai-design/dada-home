@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ActionIcon, Flexbox, Modal, Segmented, Switch, Text } from '@lobehub/ui'
+import { ActionIcon, Button, Flexbox, Modal, Segmented, Switch, Text } from '@lobehub/ui'
 import {PencilSimple as Pencil, Trash as Trash2} from '@phosphor-icons/react'
 import { useAppSettings } from '../lib/apps'
 import { applyTheme, removeTheme, resolveTheme, saveTheme, setSkinFrame, swatch, tweakTheme } from '../lib/themes'
@@ -9,6 +9,7 @@ import { Group, Row, TextRow } from './ios'
 import {useShellPresentation} from './shell'
 import {themeCapabilities} from '../lib/themeCatalog'
 import {resolveShellTheme} from '../lib/shell/theme'
+import {createThemeDraft} from '../lib/themeAuthoring/store'
 
 /** 主题的小色块：背景色打底，一道文字色，一个主色点。 */
 function Swatch({ theme, mode }: { theme: ThemeEntry; mode: 'light' | 'dark' }) {
@@ -32,6 +33,7 @@ export function AppearanceSettings({ mode, onMode }: { mode: 'light' | 'dark'; o
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [pending, setPending] = useState<ThemeEntry | null>(null)
+  const [authorError, setAuthorError] = useState('')
 
   const current = activeTheme(workspace)
   const resolved = resolveTheme(current, mode, {frameOff: workspace.theme.frameOff})
@@ -97,6 +99,11 @@ export function AppearanceSettings({ mode, onMode }: { mode: 'light' | 'dark'; o
         title={`主题 · ${workspace.themes.length} 个`}
         footer="对搭搭说「做一个深海蓝的主题」，它会保存深浅两套配色。未设置的模式使用系统基础配色；默认主题随时可以切回来。"
       >
+        <Row label="主题作者" hint="先在独立预览中创作，确认后应用；刷新会丢弃草稿">
+          <Button className="theme-author-entry" size="small" onClick={()=>{try{createThemeDraft({intent:'derive'});setAuthorError('')}catch(error){setAuthorError(error instanceof Error?error.message:String(error))}}}>创建变体</Button>
+          {!current.builtin && <Button className="theme-author-entry" size="small" onClick={()=>{try{createThemeDraft({intent:'edit',from:current.id});setAuthorError('')}catch(error){setAuthorError(error instanceof Error?error.message:String(error))}}}>编辑方案</Button>}
+        </Row>
+        {authorError && <p role="alert">{authorError}</p>}
         {workspace.themes.map((theme) => (
           <Row
             key={theme.id}

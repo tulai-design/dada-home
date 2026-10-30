@@ -50,7 +50,7 @@ await writeFile(path.join(output, '安装说明.txt'), [
   '多个新标签页共用一个编辑实例，避免旧页面覆盖数据。',
 ].join('\n'))
 const manifest = JSON.parse(await readFile(path.join(output, 'manifest.json'), 'utf8'))
-for (const file of [manifest.chrome_url_overrides.newtab, manifest.background.service_worker, ...manifest.sandbox.pages, 'sandbox.js', 'spline.js']) {
+for (const file of [manifest.chrome_url_overrides.newtab, 'theme-preview.html', manifest.background.service_worker, ...manifest.sandbox.pages, 'sandbox.js', 'spline.js']) {
   if (!(await stat(path.join(output, file))).isFile()) throw new Error(`扩展包缺少必要文件：${file}`)
 }
 await mkdir(path.dirname(download), {recursive: true})

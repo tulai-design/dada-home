@@ -15,7 +15,7 @@
 import type {DockStyle} from './dock'
 import type {ThemeFont} from './fonts'
 
-export const WORKSPACE_VERSION = 7
+export const WORKSPACE_VERSION = 8
 
 /** 内置组件类型。新增内置组件要在 registry 里注册，并在这里加一个值。 */
 export type BuiltinType =
@@ -287,6 +287,9 @@ export type ThemeSkin = 'paper' | 'ios' | 'pixel' | 'switch' | 'win98'
 export type ThemeShell = 'standard' | 'switch' | 'win98'
 export type ThemeOrigin = {definitionId: string; version: number}
 
+export type ThemeRecipes = {button?: {radius?: number}; input?: {radius?: number}}
+export type ThemeShellConfig = {coverScale?: number; windowGap?: number}
+
 export type ThemeEntry = {
   /** 造型与桌面交互实现，不随实例另存或改名变化。 */
   skin: ThemeSkin
@@ -307,6 +310,8 @@ export type ThemeEntry = {
   /** 应用主题时的初始模式偏好；用户仍可切换，重新加载不会覆盖用户选择。 */
   mode?: 'light' | 'dark'
   builtin?: boolean
+  recipes?: ThemeRecipes
+  shellConfig?: ThemeShellConfig
 }
 
 /** 当前使用哪个主题，以及明暗。主题本身存在 Workspace.themes 里。 */

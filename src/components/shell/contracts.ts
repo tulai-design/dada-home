@@ -1,6 +1,6 @@
 import type {ComponentType} from 'react'
 import type {DockStyle} from '../../lib/dock'
-import type {ThemeSkin} from '../../lib/workspace'
+import type {ThemeEntry, ThemeSkin} from '../../lib/workspace'
 import type {NavigationActivation, NavigationEntry, ShellIntent} from '../../lib/shell/navigation'
 
 export type ShellModel = {
@@ -11,6 +11,7 @@ export type ShellModel = {
   assistant: {open: boolean; busy: boolean}
   dock?: DockStyle
   badges?: Record<string, number>
+  shellConfig?: ThemeEntry['shellConfig']
 }
 export type ShellPresentation = {
   content: 'visible' | 'launcher' | 'minimized' | 'closed'

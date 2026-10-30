@@ -2,6 +2,23 @@ import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import {resolve} from 'node:path'
+
+let startupChunks: {url:string;size:number}[] = []
+/** 多入口可能重分公共块，按实际静态依赖闭包缓存，不依赖Rollup自动命名。 */
+function collectStartupChunks(): Plugin {
+  return {name:'dada-startup-chunks',generateBundle(_options,bundle){
+    const files=new Set<string>()
+    const visit=(file:string)=>{
+      if(files.has(file))return
+      const chunk=bundle[file]
+      if(!chunk || chunk.type!=='chunk')return
+      files.add(file);chunk.imports.forEach(visit)
+    }
+    for(const chunk of Object.values(bundle))if(chunk.type==='chunk' && (chunk.isEntry || ['App','incrementalClient','syncService'].includes(chunk.name)))visit(chunk.fileName)
+    startupChunks=[...files].map(url=>({url,size:Buffer.byteLength(bundle[url].type==='chunk'?bundle[url].code:'')}))
+  }}
+}
 
 /** 转发这些请求头；其余一律丢弃，避免把浏览器的 cookie 带到目标站。 */
 const FORWARD_HEADERS = ['authorization', 'content-type', 'accept']
@@ -119,11 +136,15 @@ function pwa() {
       // 预缓存包含延后初始化的 App 及其静态同步依赖，保证离线仍能启动。
       // 其余懒加载的块（代码高亮语言包、Spline、物理引擎等加起来 20MB 以上）不预下载，
       // 用到哪个、缓存哪个（见下面的 runtimeCaching），首次安装才不会吃掉一大笔流量。
-      globPatterns: ['index.html', 'manifest.webmanifest', 'favicon.ico', 'brand/*.{png,webp}', 'assets/*.css', 'assets/index-*.js', 'assets/App-*.js', 'assets/incrementalClient-*.js', 'assets/syncService-*.js', 'assets/virtual_pwa-register-*.js', 'assets/workbox-window*.js'],
+      globPatterns: ['index.html', 'theme-preview.html', 'manifest.webmanifest', 'favicon.ico', 'brand/*.{png,webp}', 'assets/*.css', 'assets/index-*.js', 'assets/themePreview-*.js', 'assets/App-*.js', 'assets/incrementalClient-*.js', 'assets/syncService-*.js', 'assets/virtual_pwa-register-*.js', 'assets/workbox-window*.js'],
       maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
       navigateFallback: '/index.html',
-      navigateFallbackDenylist: [/^\/__proxy/, /^\/healthz/, /^\/config\.js/, /^\/privacy/],
+      navigateFallbackDenylist: [/^\/__proxy/, /^\/healthz/, /^\/config\.js/, /^\/privacy/, /^\/theme-preview\.html/],
       cleanupOutdatedCaches: true,
+      manifestTransforms: [async entries=>{
+        const urls=new Set(entries.map(entry=>entry.url))
+        return {manifest:[...entries,...startupChunks.filter(entry=>!urls.has(entry.url)).map(entry=>({...entry,revision:null}))],warnings:[]}
+      }],
       clientsClaim: false,
       skipWaiting: false,
       runtimeCaching: [
@@ -156,8 +177,11 @@ function pwa() {
 }
 
 export default defineConfig(({mode}) => ({
-  plugins: [react(), devProxy(), ...(mode === 'extension' ? [] : [pwa()])],
+  plugins: [react(), devProxy(), collectStartupChunks(), ...(mode === 'extension' ? [] : [pwa()])],
   // 扩展公共资源由打包脚本筛选复制，避免把下载 ZIP 再装进自身。
-  build: mode === 'extension' ? {outDir: 'dist-extension', copyPublicDir: false} : {},
+  build: {
+    ...(mode === 'extension' ? {outDir: 'dist-extension', copyPublicDir: false} : {}),
+    rollupOptions: {input: {index: resolve(import.meta.dirname,'index.html'), themePreview: resolve(import.meta.dirname,'theme-preview.html')}},
+  },
   server: { port: 5173, host: true },
 }))

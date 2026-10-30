@@ -68,7 +68,7 @@ test('有效值与来源包含字体、模式及frame偏好，清空仍有宿主
   const ws = themes.tweakTheme(base('ios'), {overrides: {main: '#663399'}}).workspace
   const entry = model.activeTheme(ws)
   const resolved = themes.resolveTheme(entry, 'light', {frameOff: true})
-  assert.equal(resolved.values.main, '#663399'); assert.equal(resolved.sources.main, 'shared')
+  assert.equal(resolved.values.main, '#663399'); assert.equal(resolved.sources.main, 'light')
   assert.equal(resolved.sources.bg, 'light'); assert.equal(resolved.sources['font-serif'], 'font')
   assert.equal(resolved.values.frame, '0px'); assert.equal(resolved.sources.frame, 'preference')
   for (const id of ['switch', 'win98']) {
@@ -110,10 +110,10 @@ test('my-custom模板保存、JSON重载、采用保持精确身份与完整设�
   assert.equal(store.readTemplates(clone(saved.templates))[0].snapshot.theme.shell, 'switch')
 })
 test('模板查重比较实现与完整设计，忽略变量键顺序，库满原子失败', () => {
-  const created = themes.saveTheme(base('switch'), {name: 'my-custom', overrides: {main: '#663399', radius: '4px'}})
+  const created = themes.saveTheme(base('switch'), {name: 'my-custom', overrides: {main: '#663399', radius: '4px'}, recipes: {button: {radius: 9}}, shellConfig: {coverScale: 110}})
   const saved = templates.saveTemplate(created.workspace, {name: '快照'}).workspace
   const reordered = clone(saved)
-  reordered.themes.find(theme => theme.id === created.theme.id).overrides = {radius: '4px', main: '#663399'}
+  reordered.themes.find(theme => theme.id === created.theme.id).overrides = Object.fromEntries(Object.entries(created.theme.overrides).reverse())
   const reused = templates.applyTemplate(reordered, saved.templates[0].id).workspace
   assert.equal(reused.themes.length, saved.themes.length)
   const different = clone(saved)

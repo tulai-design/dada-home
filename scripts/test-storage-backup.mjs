@@ -127,7 +127,7 @@ await test('工作空间不能以合法JSON空壳覆盖现有库，当前格式�
 })
 
 await test('备份主题与模板主题非法时整次拒绝，合法完整身份原样恢复',async()=>{
-  const theme = {id:'violet',name:'紫色主机',description:'合成主题',skin:'switch',shell:'switch',origin:{definitionId:'switch',version:1},overrides:{main:'#663399'},light:{text:'#121212'},dark:{text:'#eeeeee'}}
+  const theme = {id:'violet',name:'紫色主机',description:'合成主题',skin:'switch',shell:'switch',origin:{definitionId:'switch',version:1},overrides:{main:'#663399'},light:{text:'#121212'},dark:{text:'#eeeeee'},recipes:{button:{radius:8}},shellConfig:{coverScale:110},fonts:[]}
   const workspace = {pages:[{id:'home',components:[]}],themes:[theme],templates:[{id:'saved',snapshot:{theme:clone(theme)}}]}
   for (const mutate of [
     w=>w.themes[0].shell='standard',
@@ -135,6 +135,8 @@ await test('备份主题与模板主题非法时整次拒绝，合法完整身�
     w=>w.themes[0].overrides.main='red;display:none',
     w=>w.templates[0].snapshot.theme.origin.version=0,
     w=>w.templates[0].snapshot.theme.fonts=[{family:'bad;url(x)'}],
+    w=>w.themes[0].recipes={unknown:{}},
+    w=>w.templates[0].snapshot.theme.shellConfig={windowGap:20},
   ]) {
     const h=harness(),badWorkspace=clone(workspace);mutate(badWorkspace)
     const bad=makeBackup({'fp.workspace':JSON.stringify(badWorkspace)})

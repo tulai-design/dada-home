@@ -8,7 +8,7 @@ import {normalizeLayer} from '../fx/catalog'
 import {isPageIcon} from './pageIcons'
 import {readDock} from './dock'
 import {ADDONS} from './market'
-import {assertThemeEntry, cleanOverrides, readThemes} from './themes'
+import {assertThemeEntry, readThemes} from './themes'
 import {isApplicationType, readApplications} from './applications'
 import {normalizePageSections} from './pageSections'
 
@@ -173,26 +173,12 @@ function readAddons(raw: unknown, pages: Page[], statusbar: StatusItem[]): strin
   return ADDONS.filter((addon) => addon.types.some((type) => used.has(type))).map((addon) => addon.id)
 }
 
-/**
- * 主题库与当前主题。旧数据只有 theme.overrides：有改动就收成一个「我的主题」并保持启用，没有就用默认。
- */
+/** 当前格式主题库与用户选择；不推测旧单层配色。 */
 function readThemeState(data: Partial<Workspace>): { themes: ThemeEntry[]; config: ThemeConfig } {
-  const raw = (data.theme ?? {}) as { active?: unknown; overrides?: unknown; mode?: unknown; base?: unknown }
+  const raw = (data.theme ?? {}) as { active?: unknown; mode?: unknown; base?: unknown }
   const mode: 'light' | 'dark' = raw.mode === 'dark' ? 'dark' : 'light'
   const base: 'light' | 'dark' = raw.base === 'dark' ? 'dark' : raw.base === 'light' ? 'light' : mode
   const themes = readThemes(data.themes, mode)
-  if (!Array.isArray(data.themes) && raw.overrides && typeof raw.overrides === 'object') {
-    try {
-      const overrides = cleanOverrides(raw.overrides)
-      if (Object.keys(overrides).length) {
-        const migrated = readThemes([{ id: 'mine', skin: 'paper', shell: 'standard', name: '我的主题', description: '升级前你调过的配色', overrides, mode }], mode).find((item) => item.id === 'mine')
-        if (migrated) themes.push(migrated)
-        return { themes, config: { active: 'mine', mode, base } }
-      }
-    } catch {
-      /* 旧的变量不合法就当没有 */
-    }
-  }
   const frameOff = (data.theme as {frameOff?: unknown} | undefined)?.frameOff === true
   const active = typeof raw.active === 'string' && themes.some((item) => item.id === raw.active) ? raw.active : DEFAULT_APPEARANCE_THEME.id
   const entry = themes.find((item) => item.id === active)
@@ -341,7 +327,7 @@ export function canRedo(): boolean {
   return future.length > 0
 }
 
-function subscribe(listener: Listener) {
+export function subscribeWorkspace(listener: Listener) {
   listeners.add(listener)
   return () => {
     listeners.delete(listener)
@@ -350,7 +336,7 @@ function subscribe(listener: Listener) {
 
 /** React 订阅：返回当前工作空间，以及撤销/重做状态。 */
 export function useWorkspace() {
-  useSyncExternalStore(subscribe, () => stamp)
+  useSyncExternalStore(subscribeWorkspace, () => stamp)
   const workspace = getWorkspace()
   const edit = useCallback((fn: (workspace: Workspace) => Workspace) => commit(fn(getWorkspace())), [])
   return {workspace, edit, undo, redo, canUndo: canUndo(), canRedo: canRedo()}

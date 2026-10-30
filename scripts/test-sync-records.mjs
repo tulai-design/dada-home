@@ -22,7 +22,8 @@ function runtime(seed = {}) {
   return {api, themes:load('src/lib/themes.ts'), model:load('src/lib/workspace.ts'), schema:load('src/lib/chatStorageSchema.ts'), data, entries, get reads() {return reads}, apply(patch) {for (const [key, value] of Object.entries(patch)) value === null ? entries.delete(key) : entries.set(key, value)}}
 }
 const clone = value => JSON.parse(JSON.stringify(value))
-const workspace = () => ({version: 7, pages: [{id: 'home', name: '首页', label: '首页', components: [{id: 'clock', type: 'clock', config: {}}]}], theme: {active: 'default', mode: 'light', base: 'light'}, themes: [{skin: 'paper', shell: 'standard', id: 'default', name: '默认', description: '', overrides: {}}], layout: {columns: 12, maxWidth: 1480}, widgets: [], statusbar: [], addons: [], templates: [], applications: [], network: [{host: 'local.example', grantedAt: 1}]})
+const CURRENT_WORKSPACE_VERSION = runtime().model.WORKSPACE_VERSION
+const workspace = () => ({version: CURRENT_WORKSPACE_VERSION, pages: [{id: 'home', name: '首页', label: '首页', components: [{id: 'clock', type: 'clock', config: {}}]}], theme: {active: 'default', mode: 'light', base: 'light'}, themes: [{skin: 'paper', shell: 'standard', id: 'default', name: '默认', description: '', overrides: {}}], layout: {columns: 12, maxWidth: 1480}, widgets: [], statusbar: [], addons: [], templates: [], applications: [], network: [{host: 'local.example', grantedAt: 1}]})
 const persona = () => ({soul: {name: '搭搭', text: '性格', aiCanEdit: true, history: [{at: 1, by: 'user', text: '旧性格'}]}, memory: {enabled: true, items: [{id: 'm1', text: '累积记忆', kind: 'fact', by: 'user', at: 1}]}, profile: {role: '个人资料', interests: '', preferences: '', notes: ''}})
 const tombstone = {revision: {counter: 3, device: 'remote'}, hash: 'unused', deleted: true}
 let passed = 0

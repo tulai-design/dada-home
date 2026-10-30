@@ -6,8 +6,6 @@
    本文件在 styles.css 之后加载，只做覆盖。
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;700&display=swap');
-
 :root {
   --font-serif: 'Source Serif 4', 'Noto Serif SC', 'Songti SC', 'STSong', Georgia, serif;
 

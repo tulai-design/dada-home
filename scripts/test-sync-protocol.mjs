@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import {readFileSync} from 'node:fs'
 import ts from 'typescript'
+import path from 'node:path'
 import {webcrypto} from 'node:crypto'
 
 // 公开 runSync / testConnection + 真实 provider、协议、codec、提交门禁；仅存储与网络为合成替身。
@@ -32,7 +33,7 @@ function client(remote, existing) {
   const deps={react:{useSyncExternalStore:(_,get)=>get()},'./db':{db,openDb:async()=>({})},'./applicationData':{flushApplicationData:async()=>flush()},'./chat':{flush:async()=>flush()},'./componentData':{flush:async()=>flush()},'./rss':{proxied:url=>url}}
   deps['./applicationSyncStore']={applicationSyncStore:{active:async()=>undefined,commitExternal:operations=>db.batch(operations)}}
   const navigator={onLine:true,locks:{request:async(_name,_options,work)=>work()}}
-  function load(file){if(modules.has(file))return modules.get(file);const module={exports:{}};modules.set(file,module.exports);if(!sources.has(file))sources.set(file,ts.transpileModule(readFileSync(new URL(`../src/lib/${file}.ts`,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText);new Function('module','exports','require','localStorage','fetch','navigator','crypto',sources.get(file))(module,module.exports,id=>deps[id]??load(id.slice(2)),localStorage,(...args)=>remote.fetch(...args),navigator,webcrypto);return module.exports}
+  function load(file){if(modules.has(file))return modules.get(file);const module={exports:{}};modules.set(file,module.exports);if(!sources.has(file))sources.set(file,ts.transpileModule(readFileSync(new URL(`../src/lib/${file}.ts`,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText);new Function('module','exports','require','localStorage','fetch','navigator','crypto',sources.get(file))(module,module.exports,id=>{if(Object.hasOwn(deps,id))return deps[id];assert.ok(id.startsWith('.'),`未隔离依赖：${id}`);return load(path.posix.normalize(path.posix.join(path.posix.dirname(file),id)))},localStorage,(...args)=>remote.fetch(...args),navigator,webcrypto);return module.exports}
   const api=load('sync'),persistence=load('persistence')
   if(!existing)api.writeSyncConfig({...api.defaultSyncConfig(),backend:'http',http:{url:'https://sync.invalid/data',token:'',proxy:''},auto:false})
   return {api,schema:load('chatStorageSchema'),persistence,ls,tables,errors,log,reload:()=>client(remote,{ls,tables}),get status(){return api.useSyncStatus()},setFlush(fn){flush=fn},setOnGet(fn){onGet=fn}}

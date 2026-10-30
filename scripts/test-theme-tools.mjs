@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict'
 import {readFileSync} from 'node:fs'
 import vm from 'node:vm'
+import path from 'node:path'
 import ts from 'typescript'
 
 // 运行真实工具解析、主题/外观纯函数及列表输出；仅替换浏览器存储和无关工具依赖。
 const modules = new Map()
-const coreFiles = new Set(['errors', 'fonts', 'workspace', 'themes', 'themeCatalog', 'dock', 'appearance'])
+const coreFiles = new Set(['errors', 'fonts', 'workspace', 'themes', 'themeResolution', 'themeCatalog', 'dock', 'appearance', 'themeAuthoring/catalog', 'themeAuthoring/validation'])
 function loadCore(name) {
   if (modules.has(name)) return modules.get(name).exports
   const module = {exports: {}}
@@ -14,7 +15,7 @@ function loadCore(name) {
   const js = ts.transpileModule(source, {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022}}).outputText
   vm.runInNewContext(js, {module, exports: module.exports, require: (id) => {
     if (id === '../fx/policy') return loadFx('policy')
-    const dependency = id.replace(/^\.\//, '')
+    const dependency = path.posix.normalize(path.posix.join(path.posix.dirname(name), id))
     assert(coreFiles.has(dependency), `未声明的核心依赖：${id}`)
     return loadCore(dependency)
   }})
@@ -44,7 +45,7 @@ const dependencies = {
   './market': {ADDONS: []},
   '../fx/policy': loadFx('policy'),
   './siteTools': {SITE_TOOLS: []},
-  './lifeTools': {LIFE_TOOLS: []}, './homepageDraftTools': {HOMEPAGE_DRAFT_TOOLS: []},
+  './lifeTools': {LIFE_TOOLS: []}, './homepageDraftTools': {HOMEPAGE_DRAFT_TOOLS: []}, './themeAuthoringTools': {THEME_AUTHORING_TOOLS: []},
   './searchTools': {SEARCH_TOOLS: []},
 }
 const module = {exports: {}}
@@ -106,8 +107,9 @@ await test('AI 保存双模式主题后真实列表包含共享与两套配色',
   const result = await run('save_theme', {name: '海湾', mode: 'dark', overrides: {main: '#397c95', radius: '8px'}, ...palettes})
   assert.match(result, /已新建/)
   assert.equal(workspace.theme.mode, 'dark')
-  assert.deepEqual(plain(active().light), palettes.light)
-  assert.deepEqual(plain(active().dark), palettes.dark)
+  assert.deepEqual(plain(active().light), {...palettes.light, main: '#397c95'})
+  assert.deepEqual(plain(active().dark), {...palettes.dark, main: '#397c95'})
+  assert.equal(active().overrides.main, undefined, '即时共享主色入口也保存为明确的双模式值')
   const listed = await run('list_themes')
   assert.match(listed, /当前 dark/)
   assert.match(listed, /初始偏好 dark（仍可切换）/)

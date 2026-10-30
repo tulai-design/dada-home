@@ -77,7 +77,7 @@ async function start() {
     startAutoSync()
     root.render(
       <StrictMode>
-        <ConfigProvider motion={motion}>
+        <ConfigProvider motion={motion} enableCustomFonts={false}>
           <ToastHost position="top-right" />
           <App />
           {isExtension() && <ExtensionNetworkPrompt />}
@@ -85,7 +85,7 @@ async function start() {
       </StrictMode>,
     )
   } catch (error) {
-    root.render(<ConfigProvider motion={motion}><StorageStartupError error={error} onRetry={start} /></ConfigProvider>)
+    root.render(<ConfigProvider motion={motion} enableCustomFonts={false}><StorageStartupError error={error} onRetry={start} /></ConfigProvider>)
   }
 }
 if (isExtension()) {
@@ -96,8 +96,8 @@ if (isExtension()) {
     const tab = await api?.tabs.getCurrent().catch(() => undefined)
     await api?.runtime.sendMessage({op: 'register-workspace', tabId: tab?.id}).catch(() => undefined)
     await start()
-  }, () => root.render(<ConfigProvider motion={motion}><ExtensionWaiting /></ConfigProvider>)).catch(error => {
-    root.render(<ConfigProvider motion={motion}><StorageStartupError error={error} onRetry={async () => location.reload()} /></ConfigProvider>)
+  }, () => root.render(<ConfigProvider motion={motion} enableCustomFonts={false}><ExtensionWaiting /></ConfigProvider>)).catch(error => {
+    root.render(<ConfigProvider motion={motion} enableCustomFonts={false}><StorageStartupError error={error} onRetry={async () => location.reload()} /></ConfigProvider>)
   })
 } else {
   void start()

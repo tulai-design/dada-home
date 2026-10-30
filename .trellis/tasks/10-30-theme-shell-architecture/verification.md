@@ -1,6 +1,6 @@
 # A3 审查与规划验证
 
-日期：2026-10-30。代码基线27358e2，main。以下记录初始研究与规划产物，当时父子任务均为planning。后续theme-identity已激活实施并单独记录验收；父任务保持in_progress，其余三子任务继续planning，不能据此视为全部A3已交付。
+日期：2026-10-30。初始研究代码基线27358e2，main。以下保留初始研究与规划证据，当时父子任务均为planning。后续 theme-identity、shell-host 与 theme-authoring 已分别实施并记录验收；local-theme-packages 仍为 planning，父任务保持 in_progress，不能据此视为全部 A3 已交付。
 
 ## 已完成的证据工作
 
@@ -22,4 +22,4 @@
 - 本轮未修改src、生产配置或依赖，因此未运行产品tsc/test/build或主题浏览器矩阵；这些检查已在各子PRD和父implement中列为实施验收要求。
 - 外部平台参考与限制见workshop-contract及汇总研究，不声称开发者模式等于商店可发布。
 
-后续第一项为theme-identity。父任务只在必要子项与集成验收完成后归档，不把本轮规划完成当整个A3完成。
+当前下一项为 local-theme-packages。父任务只在必要子项与集成验收完成后归档，不把前三项交付当整个 A3 完成。

@@ -25,6 +25,7 @@ import {LIFE_TOOLS} from './lifeTools'
 import {unavailablePageInspection, type PageInspectionReport, type PageInspectionRequest} from './pageInspector'
 import {PAGE_SECTION_CATALOG} from './pageSections'
 import {HOMEPAGE_DRAFT_TOOLS} from './homepageDraftTools'
+import {THEME_AUTHORING_TOOLS} from './themeAuthoringTools'
 import type {HomepageDraftInspectionRequest, HomepageDraftInspectionReport} from './homepageDraftInspection'
 
 /**
@@ -122,6 +123,7 @@ const describeComponent = (instance: {id: string; type: string; title?: string; 
   `${instance.id}｜${instance.title ?? getDefinition(instance.type as never)?.name ?? instance.type}｜${instance.type}｜${instance.span ?? '默认'}｜${JSON.stringify(instance.config)}`
 
 export const HOME_TOOLS = [
+  ...THEME_AUTHORING_TOOLS,
   ...HOMEPAGE_DRAFT_TOOLS,
   // ───── 读：了解现状 ─────
   define(
@@ -506,8 +508,7 @@ export const HOME_TOOLS = [
     {
       name: 'set_theme',
       title: '调整主题',
-      description:
-        '微调当前主题：mode 切当前明暗；overrides 放共享尺寸、外框或主色；light 和 dark 分别补丁合并两种模式配色，只写要改的。不要用一组固定 bg/text 代替两套适配；如只调深色，传 dark 即可，不影响浅色。修改后用 list_themes 核对两套分支，缺少的配色继承系统基础色。可改的变量（键不带 `--`）：main 主色；bg/bg2/bg3 背景层级；text/text2/text3/text4 文字层级；border、rule 线条；radius、radius-lg 圆角（纸张基底为 0，iOS 为 12px / 16px）；gutter 页面左右留白；frame 外框粗细（纸张基底为 7px，iOS 为 0px，设 0px 就去掉外框，同时去掉外框占的边距）；frame-gap 外框占的边距（只想去掉红框但保留边距时，frame 设 0px 并把 frame-gap 设为 7px）；frame-color 外框颜色（默认跟随 main）；side-width 侧栏宽度。字体：用 fonts 从 Google Fonts 引入，例如 [{"family":"Playfair Display","role":"serif"},{"family":"Noto Sans SC","role":"sans"}]。role 决定它接管哪一类：serif=标题、大数字和正文（按当前主题字体），sans=界面控件和小字，mono=数字、标签和顶栏的等宽字。不写 role 只加载不接管（再自己用 font-serif 等变量引用）。family 必须是 Google Fonts 上真实存在的名字，中文内容记得选支持中文的（Noto Serif SC、Noto Sans SC、ZCOOL XiaoWei、LXGW WenKai 等）。最多 4 个，一次传整个数组。当前是内置主题时会完整另存为「自定义 N」再改，保留造型、桌面外壳、双模式、字体和未改参数；内置主题不会被改坏。共享 main 等会清掉两分支旧同名值，本次显式 light/dark 最后覆盖。要整套新风格并起名保存，用 save_theme。',
+      description: "即时微调当前主题并提交，可撤销；不是预览。先 describe_theme_schema 查询字段和范围，完整主题创作用 create/update/inspect/finish_theme_draft。light/dark 合并对应模式补丁；overrides 中背景文字只作用当前模式，main 快捷输入规范化到两模式，本次显式分支优先。尺寸/外框用 overrides，字体用结构化 fonts，[] 明确系统后备；未知变量、非法值或当前造型不支持的字段整次拒绝。修改内置主题会完整派生，保留 skin/shell、未改设计及交互；mode 只切当前明暗。",
       effect: 'write',
       highRisk: () => false,
       execute: (args) =>
@@ -570,8 +571,7 @@ export const HOME_TOOLS = [
     {
       name: 'save_theme',
       title: '保存主题',
-      description:
-        '把主题存进主题库并（默认）启用。新建默认完整复制当前主题，from 可显式选来源 id 或名称，保留造型与桌面交互；更新已有主题不能传 from。显式 overrides/light/dark 仍整组替换，未传保留来源设计；共享 main 等会清除两模式旧同名值，再叠本次显式模式值。用户让你「做一个xx风格的主题」时：先 list_themes，再起名字、写说明，并分别给 light 和 dark 两套配色；共享主色、尺寸、外框放 overrides，字体放 fonts。mode 只表示应用时的初始偏好，不能替代另一套配色。例：overrides:{main:"#397c95",radius:"8px"},light:{bg:"#f4fafb",text:"#172f38"},dark:{bg:"#10232b",text:"#e5f3f7"}。完整风格应配齐两边背景、文字层级和边线并检查可读性，不把固定 bg/text 写进一组共享覆盖。仅添加字体或外框可以不传配色；更新时允许只替换一套分支，其他分支保持。存完用 list_themes 核对两套覆盖和当前模式。可改的变量（键不带 `--`）：main 主色；bg/bg2/bg3 背景层级；text/text2/text3/text4 文字层级；border、rule 线条；radius、radius-lg 圆角（纸张基底为 0，iOS 为 12px / 16px）；gutter 页面左右留白；frame 外框粗细（纸张基底为 7px，iOS 为 0px，0px 去掉外框与边距）；frame-gap 外框占的边距；frame-color 外框颜色（默认跟随 main）；side-width 侧栏宽度。字体用 fonts，例如 [{"family":"Playfair Display","role":"serif"},{"family":"Noto Sans SC","role":"sans"}]，role 为 serif（标题、大数字和正文）、sans（界面控件和小字）、mono（数字标签和顶栏）；不写 role 只加载。family 必须是 Google Fonts 上真实存在的名字，中文优先选支持中文的字体，最多 4 个，一次传整个数组。同名或同 id 的会被更新；默认主题不能改。',
+      description: "即时保存主题并默认启用，不是预览。新建完整复制当前主题，from 可指定来源；更新已有主题不能传 from。overrides/light/dark 只替换所传分支，未传保留；main 快捷输入规范化到两模式，显式模式值优先。字段与范围先 describe_theme_schema 查询，非法字段整次拒绝。name 最多20字，fonts 为结构化字体数组，[] 选系统后备，mode 仅应用时初始偏好。完整风格请优先草稿流程，以便修改两模式、部件和外壳参数后独立预览，再按用户要求一次应用。",
       effect: 'write',
       highRisk: () => false,
       execute: (args) =>

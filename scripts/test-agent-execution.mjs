@@ -39,7 +39,7 @@ const common = {
 const site = compile('siteTools', common)
 const life = compile('lifeTools', common)
 const search = compile('searchTools', common)
-const tools = compile('tools', {...common, './siteTools':site, './lifeTools':life, './searchTools':search, './homepageDraftTools':{HOMEPAGE_DRAFT_TOOLS:[]}})
+const tools = compile('tools', {...common, './siteTools':site, './lifeTools':life, './searchTools':search, './homepageDraftTools':{HOMEPAGE_DRAFT_TOOLS:[]}, './themeAuthoringTools':{THEME_AUTHORING_TOOLS:[]}})
 const config = {baseUrl:'https://fixture.invalid',model:'fixture',maxRounds:3}
 const call = (name, args = {}, id = name) => ({id, function:{name,arguments:JSON.stringify(args)}})
 const toolReply = (...calls) => ({ok:true,content:'',toolCalls:calls})

@@ -3,6 +3,7 @@ import {readFileSync} from 'node:fs'
 import vm from 'node:vm'
 import {webcrypto, randomUUID} from 'node:crypto'
 import ts from 'typescript'
+import path from 'node:path'
 
 // 测真实状态机；数据库替身只供状态转换单测，真实IDB事务另由浏览器QA验收。
 function runtime() {
@@ -27,7 +28,7 @@ function runtime() {
     if (modules.has(file)) return modules.get(file)
     const module = {exports: {}}; modules.set(file, module.exports)
     const code = ts.transpileModule(readFileSync(new URL('../src/lib/' + file + '.ts', import.meta.url), 'utf8'), {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022}}).outputText
-    vm.runInNewContext(code, {module, exports: module.exports, require: id => id === './db' ? {db} : load(id.slice(2)), structuredClone, TextEncoder, URL, Blob, crypto: {...webcrypto, randomUUID}}, {filename: file})
+    vm.runInNewContext(code, {module, exports: module.exports, require: id => {if (id === './db') return {db}; assert.ok(id.startsWith('.'), `未隔离依赖：${id}`); return load(path.posix.normalize(path.posix.join(path.posix.dirname(file), id)))}, structuredClone, TextEncoder, URL, Blob, crypto: {...webcrypto, randomUUID}}, {filename: file})
     return module.exports
   }
   const engine = load('incrementalStore').incrementalStore, local = load('applicationSyncStore').applicationSyncStore

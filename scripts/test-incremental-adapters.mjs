@@ -67,6 +67,10 @@ test('增量配置保留派生主题和模板完整设计，坏身份在入站�
     const source = workspace(); source.themes = themes.readThemes([]); source.theme.active = id
     const changed = themes.tweakTheme(source, {overrides: {main: '#663399'}}).workspace
     const theme = model.activeTheme(changed)
+    theme.recipes = {button: {radius: 8}, input: {radius: 12}}
+    theme.fonts = []
+    if (id === 'switch') theme.shellConfig = {coverScale: 110}
+    if (id === 'win98') theme.shellConfig = {windowGap: 16}
     changed.templates = [{id: 'snapshot', name: '快照', description: '', createdAt: 1, updatedAt: 1, snapshot: {pages: changed.pages, statusbar: [], layout: changed.layout, widgets: [], addons: [], applications: [], theme}}]
     const projected = projectIncrementalConfig('workspace', changed)
     const restored = applyIncrementalConfig('workspace', structuredClone(projected), source)
@@ -77,6 +81,9 @@ test('增量配置保留派生主题和模板完整设计，坏身份在入站�
       const invalid = {...restored}; delete invalid.network
       assert.throws(() => validateIncrementalConfig('workspace', invalid))
       target.shell = shell
+      target.recipes = {other: {}}
+      assert.throws(() => validateIncrementalConfig('workspace', invalid))
+      target.recipes = {button: {radius: 8}, input: {radius: 12}}
     }
   }
 })

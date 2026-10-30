@@ -1,5 +1,8 @@
 import type {ThemeShell, ThemeSkin} from './workspace'
 
+/** 正式窗口与固定预览共用的期望边距；实际画布仍可安全收缩。 */
+export const DEFAULT_WIN98_WINDOW_GAP = 24
+
 /** 仅登记宿主已打包的实现，不是第三方代码注册接口。 */
 const SKINS = {
   paper: {shell: 'standard', frame: 'variable'},

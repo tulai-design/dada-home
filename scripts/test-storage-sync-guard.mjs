@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import {readFileSync} from 'node:fs'
 import ts from 'typescript'
+import path from 'node:path'
 
 // 真实公开 runSync；合成配置和隔离网络，确保本地故障不会转成云端删除。
 function harness({all = async () => [], flush = async () => {}, flushApps = async () => {}, fetch = async () => new Response('', {status: 404})} = {}) {
@@ -25,7 +26,11 @@ function harness({all = async () => [], flush = async () => {}, flushApps = asyn
     const code = ts.transpileModule(readFileSync(new URL('../src/lib/' + file + '.ts', import.meta.url), 'utf8'), {
       compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022},
     }).outputText
-    const require = id => Object.hasOwn(dependencies, id) ? dependencies[id] : load(id.slice(2))
+    const require = id => {
+      if (Object.hasOwn(dependencies, id)) return dependencies[id]
+      assert.ok(id.startsWith('.'), `未隔离依赖：${id}`)
+      return load(path.posix.normalize(path.posix.join(path.posix.dirname(file), id)))
+    }
     new Function('module', 'exports', 'require', 'localStorage', 'fetch', code)(module, module.exports, require, storage, (...args) => {requests++;return fetch(...args)})
     return module.exports
   }

@@ -26,7 +26,7 @@
   ],
   "parent": null,
   "relatedFiles": [],
-  "notes": "2026-10-30 theme-identity、shell-host 已完成验收；后续按 theme-authoring → local-theme-packages 推进；父任务继续 in_progress。",
+  "notes": "2026-10-30 theme-identity、shell-host、theme-authoring 已完成验收；下一项 local-theme-packages；父任务继续 in_progress。",
   "meta": {
     "blocked_by": [],
     "design_status": "proposed"

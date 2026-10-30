@@ -6,7 +6,7 @@ import { activeTheme, type ApplicationOpenMode } from './lib/workspace'
 import {listApplications, updateApplication} from './lib/applications'
 import {ApplicationHost} from './components/ApplicationHost'
 import { applyTheme, resolveTheme, setMode } from './lib/themes'
-import { syncFonts } from './lib/fonts'
+import { acquireThemeFonts } from './lib/fonts'
 import { uid, useStored } from './lib/store'
 import { SEARCH_ENGINES, defaultBookmarks, defaultFeeds, defaultSettings } from './lib/defaults'
 import { hotOrigin } from './lib/hot'
@@ -23,6 +23,7 @@ import { StatusBar } from './components/StatusBar'
 import { PageSwitcher } from './components/PageSwitcher'
 import { PageView } from './components/PageView'
 import {HomepageDraftPreview} from './components/HomepageDraftPreview'
+import ThemeAuthoringPanel from './components/ThemeAuthoringPanel'
 import {createHomepageDraft, getHomepageDraft, getHomepageDraftWorkspace, useHomepageDraft} from './lib/homepageDraft'
 import {createHomepageDraftInspectionHost} from './lib/homepageDraftInspection'
 import { FxLayers, hasBackdrop } from './fx/Fx'
@@ -54,6 +55,7 @@ import { removeData, useComponentData, SHARED } from './lib/componentData'
 import { wallpaperUrl } from './lib/wallpaper'
 import './widgets'
 import './applications.css'
+import './theme-recipes.css'
 
 /**
  * 应用外壳。
@@ -231,15 +233,24 @@ export default function App() {
     root.dataset.theme = effectiveTheme.mode
     root.dataset.primaryColor = 'red'
     root.dataset.shell = shellSnapshot.activeShell
+    root.dataset.themeRecipes = shellSnapshot.fault ? '' : ['button', 'input'].filter(key => theme.recipes?.[key as 'button' | 'input']?.radius !== undefined).join(' ')
     if (effectiveTheme.skin === 'paper') delete root.dataset.skin
     else root.dataset.skin = effectiveTheme.skin
     for (const name of appliedVars.current) root.style.removeProperty(`--${name}`)
     appliedVars.current = Object.keys(effectiveTheme.overrides)
     for (const [name, value] of Object.entries(effectiveTheme.overrides)) root.style.setProperty(`--${name}`, value)
     rendering.current = {requested: {id: theme.id, skin: theme.skin, shell: theme.shell}, effective: {skin: effectiveTheme.skin, shell: shellSnapshot.activeShell, mode: effectiveTheme.mode, values: effectiveTheme.values, sources: effectiveTheme.sources}, content: shellSnapshot.content, fault: shellSnapshot.fault}
-    syncFonts(shellSnapshot.fault ? undefined : theme.fonts, (family) => toast.error(`字体「${family}」没加载出来：检查名字或网络。`))
     document.title = `${settings.name === '朋友' ? '' : `${settings.name} · `}搭搭`
   }, [effectiveTheme, shellSnapshot, theme, settings.name])
+  const fontKey = JSON.stringify(shellSnapshot.fault ? null : theme.fonts ?? null)
+  useLayoutEffect(() => {
+    const lease = acquireThemeFonts(document, shellSnapshot.fault ? undefined : theme.fonts)
+    let current = true
+    void lease.ready.then(result => {
+      if (current && !result.ready) toast.error(`字体加载失败，已使用系统后备：${result.fonts.filter(font => font.status === 'error').map(font => `${font.family}（${font.reason}）`).join('；')}`)
+    })
+    return () => {current = false; lease.release()}
+  }, [fontKey])
   useEffect(() => {
     if (shellSnapshot.capabilities.settings.avatar && !settings.avatarSeed) {
       setSettings(current => typeof current.avatarSeed === 'string' && current.avatarSeed.length > 0 && current.avatarSeed.length <= 100 ? current : {...current, avatarSeed: uid()})
@@ -669,7 +680,7 @@ export default function App() {
           <i className="frame-bar frame-l" />
           <i className="frame-bar frame-r" />
         </div>
-        <ShellHost requestedShell={resolvedTheme.shell} requestedSkin={resolvedTheme.skin} model={{entries: navigationEntries, activation: shellActivation, mode: workspace.theme.mode, profile: {name: settings.name, avatarSeed: settings.avatarSeed || settings.name}, assistant: {open: assistantOpen, busy}, dock: visibleDock(workspace.dock, effectiveTheme.skin === 'ios', effectiveTheme.skin === 'pixel')}} dispatch={dispatchShellIntent} onPresentationChange={setShellSnapshot}>
+        <ShellHost requestedShell={resolvedTheme.shell} requestedSkin={resolvedTheme.skin} model={{entries: navigationEntries, shellConfig: shellSnapshot.fault ? undefined : theme.shellConfig, activation: shellActivation, mode: workspace.theme.mode, profile: {name: settings.name, avatarSeed: settings.avatarSeed || settings.name}, assistant: {open: assistantOpen, busy}, dock: visibleDock(workspace.dock, effectiveTheme.skin === 'ios', effectiveTheme.skin === 'pixel')}} dispatch={dispatchShellIntent} onPresentationChange={setShellSnapshot}>
         <ShellNavigation />
 
         <AssistantSplitPane
@@ -823,6 +834,7 @@ export default function App() {
         />
 
         </ShellHost>
+        <ThemeAuthoringPanel />
 
         <Modal
           key={grantPrompt}

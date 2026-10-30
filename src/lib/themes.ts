@@ -1,5 +1,7 @@
+import {validateOverrideMap, validateThemeDesign} from './themeAuthoring/validation'
 import {WorkspaceError} from './errors'
-import {cleanFonts, DEFAULT_STACKS, fontVars} from './fonts'
+import {cleanFonts, fontVars} from './fonts'
+import {themeDesignLayers} from './themeResolution'
 import {isThemeRenderer, themeCapabilities} from './themeCatalog'
 import {DEFAULT_APPEARANCE_THEME, DEFAULT_THEME, DEFAULT_THEME_ID, IOS_THEME, PIXEL_THEME, SWITCH_THEME, WIN98_THEME, MAX_THEMES, activeTheme, type ThemeEntry, type Workspace} from './workspace'
 
@@ -11,8 +13,6 @@ import {DEFAULT_APPEARANCE_THEME, DEFAULT_THEME, DEFAULT_THEME_ID, IOS_THEME, PI
  * 所以无论怎么折腾，都能一键回到最初的样子。
  */
 
-const NAME = /^[a-z][a-z0-9-]*$/
-const MAX_VARS = 40
 type Mode = 'light' | 'dark'
 type Overrides = Record<string, string>
 
@@ -23,28 +23,7 @@ export const DEFAULT_THEME_PALETTES = {
 } satisfies Record<Mode, Overrides>
 
 // 这些中性色不能作为两个模式共用的固定值，否则内联样式会锁住深浅色切换。
-const MODE_COLORS = new Set(['bg', 'bg2', 'bg3', 'text', 'text2', 'text3', 'text4', 'border', 'rule'])
-
-/** 旧主题没有 mode 时，用可判定的背景明度归属原配色；动态 CSS 值沿用调用方模式。 */
-function legacyMode(overrides: Overrides, fallback: Mode): Mode {
-  const bg = overrides.bg?.trim().toLowerCase()
-  if (!bg) return fallback
-  const hex = /^#([\da-f]{3,4}|[\da-f]{6}|[\da-f]{8})$/i.exec(bg)?.[1]
-  let rgb: number[] | undefined
-  if (hex) {
-    const full = hex.length <= 4 ? [...hex].map((c) => c + c).join('') : hex
-    rgb = [0, 2, 4].map((at) => Number.parseInt(full.slice(at, at + 2), 16) / 255)
-  } else if (/^rgba?\(/.test(bg)) {
-    const channels = bg.slice(bg.indexOf('(') + 1).split(/[,\s/]+/).filter(Boolean).slice(0, 3)
-    if (channels.length === 3) rgb = channels.map((value) => Number.parseFloat(value) / (value.endsWith('%') ? 100 : 255))
-  } else if (bg === 'black') return 'dark'
-  else if (bg === 'white') return 'light'
-  if (rgb?.every(Number.isFinite)) return rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722 < 0.5 ? 'dark' : 'light'
-  const lightness = /^oklch\(\s*([\d.]+)(%)?/.exec(bg)
-  if (lightness) return Number(lightness[1]) / (lightness[2] ? 100 : 1) < 0.5 ? 'dark' : 'light'
-  const hsl = /^hsla?\(.*?([\d.]+)%\s*(?:[,/]\s*[\d.%]+)?\s*\)$/.exec(bg)
-  return hsl ? Number(hsl[1]) < 50 ? 'dark' : 'light' : fallback
-}
+const MODE_COLORS = new Set(['bg', 'bg2', 'bg3', 'text', 'text2', 'text3', 'text4', 'border', 'rule', 'main'])
 
 function splitOverrides(overrides: Overrides): {shared: Overrides; colors: Overrides} {
   const shared: Overrides = {}
@@ -53,17 +32,9 @@ function splitOverrides(overrides: Overrides): {shared: Overrides; colors: Overr
   return {shared, colors}
 }
 
-/** 宽松读取和运行解析共用旧格式兼容规则，显式模式分支优先。 */
-function normalizeEntry(entry: ThemeEntry, fallback: Mode): ThemeEntry {
-  const {shared, colors} = splitOverrides(entry.overrides)
-  if (!Object.keys(colors).length) return entry
-  const mode = entry.mode ?? legacyMode(entry.overrides, fallback)
-  return {...entry, overrides: shared, [mode]: {...colors, ...entry[mode]}, mode}
-}
-
 /** 共用变量 → 当前模式；缺失分支由样式表提供该模式的系统配色。 */
 export function resolveThemeOverrides(theme: ThemeEntry, mode: Mode): Overrides {
-  const entry = normalizeEntry(theme, mode)
+  const entry = theme
   return {...entry.overrides, ...entry[mode]}
 }
 
@@ -72,29 +43,29 @@ export type ThemeValueSource = 'default' | 'font' | 'shared' | 'light' | 'dark' 
 
 /** 全部消费者共用的有效主题；values 是语义 CSS 值，不是浏览器 computedStyle。 */
 export function resolveTheme(theme: ThemeEntry, mode: Mode, preferences: {frameOff?: boolean} = {}) {
-  const entry = normalizeEntry(theme, mode)
+  const entry = theme
   const capabilities = themeCapabilities(entry.skin)
   const host = {paper: DEFAULT_THEME, ios: IOS_THEME, pixel: PIXEL_THEME, switch: SWITCH_THEME, win98: WIN98_THEME}[entry.skin]
   // 固定实现的默认合同，不读取 origin；用户快照和模式层仍优先。
   const hostOverrides: Overrides = {...fontVars(host.fonts), ...host.overrides, ...host[mode]}
-  const defaults: Overrides = {...BASE_SHARED, ...DEFAULT_THEME_PALETTES[mode], ...Object.fromEntries(Object.entries(DEFAULT_STACKS).map(([role, stack]) => [`font-${role}`, stack])), ...hostOverrides}
+  const defaults: Overrides = {...BASE_SHARED, ...DEFAULT_THEME_PALETTES[mode], ...fontVars(undefined), ...hostOverrides}
   const values = {...defaults}
   const sources: Record<string, ThemeValueSource> = Object.fromEntries(Object.keys(defaults).map(key => [key, 'default']))
   const overrides: Overrides = {...hostOverrides}
   const layer = (input: Overrides, source: ThemeValueSource) => {
     for (const [key, value] of Object.entries(input)) {values[key] = value; overrides[key] = value; sources[key] = source}
   }
-  layer(fontVars(entry.fonts), 'font')
-  layer(entry.overrides, 'shared')
-  layer(entry[mode] ?? {}, mode)
+  for (const design of themeDesignLayers(entry, mode)) layer(design.values, design.source)
+  for (const [part, recipe] of Object.entries(entry.recipes ?? {})) if (recipe.radius !== undefined) layer({[`recipe-${part}-radius`]: `${recipe.radius}px`}, 'shared')
+  if (entry.shellConfig?.coverScale !== undefined) layer({'switch-cover-scale': String(entry.shellConfig.coverScale / 100)}, 'shared')
   if (preferences.frameOff) layer({frame: '0px', 'frame-gap': '0px'}, 'preference')
-  return {id: entry.id, skin: entry.skin, shell: entry.shell, ...(entry.origin ? {origin: {...entry.origin}} : {}), mode, values, sources, overrides, capabilities}
+  return {id: entry.id, skin: entry.skin, shell: entry.shell, ...(entry.origin ? {origin: {...entry.origin}} : {}), mode, values, sources, overrides, capabilities, shellConfig: entry.shellConfig ?? {}, recipes: entry.recipes ?? {}}
 }
 
 const object = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value)
 const BUILTIN_THEMES = new Map([DEFAULT_THEME, IOS_THEME, PIXEL_THEME, SWITCH_THEME, WIN98_THEME].map(theme => [theme.id, theme]))
 const BUILTIN_IDS = new Set(BUILTIN_THEMES.keys())
-const ENTRY_FIELDS = new Set(['id', 'name', 'description', 'overrides', 'light', 'dark', 'fonts', 'mode', 'builtin', 'skin', 'shell', 'origin'])
+const ENTRY_FIELDS = new Set(['id', 'name', 'description', 'overrides', 'light', 'dark', 'fonts', 'mode', 'builtin', 'skin', 'shell', 'origin', 'recipes', 'shellConfig'])
 
 /** 所有 unknown 主题入口共用校验；不从自定义实例 ID 推断实现。 */
 export function assertThemeEntry(raw: unknown): asserts raw is ThemeEntry {
@@ -110,6 +81,7 @@ export function assertThemeEntry(raw: unknown): asserts raw is ThemeEntry {
     if (!Array.isArray(raw.fonts) || raw.fonts.some(font => !object(font) || Object.keys(font).some(key => key !== 'family' && key !== 'role'))) throw new WorkspaceError('主题 fonts 必须是字体对象数组')
     cleanFonts(raw.fonts)
   }
+  validateThemeDesign(raw as ThemeEntry)
   if (raw.origin !== undefined && (!object(raw.origin) || Object.keys(raw.origin).some(key => key !== 'definitionId' && key !== 'version') || typeof raw.origin.definitionId !== 'string' || !BUILTIN_IDS.has(raw.origin.definitionId) || !Number.isSafeInteger(raw.origin.version) || Number(raw.origin.version) < 1)) throw new WorkspaceError('主题 origin 必须指向合法定义与正整数版本')
 }
 
@@ -126,22 +98,10 @@ export function assertWorkspaceThemes(raw: unknown): void {
 }
 
 /** 校验并规整一组变量覆盖。AI 和导入的数据都不可信。 */
-export function cleanOverrides(raw: unknown): Record<string, string> {
-  if (raw === undefined || raw === null) return {}
-  if (typeof raw !== 'object' || Array.isArray(raw)) throw new WorkspaceError('overrides 必须是对象，例如 {"main":"#2b6cf6"}')
-  const entries = Object.entries(raw as Record<string, unknown>)
-  if (entries.length > MAX_VARS) throw new WorkspaceError(`一个主题最多改 ${MAX_VARS} 个变量`)
-  const out: Record<string, string> = {}
-  for (const [name, value] of entries) {
-    if (!NAME.test(name)) throw new WorkspaceError(`变量名不合法：${name}`)
-    if (typeof value !== 'string' || !value.trim() || value.length > 120 || /[;{}]/.test(value)) throw new WorkspaceError(`变量值不合法：${name}`)
-    out[name] = value.trim()
-  }
-  return out
-}
+export function cleanOverrides(raw: unknown): Record<string, string> {return validateOverrideMap(raw)}
 
 /** 导入或升级时读主题库：坏条目丢掉，内置预设始终用当前定义。 */
-export function readThemes(raw: unknown, fallbackMode: Mode = 'light'): ThemeEntry[] {
+export function readThemes(raw: unknown, _fallbackMode: Mode = 'light'): ThemeEntry[] {
   const list: ThemeEntry[] = [DEFAULT_THEME, IOS_THEME, PIXEL_THEME, SWITCH_THEME, WIN98_THEME]
   if (Array.isArray(raw)) for (const item of raw.slice(0, MAX_THEMES)) {
     if (object(item) && typeof item.id === 'string' && BUILTIN_IDS.has(item.id)) continue
@@ -149,7 +109,7 @@ export function readThemes(raw: unknown, fallbackMode: Mode = 'light'): ThemeEnt
       assertThemeEntry(item)
       if (list.some(entry => entry.id === item.id) || list.length >= MAX_THEMES) continue
       const {builtin: _builtin, ...entry} = item
-      list.push(normalizeEntry({...entry, overrides: cleanOverrides(entry.overrides), ...(entry.light ? {light: cleanOverrides(entry.light)} : {}), ...(entry.dark ? {dark: cleanOverrides(entry.dark)} : {}), ...(entry.fonts ? {fonts: cleanFonts(entry.fonts)} : {}), ...(entry.origin ? {origin: {...entry.origin}} : {})}, fallbackMode))
+      list.push({...entry, overrides: cleanOverrides(entry.overrides), ...(entry.light ? {light: cleanOverrides(entry.light)} : {}), ...(entry.dark ? {dark: cleanOverrides(entry.dark)} : {}), ...(entry.fonts ? {fonts: cleanFonts(entry.fonts)} : {}), ...(entry.origin ? {origin: {...entry.origin}} : {})})
     } catch { /* 宽松本地读取跳过损坏条目；导入/同步/备份必须先严格校验。 */ }
   }
   return list
@@ -187,13 +147,13 @@ export function setSkinFrame(workspace: Workspace, on: boolean): Workspace {
 /** fonts 字段：空数组表示清掉，所以不写进主题。 */
 function fontsField(raw: unknown): {fonts?: ReturnType<typeof cleanFonts>} {
   const fonts = cleanFonts(raw)
-  return fonts.length ? {fonts} : {}
+  return {fonts}
 }
 
 /** 存一个主题：id 或同名的已有主题会被更新，否则新建；默认启用。 */
 export function saveTheme(
   workspace: Workspace,
-  input: {id?: string; from?: string; name?: string; description?: string; overrides?: unknown; light?: unknown; dark?: unknown; fonts?: unknown; mode?: string; activate?: boolean},
+  input: {id?: string; from?: string; name?: string; description?: string; overrides?: unknown; light?: unknown; dark?: unknown; fonts?: unknown; recipes?: ThemeEntry['recipes'] | null; shellConfig?: ThemeEntry['shellConfig'] | null; mode?: string; activate?: boolean},
 ): {workspace: Workspace; theme: ThemeEntry; created: boolean} {
   if (input.mode !== undefined && input.mode !== 'light' && input.mode !== 'dark') throw new WorkspaceError('mode 只能是 light 或 dark')
   const name = input.name?.trim().slice(0, 20)
@@ -204,7 +164,7 @@ export function saveTheme(
   if (!existing && !name) throw new WorkspaceError('新主题需要一个名字')
   if (!existing && workspace.themes.length >= MAX_THEMES) throw new WorkspaceError(`主题库满了，最多 ${MAX_THEMES} 个，先删掉不用的。`)
   const original = existing ?? (input.from !== undefined ? find(workspace, input.from) : activeTheme(workspace))
-  const old = cloneTheme(normalizeEntry(original, workspace.theme.mode))
+  const old = cloneTheme(original)
   const supplied = cleanOverrides(input.overrides)
   const {shared, colors} = splitOverrides(supplied)
   const fonts = input.fonts === undefined ? undefined : cleanFonts(input.fonts)
@@ -213,7 +173,7 @@ export function saveTheme(
   const palettes: Pick<ThemeEntry, 'light' | 'dark'> = {}
   for (const mode of ['light', 'dark'] as const) {
     const inherited = withoutKeys(old[mode], [...Object.keys(shared), ...fontKeys])
-    const shortcuts = mode === colorMode ? colors : {}
+    const shortcuts = {...(colors.main !== undefined ? {main: colors.main} : {}), ...(mode === colorMode ? colors : {})}
     const merged = input[mode] === null ? {} : input[mode] !== undefined ? {...shortcuts, ...cleanOverrides(input[mode])} : {...inherited, ...shortcuts}
     if (Object.keys(merged).length) palettes[mode] = merged
   }
@@ -226,11 +186,12 @@ export function saveTheme(
     ...palettes,
     ...(input.fonts !== undefined ? fontsField(input.fonts) : {}),
     ...(input.mode ? {mode: input.mode} : {}),
+    ...(input.recipes !== undefined ? {recipes: input.recipes ?? undefined} : {}),
+    ...(input.shellConfig !== undefined ? {shellConfig: input.shellConfig ?? undefined} : {}),
   }
   delete theme.builtin
   if (!palettes.light) delete theme.light
   if (!palettes.dark) delete theme.dark
-  if (input.fonts !== undefined && !cleanFonts(input.fonts).length) delete theme.fonts
   assertThemeEntry(theme)
   const themes = existing ? workspace.themes.map(item => item.id === existing.id ? theme : item) : [...workspace.themes, theme]
   const next = {...workspace, themes}
@@ -274,7 +235,7 @@ export function tweakTheme(workspace: Workspace, input: {mode?: string; override
   const fontKeys = fontOverrideKeys(fonts)
   const next = input.mode !== undefined ? setMode(workspace, input.mode) : workspace
   if (input.overrides === undefined && input.light === undefined && input.dark === undefined && input.fonts === undefined) return {workspace: next}
-  const current = cloneTheme(normalizeEntry(activeTheme(next), next.theme.mode))
+  const current = cloneTheme(activeTheme(next))
   if (input.overrides === null) {
     if (current.builtin) return {workspace: next}
     const {fonts: _fonts, light: _light, dark: _dark, ...rest} = current
@@ -282,13 +243,13 @@ export function tweakTheme(workspace: Workspace, input: {mode?: string; override
   }
   const palettes: Pick<ThemeEntry, 'light' | 'dark'> = {}
   for (const mode of ['light', 'dark'] as const) {
-    const branch = input[mode] === null ? {} : {...withoutKeys(current[mode], [...Object.keys(patch), ...fontKeys]), ...(mode === next.theme.mode ? colors : {}), ...branches[mode]}
+    const branch = input[mode] === null ? {} : {...withoutKeys(current[mode], [...Object.keys(patch), ...fontKeys]), ...(colors.main !== undefined ? {main: colors.main} : {}), ...(mode === next.theme.mode ? colors : {}), ...branches[mode]}
     if (Object.keys(branch).length) palettes[mode] = branch
   }
   const merged: ThemeEntry = {...current, overrides: {...withoutKeys(current.overrides, fontKeys), ...patch}, ...palettes}
   if (!palettes.light) delete merged.light
   if (!palettes.dark) delete merged.dark
-  if (fonts) {if (fonts.length) merged.fonts = fonts; else delete merged.fonts}
+  if (fonts) merged.fonts = fonts
   if (current.builtin) {
     if (next.themes.length >= MAX_THEMES) throw new WorkspaceError(`主题库满了，最多 ${MAX_THEMES} 个，先删掉不用的。`)
     let n = 1

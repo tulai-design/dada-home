@@ -72,19 +72,14 @@ test('双模式主题切换使用各自的背景、文字和主色，共享布�
   assert.equal(light.frame, '0px')
   assert.equal(dark.radius, '8px')
 })
-test('旧固定深色主题归入深色分支，浅色回落系统配色', () => {
-  const old = {skin: 'paper', shell: 'standard', id: 'legacy-dark', name: '旧深色', description: '', mode: 'dark', overrides: {bg: '#111827', text: '#f8fafc', border: '#334155', main: '#60a5fa', frame: '0px'}}
-  const entry = readThemes([old]).find((item) => item.id === old.id)
+test('当前格式拒绝未显式归属模式的中性色，不再从背景猜测深浅', () => {
+  const raw = {skin: 'paper', shell: 'standard', id: 'ambiguous', name: '不明确', description: '', overrides: {bg: '#111827', text: '#f8fafc'}}
+  assert.equal(readThemes([raw]).some(item => item.id === raw.id), false)
+  assert.throws(() => themes.assertThemeEntry(raw), /作用域|overrides/)
+  const explicit = {...raw, overrides: {}, dark: {bg: '#111827', text: '#f8fafc'}}
+  const entry = readThemes([explicit]).find(item => item.id === raw.id)
   assert.equal(resolveThemeOverrides(entry, 'dark').bg, '#111827')
   assert.notEqual(swatch(entry, 'light').bg, '#111827')
-  assert.notEqual(swatch(entry, 'light').text, '#f8fafc')
-  assert.equal(resolveThemeOverrides(entry, 'light').frame, '0px')
-  assert.equal(resolveThemeOverrides(entry, 'light').main, '#60a5fa')
-})
-test('旧主题未声明模式时能从深色十六进制背景判断归属', () => {
-  const entry = readThemes([{skin: 'paper', shell: 'standard', description: '', id: 'inferred', name: '无模式深色', overrides: {bg: '#101820', text: '#f3f7fc'}}]).find((item) => item.id === 'inferred')
-  assert.equal(resolveThemeOverrides(entry, 'dark').bg, '#101820')
-  assert.notEqual(swatch(entry, 'light').bg, '#101820')
 })
 test('旧共享主色、外框、字体变量继续跨模式生效', () => {
   const entry = readThemes([{skin: 'paper', shell: 'standard', description: '', id: 'shared', name: '共用', overrides: {main: '#a855f7', frame: '3px', 'font-serif': 'Georgia, serif'}}]).find((item) => item.id === 'shared')
@@ -209,15 +204,14 @@ test('刷新迁移保留用户当前浅色选择，不用主题初始深色覆�
   assert.deepEqual(activeTheme(loaded).light, palette.light)
   assert.equal(resolveThemeOverrides(activeTheme(loaded), loaded.theme.mode).bg, palette.light.bg)
 })
-test('更旧的theme.overrides能迁移且不把深色背景锁到浅色', () => {
+test('已移除的单层theme.overrides不再生成猜测主题', () => {
   const ws = base()
   delete ws.themes
   ws.theme = {mode: 'dark', overrides: {bg: '#111827', text: '#f8fafc', frame: '0px'}}
   const loaded = migrate(ws)
-  const entry = activeTheme(loaded)
-  assert.equal(resolveThemeOverrides(entry, 'dark').bg, '#111827')
-  assert.notEqual(swatch(entry, 'light').bg, '#111827')
-  assert.equal(resolveThemeOverrides(entry, 'light').frame, '0px')
+  assert.equal(loaded.themes.some(item => item.id === 'mine'), false)
+  assert.equal(loaded.theme.active, model.DEFAULT_APPEARANCE_THEME.id)
+  assert.equal(loaded.theme.mode, 'dark')
 })
 test('应用主题的初始偏好只影响应用动作，手动切换保持可用', () => {
   const result = saveTheme(base(), {name: '夜航', mode: 'dark', ...palette})

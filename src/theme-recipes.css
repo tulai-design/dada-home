@@ -1,0 +1,7 @@
+/* 只在明确配置 recipe 时覆写宿主普通控件；专属桌面 chrome 保持自己的结构。 */
+:root[data-theme][data-theme-recipes~='button'] body :is(.lobe-button, .btn) {
+  border-radius: var(--recipe-button-radius) !important;
+}
+:root[data-theme][data-theme-recipes~='input'] body :is(.lobe-input, .ios-input) {
+  border-radius: var(--recipe-input-radius) !important;
+}

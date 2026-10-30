@@ -4,6 +4,7 @@ import {SwitchDock, SwitchHome} from '../SwitchShell'
 import {Win98Desktop, Win98Taskbar, Win98Titlebar} from '../Win98Shell'
 import {ShellPort} from './ports'
 import {STANDARD_CAPABILITIES, VISIBLE_PRESENTATION, type ShellAdapter, type ShellAdapterProps} from './contracts'
+import {DEFAULT_WIN98_WINDOW_GAP} from '../../lib/themeCatalog'
 
 function StandardChrome({model, dispatch, publish}: ShellAdapterProps) {
   useLayoutEffect(() => publish(VISIBLE_PRESENTATION), [publish])
@@ -35,14 +36,15 @@ function Win98Chrome({model, dispatch, publish}: ShellAdapterProps) {
   const [content, setContent] = useState<'visible' | 'minimized' | 'closed'>('closed')
   const [maximized, setMaximized] = useState(false)
   const [root, setRoot] = useState<HTMLDivElement | null>(null)
-  const [geometry, setGeometry] = useState({gap: 24, taskbar: 44})
+  const [geometry, setGeometry] = useState({gap: DEFAULT_WIN98_WINDOW_GAP, taskbar: 44})
+  const requestedGap = model.shellConfig?.windowGap ?? DEFAULT_WIN98_WINDOW_GAP
   useLayoutEffect(() => {
     const canvas = root?.closest('.canvas')
     const taskbar = root?.querySelector<HTMLElement>('.win98-taskbar')
     if (!canvas || !taskbar) return
-    const measure = () => {const rect = canvas.getBoundingClientRect(); const next = {gap: maximized || rect.width <= 760 || rect.height <= 420 ? 4 : 24, taskbar: taskbar.getBoundingClientRect().height}; setGeometry((old) => old.gap === next.gap && old.taskbar === next.taskbar ? old : next)}
+    const measure = () => {const rect = canvas.getBoundingClientRect(); const taskbarHeight = taskbar.getBoundingClientRect().height; const safeGap = Math.max(4, Math.min(requestedGap, (rect.width - 240) / 2, (rect.height - taskbarHeight - 160) / 2)); const next = {gap: maximized || rect.width <= 760 || rect.height <= 420 ? 4 : safeGap, taskbar: taskbarHeight}; setGeometry((old) => old.gap === next.gap && old.taskbar === next.taskbar ? old : next)}
     measure(); const observer = new ResizeObserver(measure); observer.observe(canvas); observer.observe(taskbar); return () => observer.disconnect()
-  }, [maximized, root])
+  }, [maximized, root, requestedGap])
   const activation = useRef(model.activation.revision)
   useLayoutEffect(() => {if (activation.current !== model.activation.revision) {activation.current = model.activation.revision; setContent('visible')}}, [model.activation.revision])
   useLayoutEffect(() => publish({...VISIBLE_PRESENTATION, content, maximized, backdrop: 'shell', reserves: {top: geometry.gap + 32, right: geometry.gap, bottom: geometry.gap + geometry.taskbar, left: geometry.gap}}), [content, maximized, geometry, publish])
