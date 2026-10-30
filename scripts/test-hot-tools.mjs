@@ -14,7 +14,7 @@ const defaults = ['zhihu', 'weibo', 'ithome']
 const available = ['zhihu', 'weibo', 'ithome', 'github']
 class WorkspaceError extends Error {}
 const dependencies = {
-  '@tulai-design/agent-core': {createToolFactory: () => (schema, definition) => ({...definition, execute: (args) => definition.execute(schema.schema.parse(args))})},
+  '@tulai-design/agent-core': {createToolFactory: () => (schema, definition) => ({...definition, execute: (args) => definition.execute(schema.schema.parse(args), {signal: new AbortController().signal})})},
   './errors': {WorkspaceError},
   './defaults': {SEARCH_ENGINES: [], defaultSettings: () => ({proxy: '', hotSource: ''})},
   './skills': {SKILLS: []},
@@ -33,7 +33,7 @@ const dependencies = {
   }},
 }
 const module = {exports: {}}
-vm.runInNewContext(compiled, {module, exports: module.exports, require: (id) => dependencies[id] ?? {}, URL})
+vm.runInNewContext(compiled, {module, exports: module.exports, require: (id) => dependencies[id] ?? {}, URL, AbortController})
 const tools = module.exports.SITE_TOOLS
 const run = (name, args = {}) => tools.find((tool) => tool.name === name).execute(args)
 const hot = (id, boards) => ({id, type: 'hot', config: {heading: `标题 ${id}`, boards, perBoard: 16}})
@@ -68,10 +68,7 @@ await test('set_hot_boards 提交目标实例，保留其他配置和遗留设�
 await test('多个实例未指定 ref 时 get/set 明确返回可选实例', async () => {
   reset([hot('first', 'zhihu'), hot('second', 'weibo')])
   for (const name of ['get_hot', 'set_hot_boards']) {
-    const result = await run(name, {boards: name === 'get_hot' ? [] : ['github']})
-    assert.match(result, /请用 ref 指定/)
-    assert.match(result, /first/)
-    assert.match(result, /second/)
+    await assert.rejects(() => run(name, {boards: name === 'get_hot' ? [] : ['github']}), error => /请用 ref 指定/.test(error.message) && /first/.test(error.message) && /second/.test(error.message))
   }
   assert.equal(requests.length, 0)
   assert.equal(commits, 0)
@@ -86,8 +83,8 @@ await test('list_hot_sources 列出每个实例的实际关注', async () => {
 })
 await test('无效组件 ref 和不存在榜单不提交', async () => {
   reset([hot('first', 'zhihu')])
-  assert.match(await run('set_hot_boards', {ref: 'missing', boards: ['github']}), /没有这个热榜组件/)
-  assert.match(await run('set_hot_boards', {boards: ['missing']}), /这些榜单不存在/)
+  await assert.rejects(() => run('set_hot_boards', {ref: 'missing', boards: ['github']}), /没有这个热榜组件/)
+  await assert.rejects(() => run('set_hot_boards', {boards: ['missing']}), /这些榜单不存在/)
   assert.equal(commits, 0)
 })
 await test('直接指定榜单读取时不随意选择页面实例', async () => {
@@ -99,7 +96,7 @@ await test('未安装组件时明确默认读取与添加入口', async () => {
   reset([])
   assert.match(await run('get_hot'), /页面尚无热榜组件/)
   assert.deepEqual(requests, [defaults])
-  assert.match(await run('set_hot_boards', {boards: ['github']}), /先用 add_component 添加 hot/)
+  await assert.rejects(() => run('set_hot_boards', {boards: ['github']}), /先用 add_component 添加 hot/)
   assert.equal(commits, 0)
 })
 console.log(`热榜工具回归全部通过：${tests.length}/${tests.length}`)

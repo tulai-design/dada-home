@@ -21,11 +21,7 @@ const str = (value: unknown): string => (typeof value === 'string' ? value.trim(
 const num = (value: unknown): number | undefined => (typeof value === 'number' && Number.isFinite(value) ? value : undefined)
 
 async function guard(run: () => string | Promise<string>): Promise<string> {
-  try {
-    return await run()
-  } catch (error) {
-    return `没有成功：${error instanceof Error ? error.message : String(error)}`
-  }
+  return run()
 }
 
 const NOT_READY = '联网搜索还没配好。让用户在设置的「联网搜索」里选一个服务商并填密钥（可以用 open_settings 带他去，section 填 search）；在那之前，可以用 open_search 帮他在浏览器里搜。'
@@ -61,10 +57,9 @@ export const SEARCH_TOOLS = [
           if (!args.query) throw new Error('没说搜什么')
           const {url, label} = searchUrl(args.query, args.engine)
           if (args.engine && !OPEN_TARGETS.some((t) => t.id === args.engine)) throw new Error(`不认识这个搜索引擎：${args.engine}`)
-          const opened = window.open(url, '_blank', 'noopener')
-          return opened
-            ? `已在新标签页用${label}搜索「${args.query}」。`
-            : `浏览器拦截了自动打开的标签页。把这个链接给用户，让他点一下：${url}（也可以让他在地址栏右侧允许本站的弹出窗口）`
+          window.open(url, '_blank', 'noopener')
+          // noopener 成功打开也可能返回 null，不能据此声称被拦截。
+          return `已请求浏览器在新标签页用${label}搜索「${args.query}」。如果没有打开，请用户点击：${url}（也可在地址栏右侧允许本站的弹出窗口）。`
         }),
     },
   ),
@@ -97,7 +92,7 @@ export const SEARCH_TOOLS = [
         guard(async () => {
           if (!args.query) throw new Error('没说搜什么')
           const config = readSearchConfig()
-          if (!searchReady(config)) return NOT_READY
+          if (!searchReady(config)) throw new Error(NOT_READY)
           const result = await webSearch(args.query, {limit: args.limit, news: args.news, days: args.days, signal: context.signal}, config)
           const name = providerInfo(config.provider)?.name ?? ''
           if (!result.hits.length && !result.answer) return `${name} 没有搜到「${args.query}」的结果。换个说法再试。`

@@ -354,7 +354,7 @@ await test('AI 设置工具支持 split 的 schema、保存和读取，非法偏
   assert.match(await update.execute(update.parseArguments({sidebarAi: 'split'}), {}), /已更新/)
   assert.equal(storage.get('sidebarAi'), 'split')
   assert.match(await read.execute({}, {}), /Dock AI 入口：分栏/)
-  assert.match(await update.execute(update.parseArguments({sidebarAi: 'invalid'}), {}), /没有成功/)
+  await assert.rejects(() => update.execute(update.parseArguments({sidebarAi: 'invalid'}), {}), /sidebarAi/)
   assert.equal(storage.get('sidebarAi'), 'split')
 })
 

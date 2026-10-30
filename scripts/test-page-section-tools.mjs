@@ -126,7 +126,7 @@ await test('不合法结构、引用与页面被拒绝且不提交', async () =>
     {pageId: 'home', sections: Array.from({length: 9}, (_, index) => ({...section, id: `s${index}`, items: []}))},
   ]
   for (const args of invalid) {
-    assert.match(await run('set_page_sections', args), /没有成功/)
+    await assert.rejects(() => run('set_page_sections', args), /./)
     assert.equal(workspace, before, `无效输入不应更新工作空间：${JSON.stringify(args)}`)
     assert.equal(commits, 0)
   }

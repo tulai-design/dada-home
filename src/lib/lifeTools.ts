@@ -44,12 +44,7 @@ const bool = (value: unknown): boolean | undefined => (typeof value === 'boolean
 const strList = (value: unknown): string[] => (Array.isArray(value) ? value.map(str).filter(Boolean) : [])
 
 async function guard(run: () => string | Promise<string>): Promise<string> {
-  try {
-    return await run()
-  } catch (error) {
-    if (error instanceof WorkspaceError) return `没有成功：${error.message}`
-    return `没有成功：${error instanceof Error ? error.message : String(error)}`
-  }
+  return run()
 }
 
 const proxy = (): string => ({...defaultSettings(), ...readStored<Partial<Settings>>('settings', {})}).proxy
@@ -456,7 +451,7 @@ export const LIFE_TOOLS = [
           // 等一下，让「被浏览器拦截 / 地址失效」这类错误有机会冒出来，如实告诉模型
           await new Promise((resolve) => setTimeout(resolve, 600))
           const state = getPlayerState()
-          if (state.error) return `没成功：${state.error}`
+          if (state.error) throw new WorkspaceError(`没成功：${state.error}`)
           const now = currentTrack()
           return state.playing ? `正在播放「${now?.title}」。` : `已${args.action === 'stop' ? '停止' : '暂停或未播放'}。音量 ${Math.round(state.volume * 100)}%，${MODE_LABEL[state.mode]}。`
         }),

@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/ai/tools-and-apps.md", "reason": "工具合同与异常、授权、分发边界"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "保持聊天归属与保存合同"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "真实回归和本机检查要求"}

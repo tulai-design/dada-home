@@ -1,3 +1,4 @@
+import type {ApprovalRequest} from '../lib/ai'
 import {memo, useEffect, useLayoutEffect, useRef, useState} from 'react'
 import {ActionIcon, Button, CopyButton, Drawer, Empty, Flexbox, Markdown, Modal, Text} from '@lobehub/ui'
 import {ArrowDown, ClockCounterClockwise as History, ArrowsOut as Maximize2, Chat as MessageSquare, Columns, SidebarSimple, Plus, Gear as Settings, Square, Trash as Trash2, X} from '@phosphor-icons/react'
@@ -45,7 +46,7 @@ type Props = {
   onClose: () => void
   onOpenSettings: () => void
   /** 用户对确认卡片的选择 */
-  onApprovalAnswer: (approved: boolean | 'always') => void
+  onApprovalAnswer: (request: ApprovalRequest, approved: boolean | 'always') => void
 }
 
 /** 距底部多少像素内算「贴底」，超过就认为用户在看历史，不再自动跟随。 */
@@ -351,7 +352,7 @@ export function Assistant({open, mode, onMode, canSplit = true, ai, turns, ready
 }
 
 /** 一轮对话：用户提问 → 思考 → 工具 → 回答 → 失败/耗时。 */
-const TurnView = memo(function TurnView({turn, active, onApprovalAnswer}: {turn: StoredTurn; active: boolean; onApprovalAnswer: (approved: boolean | 'always') => void}) {
+const TurnView = memo(function TurnView({turn, active, onApprovalAnswer}: {turn: StoredTurn; active: boolean; onApprovalAnswer: (request: ApprovalRequest, approved: boolean | 'always') => void}) {
   const thinking = active && !turn.answer && (!turn.tools.length || turn.tools.every((t) => t.ok))
   const seconds = elapsed(turn)
 

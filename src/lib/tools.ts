@@ -95,25 +95,23 @@ const sectionProperties = {
 }
 const sectionItems = {type: 'array', items: {type: 'string', minLength: 1}, uniqueItems: true, description: '已有组件 ID，按阅读顺序排列；先从 get_workspace 读取。本页各分区和槽位之间不能重复引用'}
 
-/** 让一个操作的错误变成给模型看的文字，而不是抛出去中断整轮对话。 */
-async function guard(run: () => string): Promise<string> {
-  try {
-    return run()
-  } catch (error) {
-    if (error instanceof WorkspaceError) return `没有成功：${error.message}`
-    throw error
-  }
+/** 保留异步执行边界；异常交给分发层统一记录为失败并回传模型。 */
+async function guard(run: () => string | Promise<string>): Promise<string> {
+  return run()
 }
 
-/** 调浏览器扩展：没连上就回一句引导，而不是抛错中断整轮对话。 */
-async function bridge(run: () => Promise<string>): Promise<string> {
+/** 探测后再发扩展请求；失败保留异常，取消后不启动下一次操作。 */
+async function bridge(run: () => Promise<string>, signal?: AbortSignal): Promise<string> {
+  signal?.throwIfAborted()
   try {
-    // 先快速确认扩展在，没装就别干等 8 秒超时
-    if (!(await detect(1200))) return NO_EXTENSION_HINT
+    const available = await detect(1200)
+    signal?.throwIfAborted()
+    if (!available) throw new WorkspaceError(NO_EXTENSION_HINT)
     return await run()
   } catch (error) {
-    if (error instanceof Error && error.message === 'NO_EXTENSION') return NO_EXTENSION_HINT
-    return `没有成功：${error instanceof Error ? error.message : String(error)}`
+    signal?.throwIfAborted()
+    if (error instanceof Error && error.message === 'NO_EXTENSION') throw new WorkspaceError(NO_EXTENSION_HINT)
+    throw error
   }
 }
 
@@ -1093,7 +1091,7 @@ export const HOME_TOOLS = [
       execute: async (args) => {
         if (args.id) {
           const def = getFx(args.id)
-          if (!def) return `没有这个效果：${args.id}。可用：${FX_DEFS.map((d) => d.id).join('、')}`
+          if (!def) throw new WorkspaceError(`没有这个效果：${args.id}。可用：${FX_DEFS.map((d) => d.id).join('、')}`)
           return JSON.stringify(describeFx(def), null, 1)
         }
         return FX_DEFS.filter((def) => !args.kind || def.kind === args.kind)
@@ -1352,7 +1350,7 @@ export const HOME_TOOLS = [
       execute: (args, context) => guard(() => {
         const application = findApplication(getWorkspace(), args.ref)
         if (args.mode !== undefined && !['modal', 'drawer', 'page'].includes(args.mode)) throw new WorkspaceError('mode 只能是 modal、drawer 或 page')
-        if (!context.openApplication) return '当前视图无法打开应用，请从组件市场进入。'
+        if (!context.openApplication) throw new WorkspaceError('当前视图无法打开应用，请从组件市场进入。')
         context.openApplication(application.id, args.mode as ApplicationOpenMode | undefined)
         return `已打开「${application.instance.title}」。`
       }),
@@ -1601,7 +1599,7 @@ export const HOME_TOOLS = [
       highRisk: () => false,
       execute: (args) =>
         guard(() => {
-          if (!isInstalled(getWorkspace(), 'bookmarks')) return '书签组件还没安装，先用 install_addon 装上 bookmarks。'
+          if (!isInstalled(getWorkspace(), 'bookmarks')) throw new WorkspaceError('书签组件还没安装，先用 install_addon 装上 bookmarks。')
           if (!args.items.length) return '没有要添加的书签。'
           const result = addBookmarks(getBookmarks(), args.items)
           setBookmarks(result.groups)
@@ -1632,7 +1630,7 @@ export const HOME_TOOLS = [
       execute: (args) =>
         guard(() => {
           const result = updateBookmark(getBookmarks(), args.id, args)
-          if (result.error) return `没有成功：${result.error}`
+          if (result.error) throw new WorkspaceError(`没有成功：${result.error}`)
           setBookmarks(result.groups)
           return '已修改。'
         }),
@@ -1658,7 +1656,7 @@ export const HOME_TOOLS = [
       highRisk: () => false,
       execute: (args) =>
         guard(() => {
-          if (!args.group) return '没有成功：要给目标分组名'
+          if (!args.group) throw new WorkspaceError('没有成功：要给目标分组名')
           let groups = getBookmarks()
           let moved = 0
           for (const id of args.ids) {
@@ -1721,14 +1719,14 @@ export const HOME_TOOLS = [
         guard(() => {
           const groups = getBookmarks()
           const target = groups.find((g) => g.name === args.group)
-          if (!target) return `没有叫「${args.group}」的分组`
+          if (!target) throw new WorkspaceError(`没有叫「${args.group}」的分组`)
           if (args.remove) {
             setBookmarks(removeGroup(groups, target.id))
             return `已删除分组「${target.name}」和里面的 ${target.items.length} 个书签。`
           }
-          if (!args.name) return '没有成功：要给新名字，或设 remove 为 true'
+          if (!args.name) throw new WorkspaceError('没有成功：要给新名字，或设 remove 为 true')
           const result = renameGroup(groups, target.id, args.name)
-          if (result.error) return `没有成功：${result.error}`
+          if (result.error) throw new WorkspaceError(`没有成功：${result.error}`)
           setBookmarks(result.groups)
           return `已改名为「${args.name}」。`
         }),
@@ -1753,7 +1751,7 @@ export const HOME_TOOLS = [
       description: '读取用户浏览器里真正的书签（不是搭搭里的）：id｜标题｜网址｜所在文件夹。需要用户装了「搭搭书签桥」扩展并在此网站启用；没连上会告诉你怎么引导用户。整理浏览器书签前先看这个。',
       effect: 'read',
       highRisk: () => false,
-      execute: (args) =>
+      execute: (args, context) =>
         bridge(async () => {
           const {items, folders} = await listBrowser()
           const q = args.query?.toLowerCase()
@@ -1763,7 +1761,7 @@ export const HOME_TOOLS = [
           const LIMIT = 300
           const lines = hits.slice(0, LIMIT).map((i) => `  ${i.id}｜${i.title}｜${i.url}｜${i.path.join('/')}`)
           return `浏览器共 ${items.length} 个书签，${folders.length} 个文件夹；${q || folder ? `匹配 ${hits.length} 个` : '以下是书签'}：\n${lines.join('\n')}${hits.length > LIMIT ? `\n（只列出前 ${LIMIT} 个，用 query 或 folder 缩小范围）` : ''}\n文件夹：${folders.map((f) => f.path.join('/')).join('；')}`
-        }),
+        }, context.signal),
     },
   ),
   define(
@@ -1798,12 +1796,12 @@ export const HOME_TOOLS = [
       description: '往用户浏览器书签里批量添加（需要扩展）。同一文件夹里已有的网址会跳过。',
       effect: 'write',
       highRisk: () => false,
-      execute: (args) =>
+      execute: (args, context) =>
         bridge(async () => {
           const items = args.items.map((i) => ({url: i.url, title: i.title, path: i.folder ? i.folder.split('/').map((p) => p.trim()).filter(Boolean) : ['@bar', SYNC_FOLDER]}))
           const result = await call<{created: number; skipped: string[]}>('create', {items}, 30000)
           return `已添加 ${result.created} 个到浏览器书签。${result.skipped.length ? `跳过 ${result.skipped.length} 个：${result.skipped.slice(0, 10).join('、')}` : ''}`
-        }),
+        }, context.signal),
     },
   ),
   define(
@@ -1824,12 +1822,12 @@ export const HOME_TOOLS = [
       description: '把浏览器里的一批书签移到某个文件夹（需要扩展）。整理浏览器书签时，先 list_browser_bookmarks，想好分类再分批移动。',
       effect: 'write',
       highRisk: () => false,
-      execute: (args) =>
+      execute: (args, context) =>
         bridge(async () => {
-          if (!args.folder) return '没有成功：要给目标文件夹'
+          if (!args.folder) throw new WorkspaceError('没有成功：要给目标文件夹')
           const result = await call<{moved: number}>('move', {ids: args.ids, path: args.folder.split('/').map((p) => p.trim()).filter(Boolean)}, 30000)
           return `已移动 ${result.moved} 个浏览器书签到「${args.folder}」。`
-        }),
+        }, context.signal),
     },
   ),
   define(
@@ -1843,11 +1841,11 @@ export const HOME_TOOLS = [
       description: '删除浏览器里的书签（需要扩展；只删书签，不删文件夹）。会真的从用户浏览器里删掉，高危，会让用户确认。',
       effect: 'write',
       highRisk: () => true,
-      execute: (args) =>
+      execute: (args, context) =>
         bridge(async () => {
           const result = await call<{removed: number}>('remove', {ids: args.ids}, 30000)
           return `已从浏览器删除 ${result.removed} 个书签。`
-        }),
+        }, context.signal),
     },
   ),
   define(
@@ -1858,11 +1856,11 @@ export const HOME_TOOLS = [
       description: '把浏览器里的全部书签并进搭搭的书签页（需要扩展，重复的网址自动跳过）。用户说「导入我的书签」时用这个。',
       effect: 'write',
       highRisk: () => false,
-      execute: () =>
+      execute: (_args, context) =>
         bridge(async () => {
-          if (!isInstalled(getWorkspace(), 'bookmarks')) return '书签组件还没安装，先用 install_addon 装上 bookmarks。'
-          return importFromBrowser()
-        }),
+          if (!isInstalled(getWorkspace(), 'bookmarks')) throw new WorkspaceError('书签组件还没安装，先用 install_addon 装上 bookmarks。')
+          return importFromBrowser(context.signal)
+        }, context.signal),
     },
   ),
   define(
@@ -1873,7 +1871,7 @@ export const HOME_TOOLS = [
       description: '把搭搭书签页的书签写进浏览器书签栏的「搭搭」文件夹，只增不删（需要扩展）。',
       effect: 'write',
       highRisk: () => false,
-      execute: () => bridge(() => pushToBrowser()),
+      execute: (_args, context) => bridge(() => pushToBrowser(context.signal), context.signal),
     },
   ),
   define(
@@ -1888,7 +1886,7 @@ export const HOME_TOOLS = [
       effect: 'read',
       highRisk: () => false,
       execute: async (args, context) => {
-        if (!getWorkspace().pages.some((page) => page.id === args.pageId)) return `没有这个页面：${args.pageId}`
+        if (!getWorkspace().pages.some((page) => page.id === args.pageId)) throw new WorkspaceError(`没有这个页面：${args.pageId}`)
         context.openPage(args.pageId)
         return `已打开 ${args.pageId}。`
       },
@@ -1919,5 +1917,8 @@ export function findTool(name: string): AnyHomeTool | undefined {
 }
 
 export async function runTool(tool: AnyHomeTool, args: unknown, context: HomeToolContext): Promise<string> {
-  return String(await tool.execute(args, context))
+  context.signal?.throwIfAborted()
+  const result = await tool.execute(args, context)
+  context.signal?.throwIfAborted()
+  return String(result)
 }

@@ -140,7 +140,7 @@ await test('模式分支无效 CSS 不提交，保留先前有效主题', async 
   await run('save_theme', {name: '海湾', ...palettes})
   const before = JSON.stringify(workspace)
   const count = commits
-  assert.match(await run('set_theme', {dark: {bg: '#123; color:red'}}), /没有成功/)
+  await assert.rejects(() => run('set_theme', {dark: {bg: '#123; color:red'}}), /./)
   assert.equal(JSON.stringify(workspace), before)
   assert.equal(commits, count)
 })
@@ -232,7 +232,7 @@ await test('reset_appearance 默认背景与保留效果块超限时给出原因
   const before = JSON.stringify(workspace)
   const count = commits
   for (const input of [{scope: 'home'}, {scope: 'all', mode: 'light'}]) {
-    assert.match(await run('reset_appearance', input), /特效超出预算/)
+    await assert.rejects(() => run('reset_appearance', input), /特效超出预算/)
     assert.equal(JSON.stringify(workspace), before)
     assert.equal(commits, count)
   }
@@ -243,7 +243,7 @@ await test('reset_appearance 严格拒绝非法范围和模式，全局支持显
   const count = commits
   for (const scope of ['page', '', null, 1]) assert.throws(() => tool('reset_appearance').parse({scope}), /scope/)
   for (const mode of ['auto', '', null, 1]) assert.throws(() => tool('reset_appearance').parse({mode}), /mode/)
-  assert.match(await run('reset_appearance', {scope: 'home', mode: 'light'}), /没有成功/)
+  await assert.rejects(() => run('reset_appearance', {scope: 'home', mode: 'light'}), /./)
   assert.equal(JSON.stringify(workspace), before)
   assert.equal(commits, count)
   await run('reset_appearance', {scope: 'all', mode: 'light'})

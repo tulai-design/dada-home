@@ -1,6 +1,6 @@
 /** 聊天逻辑轮次与本地工具正文的纯数据边界；不依赖 React 或数据库。 */
 export type ToolStep = {name: string; title: string; ok: boolean; text: string}
-export type PendingApproval = {request: {tool: string; summary: string; remember?: string}}
+export type PendingApproval = {request: {id?: string; tool: string; summary: string; remember?: string}}
 export type Turn = {
   id: string; prompt: string; answer: string; reasoning: string; tools: ToolStep[]; error: string
   startedAt: number; endedAt?: number; aborted?: boolean; pending?: PendingApproval
@@ -45,9 +45,10 @@ function baseTurn(value: unknown): Omit<StoredTurn, 'tools'> {
   if (value.pending !== undefined) {
     fields(value.pending, ['request'])
     const request = value.pending.request
-    fields(request, ['tool','summary','remember'])
+    fields(request, ['id','tool','summary','remember'])
     if (typeof request.tool !== 'string' || typeof request.summary !== 'string' || (request.remember !== undefined && typeof request.remember !== 'string')) invalid()
-    result.pending = {request: {tool: request.tool, summary: request.summary, ...(request.remember !== undefined ? {remember: request.remember} : {})}}
+    if (request.id !== undefined && (typeof request.id !== 'string' || !request.id)) invalid()
+    result.pending = {request: {...(request.id !== undefined ? {id: request.id} : {}), tool: request.tool, summary: request.summary, ...(request.remember !== undefined ? {remember: request.remember} : {})}}
   }
   return result
 }

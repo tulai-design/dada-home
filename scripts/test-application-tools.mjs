@@ -73,12 +73,12 @@ await test('AI可选pageId挂载同一id，移动及取消小组件不卸载应�
   assert.equal(workspace.applications.length, 1)
 })
 await test('页面不存在或配置不合法时，创建/配置原子失败且不提交', async () => {
-  assert.match(await run('create_applet', {source, pageId: 'missing'}), /没有成功/)
+  await assert.rejects(() => run('create_applet', {source, pageId: 'missing'}), /./)
   assert.equal(commits, 0); assert.equal(workspace.applications.length, 0)
   await run('create_applet', {source, settingsSchema})
   const before = JSON.stringify(workspace), id = workspace.applications[0].id
-  assert.match(await run('configure_application', {ref: id, openMode: 'invalid'}), /没有成功/)
-  assert.match(await run('configure_application', {ref: id, settings: {sound: 'yes'}}), /没有成功/)
+  await assert.rejects(() => run('configure_application', {ref: id, openMode: 'invalid'}), /./)
+  await assert.rejects(() => run('configure_application', {ref: id, settings: {sound: 'yes'}}), /./)
   assert.equal(JSON.stringify(workspace), before); assert.equal(commits, 1)
   assert.throws(() => tool('configure_application').parseArguments({dock: 'yes'}), /布尔/)
 })
@@ -104,7 +104,7 @@ await test('状态栏支持显式compact并注入status形态，无效模式不�
   const config = registry.normalizeConfig(registry.getDefinition('applet'), applications.applicationInstance(workspace, id, 'status').config)
   assert.equal(config.surface, 'status')
   const before = JSON.stringify(workspace), previous = commits
-  assert.match(await run('configure_application', {ref: id, statusMode: 'background'}), /没有成功/)
+  await assert.rejects(() => run('configure_application', {ref: id, statusMode: 'background'}), /./)
   assert.equal(JSON.stringify(workspace), before); assert.equal(commits, previous)
   await run('configure_application', {ref: id, statusMode: 'launcher'})
   assert.equal(workspace.applications[0].statusMode, 'launcher')
@@ -116,7 +116,7 @@ await test('未挂页面的HTML应用可部分更新，错误类型不修改另�
   assert.equal(workspace.applications[0].instance.config.html, '<canvas/>')
   assert.equal(workspace.applications[0].instance.config.js, 'const value=2')
   const before = JSON.stringify(workspace)
-  assert.match(await run('update_applet', {ref: id, source}), /不是小程序/)
+  await assert.rejects(() => run('update_applet', {ref: id, source}), /不是小程序/)
   assert.equal(JSON.stringify(workspace), before)
 })
 await test('应用列表包含设置入口与挂载来源，可省略源码；打开视图不提交配置', async () => {
@@ -129,7 +129,7 @@ await test('应用列表包含设置入口与挂载来源，可省略源码；�
   assert.equal(JSON.parse(await run('list_applications', {includeSource: false}))[0].instance.config, undefined)
   await run('open_application', {ref: '工具', mode: 'page'})
   assert.deepEqual(opens, [{id, mode: 'page'}]); assert.equal(commits, before)
-  assert.match(await run('open_application', {ref: id, mode: 'invalid'}), /没有成功/)
+  await assert.rejects(() => run('open_application', {ref: id, mode: 'invalid'}), /./)
 })
 await test('卸载标记高危，移除目录和所有入口挂载，不触碰私有存储', async () => {
   await run('create_applet', {source, pageId: 'home', dock: true, status: true})

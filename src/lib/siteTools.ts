@@ -37,12 +37,7 @@ const bool = (value: unknown): boolean | undefined => (typeof value === 'boolean
 const strList = (value: unknown): string[] => (Array.isArray(value) ? value.map(str).filter(Boolean) : [])
 
 async function guard(run: () => string | Promise<string>): Promise<string> {
-  try {
-    return await run()
-  } catch (error) {
-    if (error instanceof WorkspaceError) return `没有成功：${error.message}`
-    return `没有成功：${error instanceof Error ? error.message : String(error)}`
-  }
+  return run()
 }
 
 const settings = (): Settings => ({...defaultSettings(), ...readStored<Partial<Settings>>('settings', {})})
@@ -201,7 +196,7 @@ export const SITE_TOOLS = [
       highRisk: () => false,
       execute: async (args) => {
         const hit = lastArticles.find((a) => a.link === args.link)
-        if (!hit) return '没找到这篇。先用 read_feeds 抓一次，再用它返回的链接。'
+        if (!hit) throw new WorkspaceError('没找到这篇。先用 read_feeds 抓一次，再用它返回的链接。')
         if (hit.linkOnly) return `「${hit.title}」的订阅源只提供了标题和链接，没有正文：${hit.link}`
         return `${hit.title}｜${hit.source}｜${dateText(hit.date)}\n${plainText(hit.content, 4000)}`
       },
@@ -317,13 +312,15 @@ export const SITE_TOOLS = [
       description: '设置实际热榜组件关注哪些榜单（整体替换，可撤销）。多个实例时必须用 ref 选定，不会修改其他热榜。先用 list_hot_sources 确认榜单 id 和组件 ref。',
       effect: 'write',
       highRisk: () => false,
-      execute: (args) =>
+      execute: (args, context) =>
         guard(async () => {
+          context.signal?.throwIfAborted()
           const ids = [...new Set(args.boards)].slice(0, 12)
           if (!ids.length) throw new WorkspaceError('至少选一个榜单。')
           const slot = hotSlotFor(args.ref)!
           const s = settings()
           const valid = new Set((await fetchSources(s.hotSource, s.proxy)).map((x) => x.id))
+          context.signal?.throwIfAborted()
           const unknown = ids.filter((id) => !valid.has(id))
           if (unknown.length) throw new WorkspaceError(`这些榜单不存在：${unknown.join('、')}。用 list_hot_sources 看有哪些。`)
           const result = updateComponent(getWorkspace(), slot.id, {config: {boards: ids.join(',')}})
@@ -566,8 +563,9 @@ export const SITE_TOOLS = [
       ].join('\n'),
       effect: 'write',
       highRisk: () => false,
-      execute: (args) =>
+      execute: (args, context) =>
         guard(async () => {
+          context.signal?.throwIfAborted()
           const part: Partial<Settings> = {}
           const done: string[] = []
           if (args.name) {
@@ -575,7 +573,8 @@ export const SITE_TOOLS = [
             done.push(`称呼=${part.name}`)
           }
           if (args.city) {
-            const place = (await geocode(args.city))[0]
+            const place = (await geocode(args.city, context.signal))[0]
+            context.signal?.throwIfAborted()
             if (!place) throw new WorkspaceError(`查不到这个城市：${args.city}`)
             Object.assign(part, {city: place.name, lat: place.lat, lon: place.lon})
             done.push(`城市=${place.name}${place.admin ? `（${place.admin}）` : ''}`)
@@ -613,7 +612,7 @@ export const SITE_TOOLS = [
       effect: 'read',
       highRisk: () => false,
       execute: async (args, context) => {
-        if (!context.openSettings) return '当前环境不能打开设置页。'
+        if (!context.openSettings) throw new WorkspaceError('当前环境不能打开设置页。')
         context.openSettings(args.section)
         return `已打开设置${args.section ? ` › ${args.section}` : ''}。`
       },
@@ -631,7 +630,8 @@ export const SITE_TOOLS = [
       highRisk: () => false,
       execute: async (args) => {
         const skill = findSkill(args.id)
-        return skill ? skill.body : `没有这个技能：${args.id}。可用：${SKILLS.map((s) => s.id).join('、')}`
+        if (!skill) throw new WorkspaceError(`没有这个技能：${args.id}。可用：${SKILLS.map((s) => s.id).join('、')}`)
+        return skill.body
       },
     },
   ),
@@ -646,8 +646,8 @@ export const SITE_TOOLS = [
       effect: 'read',
       highRisk: () => false,
       execute: async (args, context) => {
-        if (!context.readToolDetail) return '当前环境不能读取历史工具结果。'
-        if (!args.id) return '缺少编号。'
+        if (!context.readToolDetail) throw new WorkspaceError('当前环境不能读取历史工具结果。')
+        if (!args.id) throw new WorkspaceError('缺少编号。')
         return context.readToolDetail(args.id)
       },
     },

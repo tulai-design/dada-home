@@ -132,6 +132,28 @@ try {
     assert.equal(executions.length, 0)
     assert.match(requests[1].body.messages.at(-1).content[0].content, /用户拒绝/)
   })
+  await test('已取消的 Agent 不发送模型请求', async () => {
+    const controller = new AbortController()
+    controller.abort()
+    await assert.rejects(() => runAgent(base, {signal: controller.signal}), {name: 'AbortError'})
+    assert.equal(requests.length, 0)
+  })
+  await test('取消待决审批立即结束，迟到总是允许不执行工具', async () => {
+    responses = [() => stream(toolEvents('set_theme'))]
+    const controller = new AbortController()
+    let approve
+    let ready
+    const waiting = new Promise(resolve => {ready = resolve})
+    const run = runAgent(base, {signal: controller.signal, permissionMode: 'ask', onApproval: () => new Promise(resolve => {approve = resolve; ready()})})
+    const outcome = run.then(() => 'success', error => error.name)
+    await waiting
+    controller.abort()
+    assert.equal(await Promise.race([outcome, new Promise(resolve => setTimeout(() => resolve('pending'), 100))]), 'AbortError')
+    approve('always')
+    await new Promise(resolve => setImmediate(resolve))
+    assert.equal(executions.length, 0)
+    assert.equal(requests.length, 1)
+  })
   await test('截断的 Messages 不执行工具，也不自动换协议重试', async () => {
     responses = [() => stream(toolEvents().slice(0, -2))]
     await assert.rejects(() => runAgent(), /./)

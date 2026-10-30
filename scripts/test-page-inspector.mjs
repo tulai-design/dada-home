@@ -67,7 +67,7 @@ assert.equal(unavailable.page.id, 'home')
 assert.ok(unavailable.unknown.some((item) => item.code === 'host-unavailable'))
 assert.equal(unavailable.schemaVersion, '1')
 assert.deepEqual(unavailable.issues, [])
-assert.equal(JSON.parse(await tools.runTool(tool, tool.parseArguments({}), undefined)).unknown[0].code, 'host-unavailable')
+assert.equal(JSON.parse(await tools.runTool(tool, tool.parseArguments({}), {})).unknown[0].code, 'host-unavailable')
 assert.equal(commits, 0)
 console.log('通过：没有检查宿主时仍返回完整 JSON 报告，不伪装已测量')
 

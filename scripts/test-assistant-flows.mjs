@@ -14,9 +14,12 @@ const declarations = new Map()
 const visit = node => {if (ts.isVariableDeclaration(node)) declarations.set(node.name.getText(ast), node); ts.forEachChild(node, visit)}
 visit(ast)
 const callbackJs = name => ts.transpileModule(`const ${name} = ${declarations.get(name).initializer.arguments[0].getText(ast)}`, {compilerOptions: {target: ts.ScriptTarget.ES2022}}).outputText
-const askJs = callbackJs('ask')
+const askJs = callbackJs('ask') + callbackJs('answerApproval')
+const schemaModule = {exports: {}}
+new Function('module', 'exports', ts.transpileModule(fs.readFileSync('src/lib/chatStorageSchema.ts', 'utf8'), {compilerOptions: {target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS}}).outputText)(schemaModule, schemaModule.exports)
+const normalizePending = request => schemaModule.exports.validateStoredTurn({id:'fixture',convId:'fixture',prompt:'',answer:'',reasoning:'',error:'',tools:[],startedAt:1,pending:{request}}).pending
 const tick = () => new Promise(resolve => setImmediate(resolve))
-const makeAsk = ({initChat = async () => {}, newConv = async () => 'fresh', configured = true, loadContextTurns = async () => []} = {}) => {
+const makeAsk = ({initChat = async () => {}, newConv = async () => 'fresh', configured = true, loadContextTurns = async () => [], runner} = {}) => {
   const rows = new Map()
   let currentConv = 'original'
   let busy = false
@@ -29,7 +32,7 @@ const makeAsk = ({initChat = async () => {}, newConv = async () => 'fresh', conf
     beginTurn: prompt => ({id: prompt, prompt, tools: [], answer: '', reasoning: '', error: ''}),
     articleContext: article => `REFERENCE:${article.title}`, aiConfigured: configured,
     appendTurn: (convId, turn) => rows.set(convId + ':' + turn.id, {...turn, convId}),
-    patchTurn: (convId, id, part) => {const key=convId+':'+id;assert.ok(rows.has(key));rows.set(key,{...rows.get(key),...part})},
+    patchTurn: (convId, id, part) => {const key=convId+':'+id;assert.ok(rows.has(key));rows.set(key,{...rows.get(key),...part,...(part.pending ? {pending:normalizePending(part.pending.request)} : {})})},
     appendTool: (convId, id, tool) => {const key=convId+':'+id;const turn=rows.get(key);assert.ok(turn);rows.set(key,{...turn,tools:[...turn.tools,tool]})},
     loadContextTurns: async (convId, limit) => {contextCalls.push({convId, limit});return loadContextTurns(convId,limit)},
     readToolDetail: async () => '',
@@ -38,9 +41,9 @@ const makeAsk = ({initChat = async () => {}, newConv = async () => 'fresh', conf
     setBusy: value => {busy = value}, settleRef: {current: null}, openSettings() {}, openApplication() {},
     inspectHomepageDraft: async () => ({status: 'unavailable', issues: [], unknown: [{code: 'fixture-without-draft'}]}),
     inspectPage: async () => ({status: 'unavailable', issues: [], unknown: [{code: 'fixture-without-page'}]}),
-    runAgent: options => new Promise(resolve => {agents.push({options, resolve})}), toast: {error: error => errors.push(error)},
+    runAgent: options => runner ? runner(options) : new Promise(resolve => {agents.push({options, resolve})}), toast: {error: error => errors.push(error)},
   }
-  return {ask: new Function(...Object.keys(dependencies), `${askJs}; return ask`)(...Object.values(dependencies)), abortRef, agents, errors, contextCalls, rows: () => [...rows.values()], busy: () => busy, navigate: id => {currentConv=id}}
+  return {...new Function(...Object.keys(dependencies), `${askJs}; return {ask, answerApproval}`)(...Object.values(dependencies)), settleRef:dependencies.settleRef, abortRef, agents, errors, contextCalls, rows: () => [...rows.values()], busy: () => busy, navigate: id => {currentConv=id}}
 }
 let releaseInit
 const gate = new Promise(resolve => {releaseInit = resolve})
@@ -107,6 +110,52 @@ let releaseCancel
 const cancelled=makeAsk({loadContextTurns:()=>new Promise(resolve=>{releaseCancel=resolve})})
 const waiting=cancelled.ask('等待期间中止');await tick();cancelled.abortRef.current.abort();releaseCancel([]);await waiting
 assert.equal(cancelled.agents.length,0);assert.equal(cancelled.rows().length,0);assert.equal(cancelled.busy(),false)
+// 运行真实 App 回调和真实聊天 schema：审批对象经过规整复制后仍可答复，旧卡不影响新请求。
+const lateCallbacks = navigation.agents[0].options
+lateCallbacks.onDelta('迟到正文'); lateCallbacks.onReasoning('迟到思考'); lateCallbacks.onTool({name:'late',title:'迟到',ok:false,text:'迟到错误'})
+assert.equal(navigation.rows()[0].answer,'第一段第二段')
+assert.equal(navigation.rows()[0].tools.length,1)
+assert.equal(navigation.errors.length,0)
+const approvalAnswers=[]
+const approvalApp=makeAsk({runner:async options=>{
+  const approved=await options.onApproval({tool:'确认写入',summary:'写入测试数据'})
+  approvalAnswers.push(approved)
+  if(options.signal.aborted) throw new DOMException('停止','AbortError')
+}})
+const oldRun=approvalApp.ask('旧审批'); await tick()
+const oldRequest=approvalApp.rows()[0].pending.request
+const oldResolver=approvalApp.settleRef.current.settle
+assert.notEqual(oldRequest, approvalApp.settleRef.current.request,'schema rebuilds request object')
+approvalApp.abortRef.current.abort(); await oldRun
+assert.equal(approvalApp.rows()[0].pending,undefined)
+assert.equal(approvalApp.rows()[0].aborted,true)
+assert.equal(approvalApp.busy(),false)
+assert.equal(approvalApp.settleRef.current,null)
+const newRun=approvalApp.ask('新审批'); await tick()
+const newRequest=approvalApp.rows()[1].pending.request
+assert.notEqual(oldRequest.id,newRequest.id)
+approvalApp.answerApproval(oldRequest,'always'); oldResolver(true); await tick()
+assert.ok(approvalApp.rows()[1].pending,'stale UI request/resolver cannot settle new approval')
+assert.equal(approvalApp.busy(),true)
+approvalApp.answerApproval(newRequest,true); await newRun
+assert.deepEqual(approvalAnswers,[false,true])
+assert.equal(approvalApp.rows()[1].pending,undefined)
+assert.equal(approvalApp.settleRef.current,null)
+// 非合作工具尚在运行时停止只屏蔽输出，不提前释放发送锁。
+const cooperative=makeAsk()
+const toolRun=cooperative.ask('正在执行'); await tick()
+cooperative.abortRef.current.abort()
+await cooperative.ask('不能重叠')
+assert.equal(cooperative.agents.length,1)
+assert.equal(cooperative.busy(),true)
+cooperative.agents[0].options.onDelta('停止后的输出')
+assert.equal(cooperative.rows()[0].answer,'')
+cooperative.agents[0].resolve(); await toolRun
+assert.equal(cooperative.busy(),false)
+assert.equal(cooperative.rows()[0].aborted,true)
+const resend=cooperative.ask('可以重发'); await tick()
+assert.equal(cooperative.agents.length,2)
+cooperative.agents[1].resolve(); await resend
 let workspace = {network: []}
 let prompt = null
 const grantQueue = {current: []}

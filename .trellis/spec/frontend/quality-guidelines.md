@@ -19,6 +19,7 @@ PATH="/Users/xiaomengdao/.nvm/versions/node/v24.11.0/bin:$PATH" /Users/xiaomengd
 | 行为 | 现有回归入口 |
 | --- | --- |
 | AI 协议与模型 | [test-ai-protocol.mjs](../../../scripts/test-ai-protocol.mjs)、[test-models.mjs](../../../scripts/test-models.mjs) |
+| Agent 取消、审批与失败状态 | [test-agent-execution.mjs](../../../scripts/test-agent-execution.mjs)、`test-ai-protocol.mjs`、`test-assistant-flows.mjs`；真实 App 使用 [test-agent-execution-browser.mjs](../../../scripts/test-agent-execution-browser.mjs)，合成模型响应验证停止、审批身份、下一轮发送和失败记录，不访问真实模型或用户数据 |
 | 主题与还原 | [test-theme-tools.mjs](../../../scripts/test-theme-tools.mjs)、[test-appearance.mjs](../../../scripts/test-appearance.mjs) |
 | 主机外壳与内容页 | [test-switch-theme-browser.mjs](../../../scripts/test-switch-theme-browser.mjs)、[test-switch-content-browser.mjs](../../../scripts/test-switch-content-browser.mjs)；隔离真实 App，检查亮暗、窄屏、AI 分栏与末项可达，内容夹具不访问外网 |
 | Win98 桌面与窗口 | [test-win98-theme-browser.mjs](../../../scripts/test-win98-theme-browser.mjs)；真实开始菜单、桌面入口、窗口操作与输入状态保留，亮暗、窄屏、AI 分栏、内置内容与主题切换清理 |

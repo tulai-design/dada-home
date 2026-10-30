@@ -192,6 +192,8 @@ export type ToolEvent = {name: string; title: string; ok: boolean; text: string}
 /** 高危操作（整页覆盖便签等）需要用户点头；返回 false 即拒绝。 */
 /** 需要用户点头才能执行的操作。 */
 export type ApprovalRequest = {
+    /** 产品审批卡的本次请求身份，由宿主分配并经聊天 schema 保留。 */
+    id?: string
     /** 工具标题，例如「删除组件」 */
     tool: string
     /** 一句话说清要做什么、对谁做 */
@@ -215,6 +217,23 @@ export type RunOptions = {
     userName?: string
 }
 
+const abortError = () => new DOMException('操作已停止', 'AbortError')
+const checkCancelled = (signal?: AbortSignal) => { if (signal?.aborted) throw abortError() }
+
+/** 只有审批等待可提前结束；已启动工具仍等待其协作完成，避免旧写入与下一轮并发。 */
+function awaitApproval(request: ApprovalRequest, onApproval: NonNullable<RunOptions['onApproval']>, signal?: AbortSignal): Promise<boolean | 'always'> {
+    checkCancelled(signal)
+    return new Promise((resolve, reject) => {
+        const cancel = () => { cleanup(); reject(abortError()) }
+        const cleanup = () => signal?.removeEventListener('abort', cancel)
+        signal?.addEventListener('abort', cancel, {once: true})
+        Promise.resolve().then(() => { checkCancelled(signal); return onApproval(request) }).then(
+            value => { cleanup(); resolve(value) },
+            error => { cleanup(); reject(error) },
+        )
+    })
+}
+
 /**
  * 跑一轮对话。
  *
@@ -223,41 +242,50 @@ export type RunOptions = {
  */
 export async function runAgent(options: RunOptions): Promise<string> {
     const {config, host, onDelta, onReasoning, onTool, signal} = options
+    checkCancelled(signal)
     const permissionMode = options.permissionMode ?? 'assist'
     const messages: ChatMessage[] = [{role: 'system', content: `${SYSTEM_PROMPT}\n\n现在是 ${new Date().toLocaleString('zh-CN', {dateStyle: 'full', timeStyle: 'short', hour12: false})}。${personaPrompt(options.userName ?? '')}`}, ...options.messages]
     const maxRounds = Math.max(1, Math.min(MAX_ROUNDS_LIMIT, Math.trunc(config.maxRounds ?? MAX_ROUNDS)))
     const tools = toolSchemas()
 
-    for (let round = 0; round < maxRounds; round += 1) {
-        const result = await streamConfigured(config, messages, tools, {
-            onDelta: (text) => onDelta(text),
-            onReasoning: onReasoning ? (text) => onReasoning(text) : undefined,
-            signal,
-        })
+    let accepting = true
+    try {
+        for (let round = 0; round < maxRounds; round += 1) {
+            checkCancelled(signal)
+            const result = await streamConfigured(config, messages, tools, {
+                onDelta: (text) => { if (accepting && !signal?.aborted) onDelta(text) },
+                onReasoning: onReasoning ? (text) => { if (accepting && !signal?.aborted) onReasoning(text) } : undefined,
+                signal,
+            })
 
-        if (!result.ok) {
-            if (result.aborted) return ''
-            throw new Error(result.message)
+            checkCancelled(signal)
+            if (!result.ok) {
+                if (result.aborted) throw abortError()
+                throw new Error(result.message)
+            }
+
+            const calls = result.toolCalls ?? []
+            if (!calls.length) return result.content
+
+            messages.push({role: 'assistant', content: result.content, tool_calls: calls,
+                ...('anthropicContent' in result ? {anthropicContent: result.anthropicContent as AnthropicContentBlock[]} : {}),
+            })
+
+            for (const call of calls) {
+                checkCancelled(signal)
+                const event = await dispatchTool(call, host, permissionMode, options.onApproval, signal)
+                checkCancelled(signal)
+                onTool(event)
+                messages.push({role: 'tool', tool_call_id: call.id, content: event.text})
+            }
         }
 
-        const calls = result.toolCalls ?? []
-        if (!calls.length) return result.content
-
-        messages.push({role: 'assistant', content: result.content, tool_calls: calls,
-            ...('anthropicContent' in result ? {anthropicContent: result.anthropicContent as AnthropicContentBlock[]} : {}),
-        })
-
-        for (const call of calls) {
-            const event = await dispatchTool(call, host, permissionMode, options.onApproval, signal)
-            onTool(event)
-            messages.push({role: 'tool', tool_call_id: call.id, content: event.text})
-        }
-    }
-
-    // 这是上限而不是任务结束：明确写进回答，用户回复「继续」即可接着做（历史里有操作痕迹）。
-    const notice = `\n\n（已连续调用工具 ${maxRounds} 轮，到达上限先停在这里，任务还没有结束。回复「继续」我会接着做；也可以在设置里调高「工具轮数上限」。）`
-    onDelta(notice)
-    return notice
+        // 这是上限而不是任务结束：明确写进回答，用户回复「继续」即可接着做（历史里有操作痕迹）。
+        const notice = `\n\n（已连续调用工具 ${maxRounds} 轮，到达上限先停在这里，任务还没有结束。回复「继续」我会接着做；也可以在设置里调高「工具轮数上限」。）`
+        checkCancelled(signal)
+        onDelta(notice)
+        return notice
+    } finally { accepting = false }
 }
 
 /**
@@ -274,6 +302,7 @@ async function dispatchTool(
     onApproval: RunOptions['onApproval'],
     signal?: AbortSignal,
 ): Promise<ToolEvent> {
+    checkCancelled(signal)
     const name = call.function.name
     const tool = findTool(name)
     const label = tool?.title ?? name
@@ -298,11 +327,13 @@ async function dispatchTool(
         if (!onApproval) {
             return {name, title: label, ok: false, text: `这个操作需要确认，但当前没有可用的确认入口：${summary}`}
         }
-        const approved = await onApproval({tool: tool.title, summary, remember: REMEMBERABLE[name]?.label})
+        const approved = await awaitApproval({tool: tool.title, summary, remember: REMEMBERABLE[name]?.label}, onApproval, signal)
+        checkCancelled(signal)
         if (approved === 'always') setAlwaysAllowed(name, true)
         if (!approved) return {name, title: label, ok: false, text: `用户拒绝了：${summary}`}
     }
 
+    checkCancelled(signal)
     const context: HomeToolContext = {
         runId: '',
         threadId: '',
@@ -317,8 +348,12 @@ async function dispatchTool(
     }
 
     try {
-        return {name, title: label + parsedBrief, ok: true, text: await runTool(tool, args, context)}
+        const text = await runTool(tool, args, context)
+        checkCancelled(signal)
+        return {name, title: label + parsedBrief, ok: true, text}
     } catch (error) {
+        checkCancelled(signal)
+        if (error instanceof Error && error.name === 'AbortError') throw error
         return {name, title: label + parsedBrief, ok: false, text: explain(error)}
     }
 }

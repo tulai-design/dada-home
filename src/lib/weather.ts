@@ -35,9 +35,9 @@ export const weatherLabel = (code: number) => WMO[code] ?? '未知'
 
 export type GeoPlace = { name: string; lat: number; lon: number; admin?: string }
 
-export async function geocode(query: string): Promise<GeoPlace[]> {
+export async function geocode(query: string, signal?: AbortSignal): Promise<GeoPlace[]> {
   const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=6&language=zh&format=json`
-  const res = await fetch(url)
+  const res = await fetch(url, {signal})
   if (!res.ok) throw new Error('地名查询失败')
   const json = (await res.json()) as {
     results?: { name: string; latitude: number; longitude: number; admin1?: string; country?: string }[]

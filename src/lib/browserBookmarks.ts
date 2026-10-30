@@ -84,8 +84,10 @@ export function useExtension(poll: boolean): 'checking' | 'ready' | 'missing' {
 export const listBrowser = () => call<{items: BrowserItem[]; folders: BrowserFolder[]}>('list')
 
 /** 把浏览器里的书签并进搭搭书签。重复的网址跳过。 */
-export async function importFromBrowser(): Promise<string> {
+export async function importFromBrowser(signal?: AbortSignal): Promise<string> {
+  signal?.throwIfAborted()
   const {items} = await listBrowser()
+  signal?.throwIfAborted()
   const entries: BookmarkInput[] = items
     // 搭搭自己同步过去的那个文件夹不再导回来，免得绕圈
     .filter((item) => !(item.path[1] === SYNC_FOLDER))
@@ -96,14 +98,17 @@ export async function importFromBrowser(): Promise<string> {
 }
 
 /** 把搭搭的书签写进浏览器书签栏的「搭搭」文件夹，按分组建子文件夹。只增不删。 */
-export async function pushToBrowser(): Promise<string> {
+export async function pushToBrowser(signal?: AbortSignal): Promise<string> {
+  signal?.throwIfAborted()
   const groups = getBookmarks()
   const items = groups.flatMap((g) => g.items.map((i) => ({url: i.url, title: i.name, path: ['@bar', SYNC_FOLDER, g.name]})))
   if (!items.length) return '搭搭里还没有书签。'
   let created = 0
   let skipped = 0
   for (let i = 0; i < items.length; i += 200) {
+    signal?.throwIfAborted()
     const result = await call<{created: number; skipped: string[]}>('create', {items: items.slice(i, i + 200)}, 30000)
+    signal?.throwIfAborted()
     created += result.created
     skipped += result.skipped.length
   }

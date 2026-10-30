@@ -88,7 +88,7 @@ export default function App() {
   const [busy, setBusy] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   /** 待答复的确认请求：由 ask 写入，由确认卡片按钮调用。 */
-  const settleRef = useRef<((approved: boolean | 'always') => void) | null>(null)
+  const settleRef = useRef<{request: ApprovalRequest; settle: (approved: boolean | 'always') => void} | null>(null)
 
   const [pageId, setPageId] = useStored<string>('page', 'home')
   const [switchBoard, setSwitchBoard] = useState(true)
@@ -399,7 +399,9 @@ export default function App() {
       setBusy(true)
       try {
         await initChat()
+        if (controller.signal.aborted) return
         const targetConvId = options?.fresh ? await newConv() : getChatState().convId
+        if (controller.signal.aborted) return
         const turn = beginTurn(text)
         if (options?.article) {
           turn.article = { title: options.article.title, link: options.article.link, context: articleContext(options.article) }
@@ -439,13 +441,26 @@ export default function App() {
          * 把确认请求交给界面，等用户点。
          * 答复函数存进 ref，让界面上的按钮能触发；只 resolve 一次，之后清空。
          */
-        const onApproval = (request: ApprovalRequest) =>
+        let accepting = true
+        let settleApproval: ((approved: boolean | 'always') => void) | undefined
+        let approvalSequence = 0
+        const onApproval = (input: ApprovalRequest) =>
           new Promise<boolean | 'always'>((resolve) => {
-            settleRef.current = (approved) => {
-              settleRef.current = null
+            if (!accepting || controller.signal.aborted) { resolve(false); return }
+            const request = {...input, id: `${turn.id}:${++approvalSequence}`}
+            let settled = false
+            const cancel = () => settle(false)
+            const settle = (approved: boolean | 'always') => {
+              if (settled) return
+              settled = true
+              controller.signal.removeEventListener('abort', cancel)
+              if (settleRef.current?.settle === settle) settleRef.current = null
               patch({ pending: undefined })
-              resolve(approved)
+              resolve(controller.signal.aborted || !accepting ? false : approved)
             }
+            settleApproval = settle
+            settleRef.current = {request, settle}
+            controller.signal.addEventListener('abort', cancel, {once: true})
             patch({ pending: { request } })
           })
 
@@ -459,21 +474,24 @@ export default function App() {
             host: { readToolDetail, openPage: (next: string) => setPendingPage(next), openSettings: (section?: string) => openSettings(section), openApplication, inspectPage, inspectHomepageDraft },
             onApproval,
             onReasoning: (chunk) => {
+              if (!accepting || controller.signal.aborted) return
               reasoning += chunk
               patch({ reasoning })
             },
             onDelta: (chunk) => {
+              if (!accepting || controller.signal.aborted) return
               answer += chunk
               patch({ answer })
             },
             onTool: (info) => {
+              if (!accepting || controller.signal.aborted) return
               appendTool(targetConvId, turn.id, {name: info.name, title: info.title, ok: info.ok, text: info.text})
               // 成功不打扰；失败才提示，细节已在对话里
               if (!info.ok) toast.error(info.text)
             },
             signal: controller.signal,
           })
-          patch({ endedAt: Date.now() })
+          patch({ endedAt: Date.now(), ...(controller.signal.aborted ? {aborted: true} : {}) })
         } catch (err) {
           if ((err as Error).name === 'AbortError') {
             patch({ endedAt: Date.now(), aborted: true })
@@ -484,7 +502,8 @@ export default function App() {
           }
         } finally {
           // 中止或出错时若有未答复的确认，一并清掉，否则卡片会一直挂着
-          settleRef.current?.(false)
+          accepting = false
+          settleApproval?.(false)
           patch({ pending: undefined })
         }
       } catch (error) {
@@ -499,10 +518,9 @@ export default function App() {
 
   /** 用户点了确认卡片上的允许/拒绝。 */
   const answerApproval = useCallback(
-    (approved: boolean | 'always') => {
+    (request: ApprovalRequest, approved: boolean | 'always') => {
       const current = settleRef.current
-      settleRef.current = null
-      if (current) current(approved)
+      if (request.id && current?.request.id === request.id) current.settle(approved)
     },
     [],
   )
