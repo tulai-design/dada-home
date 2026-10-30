@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 21
+- **Total Sessions**: 22
 - **Last Active**: 2026-10-30
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~750 | Active |
+| `journal-1.md` | ~785 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 22 | 2026-10-30 | 完整浏览器扩展与下载安装入口 | `5be4fe1` | `main` |
 | 21 | 2026-10-30 | 浏览器扩展可行性调研 | `cba8efc` | `main` |
 | 20 | 2026-10-29 | 默认 iOS 主题与玻璃 Dock | `5fae647` | `main` |
 | 19 | 2026-10-29 | 主题 Agent 与应用架构扩展性评估 | `a4858ec` | `main` |

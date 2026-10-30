@@ -748,3 +748,38 @@
 ### Next Steps
 
 - 若进入实施，先明确新标签页发布范围并验证 AI 应用沙盒与多页面一致性；未授权上架。
+
+
+## Session 22: 完整浏览器扩展与下载安装入口
+<!-- trellis-session: v=2 fp=948601c23e2b0496 -->
+
+**Date**: 2026-10-30
+**Task**: 完整浏览器扩展与下载安装入口
+**Branch**: `main`
+
+### Summary
+
+完整MV3新标签页扩展交付，保留现有功能，加入下载安装入口；修复开发Vite预构建缓存失效。
+
+### Main Changes
+
+- 共享主应用扩展构建、来源授权与沙盒、单运行实例、通知与3D适配、备份和下载指引
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5be4fe1` | feat(extension): 提供完整新标签页扩展与下载安装入口 |
+
+### Testing
+
+- [OK] 本机tsc、完整test/build通过；真实MV3与Web14/14，Spline渲染、通知和重定向专项通过
+- [OK] 504依赖缓存失效已重启dev --force并真实浏览器加载确认
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 用户可开发者模式加载dist-extension或下载ZIP解压；未推送部署；Edge与原生来源批准弹窗待人工体验
