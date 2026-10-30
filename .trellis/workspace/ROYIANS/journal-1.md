@@ -958,3 +958,39 @@
 ### Next Steps
 
 - 继续shell-host：稳定内容舞台、统一导航与三个内置外壳，已准备技术设计
+
+
+## Session 28: A3 稳定内容宿主与可信桌面外壳交付
+<!-- trellis-session: v=2 fp=db2d32d1b7631e54 -->
+
+**Date**: 2026-10-30
+**Task**: A3 稳定内容宿主与可信桌面外壳交付
+**Branch**: `main`
+
+### Summary
+
+完成统一导航、固定业务舞台与三外壳Adapter，跨外壳保留输入/应用/助手审批，真实故障回落及第四Adapter验收；按授权本地提交，不推送。
+
+### Main Changes
+
+- 归档shell-host，父A3继续in_progress，下一项theme-authoring仅准备设计。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `70e2114` | refactor(shell): 建立稳定内容宿主与可信外壳适配器 |
+
+### Testing
+
+- [OK] tsc、完整test、Web/MV3/ZIP build通过；新browser122项及定向header3/inspector4/menu3/page-removal7通过。
+- [OK] identity109、Win9866、Switch内容与主题、mobile scroll均通过；真实MV3扩展14/14。
+- [OK] Standards与Spec各发现1项P2，已修复复审无遗留。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 按依赖细化并实施theme-authoring，再进入local-theme-packages；不把设计当交付。
