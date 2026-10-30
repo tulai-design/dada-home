@@ -924,3 +924,37 @@
 ### Next Steps
 
 - 审阅A3提案后先推进theme-identity，再依次shell-host、theme-authoring、local-theme-packages；父任务保持未完成。
+
+
+## Session 27: A3 主题身份与完整派生落地
+<!-- trellis-session: v=2 fp=84d9ce4433e4d9a9 -->
+
+**Date**: 2026-10-30
+**Task**: A3 主题身份与完整派生落地
+**Branch**: `main`
+
+### Summary
+
+完成A3第一子项：主题实例与skin/shell分离、完整派生、主色与字体实际生效、模板精确身份及备份/双同步校验。独立审查3项问题均已修复复审。
+
+### Main Changes
+
+- 结构版本7；UI/Agent共用统一解析；同shell保留运行状态；runtime/design-system/spec同步
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `63f6586` | refactor(theme): 分离主题身份并完整保留派生设计 |
+
+### Testing
+
+- [OK] 本机tsc、完整test、Web/MV3 build通过；identity16/16，备份21/21，新浏览器109/109，Agent10/10及全部既有主题矩阵通过
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 继续shell-host：稳定内容舞台、统一导航与三个内置外壳，已准备技术设计
