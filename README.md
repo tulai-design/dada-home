@@ -15,7 +15,7 @@
   </p>
 </div>
 
-![搭搭 iOS 主题工作空间：把常用信息和小工具放在自己的主页里](docs/images/readme/hero.png)
+<p align="center"><a href="docs/images/readme/hero.png"><img src="docs/images/readme/hero.png" width="900" alt="搭搭 iOS 主题工作空间：把常用信息和小工具放在自己的主页里" /></a></p>
 
 **搭搭是一个本地优先、可以自己部署的 AI 个人主页搭建助手。** 你可以像整理桌面一样安排页面、订阅和小工具，也可以直接告诉它：“给我做一个安静的阅读主页”“做一个能记住记录的开销工具”。搭搭会利用已注册的组件、主题和工具，把这些想法变成可继续修改的工作空间。
 
@@ -39,7 +39,7 @@
 
 ## 从一句话，到自己的工作空间
 
-![AI 助手与页面并排，边交流边调整工作空间](docs/images/readme/ai-workspace.png)
+<p align="center"><a href="docs/images/readme/ai-workspace.png"><img src="docs/images/readme/ai-workspace.png" width="900" alt="AI 助手与页面并排，边交流边调整工作空间" /></a></p>
 
 搭搭的 AI 可以直接使用站内工具：读取当前工作空间，查找已有组件，创建页面、调整分区、整理书签，或制作一个新的应用。改动进入可撤销的工作空间操作，涉及高风险动作时按权限设置确认。
 
@@ -65,7 +65,7 @@ AI 需要自行配置接口、模型和 API Key，页面搭建需要模型支持
 
 ## 不止是组件，还能做自己的应用
 
-![专注趋势与开销记录：挂在页面中的两个 Applet 小程序](docs/images/readme/applications.png)
+<p align="center"><a href="docs/images/readme/applications.png"><img src="docs/images/readme/applications.png" width="900" alt="专注趋势与开销记录：挂在页面中的两个 Applet 小程序" /></a></p>
 
 常用功能直接用内置组件；特殊需求可以让搭搭制作一个独立小工具。应用有自己的设置和业务数据，可以放在页面里，也可以从 Dock 或状态栏打开。
 
@@ -85,15 +85,15 @@ Applet 提供趋势折线图、简单柱状图和带搜索、排序、分页及�
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/images/readme/theme-ios.png" alt="iOS 主题" /><br /><strong>iOS</strong> · 清爽分组与玻璃质感</td>
-    <td width="50%"><img src="docs/images/readme/theme-paper.png" alt="纸张主题" /><br /><strong>纸张</strong> · 米白、墨色与红色点缀</td>
+    <td width="50%"><a href="docs/images/readme/theme-ios.png"><img src="docs/images/readme/theme-ios.png" width="420" alt="iOS 主题" /></a><br /><strong>iOS</strong> · 清爽分组与玻璃质感</td>
+    <td width="50%"><a href="docs/images/readme/theme-paper.png"><img src="docs/images/readme/theme-paper.png" width="420" alt="纸张主题" /></a><br /><strong>纸张</strong> · 米白、墨色与红色点缀</td>
   </tr>
   <tr>
-    <td><img src="docs/images/readme/theme-pixel.png" alt="掌机主题" /><br /><strong>掌机</strong> · 灰绿液晶与像素硬边</td>
-    <td><img src="docs/images/readme/theme-switch.png" alt="主机主题" /><br /><strong>主机</strong> · 横排封面与系统菜单</td>
+    <td><a href="docs/images/readme/theme-pixel.png"><img src="docs/images/readme/theme-pixel.png" width="420" alt="掌机主题" /></a><br /><strong>掌机</strong> · 灰绿液晶与像素硬边</td>
+    <td><a href="docs/images/readme/theme-switch.png"><img src="docs/images/readme/theme-switch.png" width="420" alt="主机主题" /></a><br /><strong>主机</strong> · 横排封面与系统菜单</td>
   </tr>
   <tr>
-    <td colspan="2"><img src="docs/images/readme/theme-win98.png" alt="Windows 98 主题" /><br /><strong>Windows 98</strong> · 桌面、开始菜单与复古窗口</td>
+    <td colspan="2" align="center"><a href="docs/images/readme/theme-win98.png"><img src="docs/images/readme/theme-win98.png" width="640" alt="Windows 98 主题" /></a><br /><strong>Windows 98</strong> · 桌面、开始菜单与复古窗口</td>
   </tr>
 </table>
 
@@ -101,7 +101,7 @@ Dock 可以选择玻璃、纸质卡片或通栏等外观。特效素材覆盖背
 
 ## 从桌面到手边
 
-<p align="center"><img src="docs/images/readme/mobile.png" width="320" alt="手机上的搭搭：内容与底部 Dock 按窄屏布局" /></p>
+<p align="center"><a href="docs/images/readme/mobile.png"><img src="docs/images/readme/mobile.png" width="240" alt="手机上的搭搭：内容与底部 Dock 按窄屏布局" /></a></p>
 
 页面、助手和应用会根据实际容器调整布局，兼顾手机、窄抽屉和桌面分栏。可以在支持的浏览器中将 PWA 安装到桌面或主屏幕，也可以把搭搭设为浏览器的新标签页。
 
