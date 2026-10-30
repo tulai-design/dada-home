@@ -84,6 +84,8 @@ flowchart TD
 
 ### A3 · P2：主题的数据层成熟，桌面皮肤仍耦合业务协调
 
+2026-10-30 后续：[深度主题与创意工坊设计研究](2026-10-30-theme-shell-architecture.md)已完成专项源码审查与实施拆分。用户接受声明式主题与隔离代码扩展分层开放；A3 生产重构尚未实施。
+
 **现状证据：** [ThemeEntry](../../../src/lib/workspace.ts#L286) 主要表达配色、字体等数据；[themes.ts](../../../src/lib/themes.ts#L63) 提供明暗解析。但 [App](../../../src/App.tsx#L93) 直接维护 Win98 窗口和 Switch 首页状态，[应用主题的 effect](../../../src/App.tsx#L315) 逐个判断主题 ID，[渲染段](../../../src/App.tsx#L816) 再决定桌面、标题栏与 Dock；[ThemeSettings](../../../src/components/ThemeSettings.tsx#L34) 也判断 ID。[main.tsx](../../../src/main.tsx#L16) 与 [theme.css](../../../src/theme.css#L1) 体现了全局样式与专题覆盖的组合。
 
 **具体扩展成本：** 新增“海岸配色”可以只通过主题数据完成；新增“另一种操作系统桌面”还需修改主应用状态、导航、设置和全局样式。主题实际承载了两种变化，现有 ThemeEntry 无法完整描述后一种。

@@ -1,0 +1,34 @@
+{
+  "id": "theme-shell-architecture",
+  "name": "theme-shell-architecture",
+  "title": "A3 深度主题与创意工坊架构设计",
+  "description": "审查主题、外壳和 Agent 定制链路，形成可扩展与热插拔演进方案，先完成设计与任务拆分。",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "ROYIANS",
+  "assignee": "ROYIANS",
+  "createdAt": "2026-10-30",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "10-30-theme-identity",
+    "10-30-shell-host",
+    "10-30-theme-authoring",
+    "10-30-local-theme-packages"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "2026-10-30已完成架构研究与设计提案，分层开放方向已确认；生产实施尚未启动。",
+  "meta": {
+    "blocked_by": [],
+    "design_status": "proposed"
+  }
+}

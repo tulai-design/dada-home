@@ -6,3 +6,4 @@
 - [0002：统一任务与文档归属](0002-workflow-ownership.md)：Matt 方法与 Trellis 如何共用一套任务状态。
 - [0003：首页草稿隔离](0003-homepage-draft-isolation.md)：为何布局预览不启动第二份业务实例，应用只提交首页布局。
 - [0004：共用同步服务独立仓库](0004-shared-sync-repository.md)：服务/协议/SDK同仓，搭搭和aifenjing各自接入，发布与部署独立。
+- [0005：主题与代码扩展分层开放](0005-layered-theme-extensibility.md)：声明式主题供人和 Agent 定制，可执行扩展另行授权与隔离；实现尚待推进。
