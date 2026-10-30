@@ -2,7 +2,7 @@ import {build} from 'vite'
 import {cp, mkdir, readdir, readFile, rm, stat, writeFile} from 'node:fs/promises'
 import {fileURLToPath} from 'node:url'
 import path from 'node:path'
-import {execFileSync} from 'node:child_process'
+import {zipDirectory} from './zip-directory.mjs'
 
 const root = fileURLToPath(new URL('../', import.meta.url))
 const output = path.join(root, 'dist-extension')
@@ -55,5 +55,5 @@ for (const file of [manifest.chrome_url_overrides.newtab, manifest.background.se
 }
 await mkdir(path.dirname(download), {recursive: true})
 await rm(download, {force: true})
-execFileSync('zip', ['-X', '-q', '-r', download, '.', '-x', '*.DS_Store', '*.map'], {cwd: output, stdio: 'inherit'})
+await zipDirectory(output, download)
 console.log(`完整扩展目录：${output}\n下载 ZIP：${download}`)

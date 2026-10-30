@@ -151,9 +151,9 @@ export async function fetchTarget(raw, incomingHeaders = {}, {
   }
 }
 
-export function createProxyServer({allowedHosts = (process.env.PROXY_ALLOWED_HOSTS ?? '').split(',').map(normalizedHost).filter(Boolean), ...options} = {}) {
+export function createProxyHandler({allowedHosts = (process.env.PROXY_ALLOWED_HOSTS ?? '').split(',').map(normalizedHost).filter(Boolean), ...options} = {}) {
   let active = 0
-  return createServer({headersTimeout: 10_000, requestTimeout: 20_000}, async (request, response) => {
+  return async (request, response) => {
     response.setHeader('cache-control', 'no-store')
     response.setHeader('x-content-type-options', 'nosniff')
     // Direct navigation to proxied HTML must never execute with the homepage's origin.
@@ -208,5 +208,9 @@ export function createProxyServer({allowedHosts = (process.env.PROXY_ALLOWED_HOS
     } finally {
       active -= 1
     }
-  })
+  }
+}
+
+export function createProxyServer(options = {}) {
+  return createServer({headersTimeout: 10_000, requestTimeout: 20_000}, createProxyHandler(options))
 }

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "installCommand": "corepack pnpm install --frozen-lockfile",
+  "buildCommand": "corepack pnpm build",
+  "outputDirectory": "dist",
+  "functions": {
+    "api/proxy.mjs": {"maxDuration": 30},
+    "api/health.mjs": {"maxDuration": 10}
+  },
+  "routes": [
+    {"src": "/__proxy/?", "dest": "/api/proxy"},
+    {"src": "/healthz/?", "dest": "/api/health"},
+    {"handle": "filesystem"},
+    {"src": "/api(?:/.*)?", "status": 404},
+    {"src": "/(?:assets|brand)(?:/.*)?", "status": 404},
+    {"src": "/.*\\.[^/]+", "status": 404},
+    {"src": "/.*", "dest": "/index.html"}
+  ]
+}

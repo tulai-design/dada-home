@@ -6,6 +6,9 @@
 
 | 入口 | 回答的问题 | 范围 |
 | --- | --- | --- |
+| [使用指南](guides/usage.md) | 怎样配置 AI、使用应用、备份和同步数据？ | 完整产品操作说明 |
+| [部署指南](guides/deployment.md) | 怎样一键部署 Vercel，或运行 Docker、静态站点？ | 部署配置、代理与运行边界 |
+| [开发指南](guides/development.md) | 怎样启动、构建、测试与扩展系统？ | 开发环境与源码地图 |
 | [产品定位与能力地图](product/product-brief.md) | 搭搭为谁服务、现在能做什么、有哪些边界？ | 当前产品上下文 |
 | [系统契约](specs/README.md) | 当前行为是什么、已接受的目标是什么？ | 现状与目标分别标注 |
 | [设计规范](design-system.md) | 界面、文案、主题和应用形态怎样保持一致？ | 人与应用内 AI 共用的规范 |
@@ -44,4 +47,4 @@
 - [修复计划](fix-plan.md)：早期功能修复记录，保留原路径；当前待办以 Trellis 任务为准。
 - [书签扩展上架材料](extension-store-listing.md)：浏览器扩展的商店说明与发布材料。
 
-安装、使用、部署与备份说明仍以项目 [README](../README.md) 为入口。
+项目 [README](../README.md) 提供功能画廊与快速开始，详细操作收录于上方指南；[截图说明](images/readme/README.md)记录演示内容及复现方法，[品牌图提示词](brand/readme-art-prompts.md)提供可选宣传素材方向。
