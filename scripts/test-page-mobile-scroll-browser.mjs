@@ -13,6 +13,7 @@ try {
   const page = await context.newPage()
   page.on('pageerror', error => errors.push(error.message))
   await page.goto(base + '/', {waitUntil: 'domcontentloaded'})
+  await page.locator('.app').waitFor({state: 'attached'})
   await page.waitForFunction(() => window.__tada?.workspace())
   const settle = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
   const call = async (name, args) => {
@@ -21,7 +22,7 @@ try {
     await settle()
     return result
   }
-  const atBottom = async (selector = '.canvas > .page', links = '.quick-link', hitTest = true) => {
+  const atBottom = async (selector = '.canvas > .shell-content-stage > .page', links = '.quick-link', hitTest = true) => {
     await page.locator(selector).evaluate(element => {element.scrollTop = element.scrollHeight})
     await settle()
     return page.evaluate(({selector, links, hitTest}) => {
@@ -50,7 +51,7 @@ try {
   const original = await page.evaluate(() => window.__tada.workspace().pages.find(p => p.id === 'home'))
   for (const width of [320, 375, 492, 760, 761, 768, 980, 981, 1440]) {
     await page.setViewportSize({width, height: 900}); await settle()
-    const legacy = await page.locator('.canvas > .page').evaluate(root => {
+    const legacy = await page.locator('.canvas > .shell-content-stage > .page').evaluate(root => {
       const wrap = root.firstElementChild
       return {types: [...root.querySelectorAll('.widget')].map(e => e.dataset.type), height: wrap.style.height, childHeight: wrap.firstElementChild.style.height, overflow: root.scrollWidth - root.clientWidth}
     })
@@ -71,7 +72,7 @@ try {
     return [{id: 'hero', kind: 'hero', items: [id('clock'), id('search')], align: 'center'}, {id: 'work', kind: 'split', primary: [id('todos')], secondary: [id('agenda')], ratio: 'wide-primary'}, {id: 'links', kind: 'section', items: [id('links')], columns: 1}]
   })
   await call('set_page_sections', {pageId: 'home', sections})
-  const input = page.locator('.canvas > .page .widget[data-type="todos"] input').first()
+  const input = page.locator('.canvas > .shell-content-stage > .page .widget[data-type="todos"] input').first()
   await input.fill('滚动与改版后保留未提交输入')
   const originalNode = await input.elementHandle()
   // The reporter's viewport and component mix: without the production fix this assertion fails.
@@ -124,12 +125,12 @@ try {
   await page.keyboard.press('Escape')
   await page.keyboard.press('Meta+k')
   await page.getByRole('button', {name: '组件市场', exact: true}).click()
-  const market = page.locator('.canvas > .page.sys-view')
+  const market = page.locator('.canvas > .shell-content-stage > .page.sys-view')
   await market.waitFor()
   await page.getByRole('tab', {name: /内置组件/}).click()
   for (const width of [320, 375, 492, 760, 761, 768, 980, 981, 1440]) {
     await page.setViewportSize({width, height: 900}); await settle()
-    const system = await atBottom('.canvas > .page.sys-view', '#catalog-components .catalog-row:last-child button:last-child')
+    const system = await atBottom('.canvas > .shell-content-stage > .page.sys-view', '#catalog-components .catalog-row:last-child button:last-child')
     assertReachable(system, `组件市场${width}px`)
   }
   assert.equal(await market.evaluate(element => getComputedStyle(element).display), 'flex')

@@ -254,7 +254,7 @@
 }
 
 /* 背景特效整屏铺开时，外壳压在特效上面 */
-.app > .dock-shell {
+.app > .shell-navigation > .dock-shell {
   position: relative;
   z-index: 2;
 }
@@ -267,7 +267,7 @@
   .app {
     --dock-clear: calc(82px + env(safe-area-inset-bottom));
   }
-  .app > .dock-shell,
+  .app > .shell-navigation > .dock-shell,
   .dock-shell {
     position: absolute;
     left: 0;

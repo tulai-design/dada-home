@@ -1,0 +1,9 @@
+.shell-navigation { display: contents; }
+.shell-canvas-chrome { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
+.shell-canvas-chrome > * { pointer-events: auto; }
+.shell-adapter-root { position: absolute; inset: 0; pointer-events: none; }
+.shell-adapter-root > * { pointer-events: auto; }
+.shell-content-stage { display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; margin: var(--shell-top, 0px) var(--shell-right, 0px) var(--shell-bottom, 0px) var(--shell-left, 0px); position: relative; }
+.shell-content-stage[hidden] { display: none !important; }
+.shell-recovery { position: fixed; z-index: 10020; left: 12px; bottom: 12px; display: flex; flex-wrap: wrap; gap: 8px; max-width: calc(100vw - 24px); padding: 12px; background: var(--bg); color: var(--text); border: 1px solid var(--border); box-shadow: var(--shadow); }
+.shell-recovery button { cursor: pointer; color: inherit; background: var(--bg2); border: 1px solid var(--border); padding: 5px 10px; }

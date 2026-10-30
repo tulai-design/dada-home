@@ -342,6 +342,7 @@ async function dispatchTool(
         openPage: host.openPage,
         openSettings: host.openSettings,
         openApplication: host.openApplication,
+        getRenderedAppearance: host.getRenderedAppearance,
         inspectPage: host.inspectPage,
         inspectHomepageDraft: host.inspectHomepageDraft,
         readToolDetail: host.readToolDetail,

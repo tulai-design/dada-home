@@ -18,4 +18,12 @@
 
 颜色引用语义变量。新主题的共享变量与 `light` / `dark` 分支按 [themes.ts](../../../src/lib/themes.ts) 规整；默认外观还原使用 [appearance.ts](../../../src/lib/appearance.ts)，不能以重新应用布局模板代替。
 
+## 桌面外壳边界
+
+[ShellHost](../../../src/components/shell/ShellHost.tsx) 固定业务舞台与画布，可信 Adapter 只接导航投影、语义意图和有限呈现回报。业务 children 不交给 Adapter，不进入其错误边界，不随外壳 ID 重新设置 key；启动器、最小化与换壳不能改变业务父节点或 portal 容器。
+
+新外壳实现独立的 Chrome 组件并登记目录，自行管理菜单、封面、装饰窗口和监听；不要在 App/Settings 新增具体主题 ID 条件，也不要动态调用注册表中的 hook。设置读取有效能力，造型与外壳能力分开。导航走宿主唯一执行器，校验成功后同目标重开也发布 activation revision。
+
+隐藏舞台同步设置不可见、inert 和辅助技术状态，撤销页面检查登记；附着浮层同样隐藏并保留实例。关闭才执行明确关闭操作。外壳故障需回落实际 skin、变量和布局，保留请求记录；恢复、设置、助手与停止入口位于 Adapter 错误边界外。ErrorBoundary 不承担事件或异步任务隔离，Adapter 必须主动报告相应错误。
+
 文字或数据的动画降级必须保留语义内容。这是新增/修改效果时的实现要求；当前已有错误隔离并不代表所有旧效果已实现该降级，详见 [特效规范](../ai/effects.md)。

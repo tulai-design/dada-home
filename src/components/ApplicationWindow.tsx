@@ -9,6 +9,7 @@ type Props = {
   children: ReactNode
   container: HTMLElement | null
   minimized: boolean
+  hidden?: boolean
   onMinimize: () => void
   onRestore: () => void
   onClose: () => void
@@ -17,7 +18,7 @@ type Drag = {pointer: number; startX: number; startY: number; rect: WindowRect; 
 const emptyBounds: WindowBounds = {width: 0, height: 0}
 
 /** A canvas window never captures the rest of the workspace or remounts its application. */
-export function ApplicationWindow({title, children, container, minimized, onMinimize, onRestore, onClose}: Props) {
+export function ApplicationWindow({title, children, container, minimized, hidden = false, onMinimize, onRestore, onClose}: Props) {
   const mobile = useIsMobile()
   const [layer, setLayer] = useState<HTMLDivElement | null>(null)
   const titleId = useId()
@@ -59,8 +60,8 @@ export function ApplicationWindow({title, children, container, minimized, onMini
   }, [layer, stopDrag, updateRect])
 
   useEffect(() => {
-    if (minimized || mobile) stopDrag()
-  }, [minimized, mobile, stopDrag])
+    if (minimized || hidden || mobile) stopDrag()
+  }, [minimized, hidden, mobile, stopDrag])
   useEffect(() => {
     window.addEventListener('blur', stopDrag)
     return () => {
@@ -93,7 +94,7 @@ export function ApplicationWindow({title, children, container, minimized, onMini
   const visibleRect = mobile ? {x: 0, y: 0, width: bounds.width, height: bounds.height} : maximized ? maximizeApplicationWindow(bounds) : rect
   if (!container) return null
 
-  return createPortal(<div className="application-window-layer" ref={setLayer} data-mobile={mobile}>
+  return createPortal(<div className="application-window-layer" ref={setLayer} hidden={hidden} inert={hidden || undefined} aria-hidden={hidden || undefined} style={{display: hidden ? 'none' : undefined}} data-mobile={mobile}>
     <section
       className="application-floating-window"
       role="dialog"

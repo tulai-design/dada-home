@@ -6,6 +6,9 @@ import { applyTheme, removeTheme, resolveTheme, saveTheme, setSkinFrame, swatch,
 import { activeTheme, type ThemeEntry } from '../lib/workspace'
 import { applyDecor, currentDecor, DECORS } from '../lib/decor'
 import { Group, Row, TextRow } from './ios'
+import {useShellPresentation} from './shell'
+import {themeCapabilities} from '../lib/themeCatalog'
+import {resolveShellTheme} from '../lib/shell/theme'
 
 /** 主题的小色块：背景色打底，一道文字色，一个主色点。 */
 function Swatch({ theme, mode }: { theme: ThemeEntry; mode: 'light' | 'dark' }) {
@@ -32,8 +35,11 @@ export function AppearanceSettings({ mode, onMode }: { mode: 'light' | 'dark'; o
 
   const current = activeTheme(workspace)
   const resolved = resolveTheme(current, mode, {frameOff: workspace.theme.frameOff})
-  const skin = resolved.capabilities.frame === 'toggle'
-  const frameOn = !['0', '0px'].includes(resolved.values.frame)
+  const snapshot = useShellPresentation()
+  const {activeSkin, backdrop} = snapshot
+  const frameCapability = themeCapabilities(activeSkin).frame
+  const skin = frameCapability === 'toggle'
+  const frameOn = !['0', '0px'].includes(resolveShellTheme(resolved, snapshot).values.frame)
   const setFrame = (on: boolean) =>
     edit((ws) => {
       if (skin) return setSkinFrame(ws, on)
@@ -74,13 +80,13 @@ export function AppearanceSettings({ mode, onMode }: { mode: 'light' | 'dark'; o
         </Row>
       </Group>
 
-      {resolved.capabilities.frame !== 'none' && <Group title="窗口" footer={skin ? '窗口四周那圈边。关掉只收起这圈边，还是当前这套主题。' : '窗口四周那圈外框。修改保留当前造型；内置主题会先另存，默认主题不受影响。粗细、颜色和字体，对搭搭说就行。'}>
+      {frameCapability !== 'none' && <Group title="窗口" footer={skin ? '窗口四周那圈边。关掉只收起这圈边，还是当前这套主题。' : '窗口四周那圈外框。修改保留当前造型；内置主题会先另存，默认主题不受影响。粗细、颜色和字体，对搭搭说就行。'}>
         <Row label="外框">
           <Switch checked={frameOn} onChange={setFrame} />
         </Row>
       </Group>}
 
-      {resolved.shell !== 'win98' && <Group title="首页装饰" footer="给首页铺一层动态背景，来自 React Bits。想要别的效果，或者 Spline 3D 场景，对搭搭说一声就行。">
+      {backdrop === 'page' && <Group title="首页装饰" footer="给首页铺一层动态背景，来自 React Bits。想要别的效果，或者 Spline 3D 场景，对搭搭说一声就行。">
         {DECORS.map((decor) => (
           <Row key={decor.id} label={decor.name} hint={decor.hint} checked={decor.id === decorId} onClick={() => edit((ws) => applyDecor(ws, decor.id))} />
         ))}

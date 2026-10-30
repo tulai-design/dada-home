@@ -304,4 +304,20 @@ await test('默认玻璃Dock可直接渲染，iOS和掌机的既有显示规则�
   assert.deepEqual(plainDock(dock.visibleDock({preset: 'bar'}, false, true)), {preset: 'bar'})
   assert.deepEqual(plainDock(dock.visibleDock({preset: 'solid'}, false, true)), {preset: 'solid'})
 })
+await test('get_appearance 通过可信宿主回读有效外壳故障结果，独立工具调用不假定已渲染', async () => {
+  const item = tool('get_appearance')
+  assert.equal(JSON.parse(await item.execute(item.parse({}))).current.rendering, null)
+  const current = model.activeTheme(workspace)
+  const rendering = {
+    requested: {id: current.id, skin: current.skin, shell: current.shell},
+    effective: {skin: 'paper', shell: 'standard', mode: workspace.theme.mode, values: {main: '#cc0000'}, sources: {main: 'default'}},
+    content: 'visible', fault: {requestedShell: current.shell, reason: '测试渲染失败'},
+  }
+  const before = plain(workspace), count = commits
+  const report = JSON.parse(await item.execute(item.parse({}), {getRenderedAppearance: () => rendering}))
+  assert.deepEqual(report.current.rendering, rendering)
+  assert.equal(report.current.theme.id, current.id)
+  assert.deepEqual(plain(workspace), before)
+  assert.equal(commits, count)
+})
 console.log(`主题工具回归全部通过：${passed}/${passed}`)

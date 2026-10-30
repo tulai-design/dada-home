@@ -1,10 +1,11 @@
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ActionIcon, Badge, Button } from '@lobehub/ui'
 import {AppWindow, DotsThree as Ellipsis, SquaresFour as LayoutGrid, Monitor, Gear as Settings, Sparkle as Sparkles} from '@phosphor-icons/react'
-import { scopeDockCss, DEFAULT_DOCK_PRESET, type DockStyle } from '../lib/dock'
+import { scopeDockCss, DEFAULT_DOCK_PRESET } from '../lib/dock'
 import { pageIcon } from '../lib/pageIcons'
 import { useIsMobile } from '../lib/useMedia'
-import { FROZEN_PAGE_ID, type GeneratedApplication, type Page } from '../lib/workspace'
+import {navigationKey, type NavigationEntry} from '../lib/shell/navigation'
+import type {ShellAdapterProps} from './shell/contracts'
 
 /** 一个导航项占的高度（含间距），dock.css 里是 --dock-pitch，量不到就用这个。 */
 const SLOT_PITCH = 48
@@ -12,8 +13,6 @@ const SLOT_PITCH = 48
 const MOBILE_SLOT_WIDTH = 56
 /** 手机底栏最宽 380，两侧各留 12。 */
 const MOBILE_DOCK_MAX = 380
-
-type View = 'page' | 'settings' | 'monitor' | 'market' | 'application'
 
 /**
  * Dock：电脑上是左侧悬浮的一列，手机上是底部悬浮的一排。只有图标，名字在提示里。
@@ -28,57 +27,22 @@ type View = 'page' | 'settings' | 'monitor' | 'market' | 'application'
  * 页面很多时不靠滚动条：量一下中间区域能放几项，放不下的折进「更多」，
  * 当前所在页面始终可见。页面的增删、排序、改名在 设置 › 侧栏，或直接对搭搭说。
  */
-export function Rail({
-  pages,
-  page,
-  view = 'page',
-  dock,
-  onPage,
-  onMore,
-  onAssistant,
-  onLogo,
-  onMonitor,
-  onMarket,
-  onSettings,
-  monitorInstalled,
-  badges,
-  assistantBusy,
-  applications = [],
-  applicationId,
-  onApplication,
-}: {
-  pages: Page[]
-  applications?: GeneratedApplication[]
-  applicationId?: string
-  onApplication?: (id: string) => void
-  page: string
-  /** 画布当前显示的是页面还是系统页 */
-  view?: View
-  /** Dock 样式；不传就是默认的玻璃 Dock */
-  dock?: DockStyle
-  onPage: (id: string) => void
-  /** 打开所有页面和固定应用的切换器 */
-  onMore: () => void
-  onAssistant: () => void
-  onLogo: () => void
-  /** AI 正在工作，入口上显示一个提示点 */
-  assistantBusy?: boolean
-  onMonitor: () => void
-  onMarket: () => void
-  onSettings: () => void
-  /** 监控是市场组件，装了才出现入口 */
-  monitorInstalled: boolean
-  /** 页面 id → 角标数字，由调用方按需提供。 */
-  badges?: Record<string, number>
-}) {
-  const home = pages.find((item) => item.id === FROZEN_PAGE_ID) ?? pages[0]
-  const rest = useMemo(() => [
-    ...pages.filter((item) => item.id !== home?.id && item.dock !== false),
-    ...applications.filter((item) => item.dock).map((item) => ({id:`application:${item.id}`,name:item.instance.title || '应用',label:item.instance.title || '应用',components:[],applicationId:item.id})),
-  ] as (Page & {applicationId?: string})[], [pages, home, applications])
-  const selectedId = applicationId ? `application:${applicationId}` : page
-  const navigationCount = pages.length + applications.filter((item) => item.dock).length
-  const hasUnpinnedPages = pages.some((item) => item.id !== home?.id && item.dock === false)
+export function Rail({model, dispatch}: Pick<ShellAdapterProps, 'model' | 'dispatch'>) {
+  const {entries, activation, dock, badges} = model
+  const assistantBusy = model.assistant.busy
+  const home = entries.find((item) => item.home)
+  const rest = useMemo(() => entries.filter((item) => !item.home && item.pinned && item.target.kind !== 'system'), [entries])
+  const selectedId = navigationKey(activation.target)
+  const view = activation.target.kind === 'system' ? activation.target.name : activation.target.kind
+  const navigationCount = entries.filter((item) => item.target.kind !== 'system').length
+  const hasUnpinnedPages = entries.some((item) => item.target.kind !== 'system' && !item.home && !item.pinned)
+  const monitorInstalled = entries.some((item) => item.key === 'system:monitor')
+  const onMore = () => dispatch({type: 'all-navigation'})
+  const onAssistant = () => dispatch({type: 'assistant', action: 'toggle-preferred'})
+  const onLogo = () => dispatch({type: 'assistant', action: 'open-panel'})
+  const onMonitor = () => dispatch({type: 'navigate', target: {kind: 'system', name: 'monitor'}})
+  const onMarket = () => dispatch({type: 'navigate', target: {kind: 'system', name: 'market'}})
+  const onSettings = () => dispatch({type: 'navigate', target: {kind: 'system', name: 'settings'}})
 
   const mobile = useIsMobile()
   const shellRef = useRef<HTMLElement>(null)
@@ -147,7 +111,7 @@ export function Rail({
     box.style.setProperty('--gh', `${h}px`)
     box.style.setProperty('--go', '1')
     // 换了入口：沿移动方向挤一下再弹回来，像液体被拉了一把
-    if (lastOn.current && lastOn.current !== on && box.dataset.ready === 'true') {
+    if (lastOn.current && lastOn.current !== on && box.dataset.ready === 'true' && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       const squish = mobile ? '1.2 1' : '1 1.2'
       glider.animate([{ scale: '1 1' }, { scale: squish }, { scale: '1 1' }], { duration: 440, easing: 'ease' })
     }
@@ -166,6 +130,7 @@ export function Rail({
     return () => {
       cancelAnimationFrame(frame)
       observer.disconnect()
+      gliderRef.current?.getAnimations().forEach((animation) => animation.cancel())
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mobile])
@@ -178,7 +143,7 @@ export function Rail({
   if (overflow) {
     const slots = Math.max(0, capacity - 1)
     shown = rest.slice(0, slots)
-    const active = rest.findIndex((item) => item.id === selectedId)
+    const active = rest.findIndex((item) => item.key === selectedId)
     if (active >= slots && slots > 0) shown = [...shown.slice(0, slots - 1), rest[active]]
     else if (active >= slots) shown = [rest[active]].slice(0, slots)
   }
@@ -212,8 +177,8 @@ export function Rail({
     )
   }
 
-  const pageEntry = (item: Page & {applicationId?: string}) =>
-    entry(item.id, item.name, item.applicationId ? AppWindow : pageIcon(item.icon), item.applicationId ? applicationId === item.applicationId : !applicationId && view === 'page' && page === item.id, () => item.applicationId ? onApplication?.(item.applicationId) : onPage(item.id), { count: badges?.[item.id] })
+  const pageEntry = (item: NavigationEntry) =>
+    entry(item.key, item.label, item.icon.kind === 'application' ? AppWindow : pageIcon(item.icon.kind === 'page' ? item.icon.name : undefined), selectedId === item.key, () => dispatch({type: 'navigate', target: item.target}), {count: badges?.[item.target.kind !== 'system' ? item.target.id : item.key]})
 
   // 手机：页面放不下的收进「更多」，那里也有市场、监控、设置
   let top: ReactNode
@@ -224,7 +189,7 @@ export function Rail({
     let tabs = rest
     if (rest.length > slots) {
       tabs = rest.slice(0, slots)
-      const active = rest.findIndex((item) => item.id === selectedId)
+      const active = rest.findIndex((item) => item.key === selectedId)
       if (active >= slots && slots > 0) tabs = [...tabs.slice(0, slots - 1), rest[active]]
       else if (active >= slots) tabs = []
     }

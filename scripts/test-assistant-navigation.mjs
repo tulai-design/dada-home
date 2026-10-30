@@ -55,42 +55,51 @@ function findNode(predicate) {
 }
 
 const {normalizeAssistantMode} = compile('src/lib/assistantLayout.ts')
-const names = ['revealWin98Window', 'changeAssistantMode', 'openAssistant', 'openAssistantPanel', 'openApplication', 'closeApplication', 'minimizeApplication', 'restoreApplication', 'goPage', 'openSettings', 'openMonitor', 'openMarket']
-const callbacksJs = names.map(callbackJs).join('\n')
+const assistantNames = ['changeAssistantMode', 'openAssistant', 'openAssistantPanel']
+const assistantJs = assistantNames.map(callbackJs).join('\n')
+const navigation = compile('src/lib/shell/navigation.ts')
+let activeWorkspace
+const navigationApi = compile('src/lib/useNavigation.ts', {
+  react: {}, './market': {isInstalled: () => true}, './workspaceStore': {getWorkspace: () => activeWorkspace}, './shell/navigation': navigation,
+})
 function makeNavigation({split = false, sidebarAi = storedDefault('sidebarAi'), panelMode = storedDefault('panelMode')} = {}) {
-  const state = {assistantOpen: true, assistantMode: 'drawer', panelMode, sidebarAi, pageId: 'home', view: 'page', applicationView: {id: 'old', mode: 'modal'}, applicationMinimized: false, reader: {title: '文章'}, section: 'profile', settingsRequest: 0, pendingPage: null, switchBoard: true, win98WindowOpen: false, win98Minimized: true}
+  const state = {...navigationApi.initialNavigation('home'), assistantOpen: true, assistantMode: 'drawer', panelMode, sidebarAi, reader: {title: '文章'}, pendingPage: null}
+  state.applicationView = {id: 'old', mode: 'modal'}
   const writes = []
   const errors = []
   const splitActiveRef = {current: split}
-  const viewRef = {current: 'page'}
-  const applicationReturnView = {current: 'market'}
+  const viewRef = {current: state.view}
   const applicationViewRef = {current: state.applicationView}
-  const applicationMinimizedRef = {current: state.applicationMinimized}
-  const set = (key) => (value) => {
-    writes.push({key, value})
-    state[key] = typeof value === 'function' ? value(state[key]) : value
-    if (key === 'view') viewRef.current = state[key]
+  const applicationMinimizedRef = {current: false}
+  const applicationReturnView = {current: 'market'}
+  const set = (key) => (value) => {writes.push({key, value}); state[key] = typeof value === 'function' ? value(state[key]) : value}
+  const workspace = {pages: [{id: 'home', name: '首页'}, {id: 'reading', name: '阅读'}], applications: [{id: 'notes', openMode: 'drawer', instance: {title: '笔记'}}, {id: 'counter', openMode: 'modal', instance: {title: '计数'}}]}
+  const sync = () => {viewRef.current = state.view; applicationViewRef.current = state.applicationView; applicationMinimizedRef.current = state.applicationMinimized; applicationReturnView.current = state.applicationReturnView}
+  const navigate = target => {
+    const result = navigationApi.executeNavigation({...state, view: viewRef.current}, workspace, target, {monitorInstalled: true, splitActive: splitActiveRef.current})
+    if (!result.ok) {errors.push(result.reason); return result}
+    for (const [key, value] of Object.entries(result.state)) if (value !== state[key]) set(key)(value)
+    if (result.clearReader) set('reader')(null)
+    if (result.closeAssistant) set('assistantOpen')(false)
+    sync()
+    return {ok: true}
   }
-  const dependencies = {
-    normalizeAssistantMode,
-    splitActiveRef, viewRef, applicationReturnView, applicationViewRef, applicationMinimizedRef,
-    setAssistantMode: set('assistantMode'), setPanelMode: set('panelMode'), setAssistantOpen: set('assistantOpen'),
-    setWin98WindowOpen: set('win98WindowOpen'), setWin98Minimized: set('win98Minimized'),
-    setApplicationView: set('applicationView'), setApplicationMinimized: set('applicationMinimized'), setView: set('view'), setReader: set('reader'), setSection: set('section'), setPageId: set('pageId'), setSettingsRequest: set('settingsRequest'), setPendingPage: set('pendingPage'), setSwitchBoard: set('switchBoard'),
-    getWorkspace: () => ({applications: [{id: 'notes', openMode: 'drawer'}, {id: 'counter', openMode: 'modal'}]}),
-    findApplication: (workspace, ref) => {
-      const application = workspace.applications.find((item) => item.id === ref)
-      if (!application) throw new Error('没有这个应用')
-      return application
-    },
-    toast: {error: (message) => errors.push(message)},
+  const base = {
+    navigate,
+    goPage: id => navigate({kind: 'page', id}),
+    openSettings: section => navigate({kind: 'system', name: 'settings', ...(section ? {section} : {})}),
+    openMonitor: () => navigate({kind: 'system', name: 'monitor'}),
+    openMarket: () => navigate({kind: 'system', name: 'market'}),
+    openApplication: (id, mode) => navigate({kind: 'application', id, ...(mode ? {mode} : {})}),
+    minimizeApplication: () => {set('applicationMinimized')(true);sync()},
+    restoreApplication: () => {set('applicationMinimized')(false);sync()},
+    closeApplication: () => {set('applicationMinimized')(false);set('applicationView')(null);if (state.view === 'application') set('view')(state.applicationReturnView);sync()},
   }
-  // 模拟 React 重新渲染，下一次回调读取最新偏好；ref 始终保持同一对象。
+  const dependencies = {normalizeAssistantMode, splitActiveRef, setAssistantMode: set('assistantMode'), setPanelMode: set('panelMode'), setAssistantOpen: set('assistantOpen'), setPendingPage: set('pendingPage'), navigate}
   const render = () => {
-    applicationViewRef.current = state.applicationView
-    applicationMinimizedRef.current = state.applicationMinimized
+    sync()
     const scope = {...dependencies, sidebarAi: state.sidebarAi, panelMode: state.panelMode}
-    return new Function(...Object.keys(scope), `${callbacksJs}; return {${names.join(',')}}`)(...Object.values(scope))
+    return {...base, ...new Function(...Object.keys(scope), `${assistantJs}; return {${assistantNames.join(',')}}`)(...Object.values(scope))}
   }
   return {state, writes, errors, splitActiveRef, viewRef, applicationReturnView, applicationViewRef, applicationMinimizedRef, dependencies, render}
 }
@@ -105,11 +114,11 @@ async function test(name, run) {
 await test('分栏中打开应用的三种形态保留助手，其他布局沿用关闭行为', () => {
   for (const split of [true, false]) for (const mode of ['modal', 'drawer', 'page']) {
     const h = makeNavigation({split})
-    h.viewRef.current = 'settings'
+    h.state.view = 'settings'
     h.render().openApplication('notes', mode)
-    assert.deepEqual(h.state.applicationView, {id: 'notes', mode})
+    assert.deepEqual(JSON.parse(JSON.stringify(h.state.applicationView)), {id: 'notes', mode})
     assert.equal(h.state.view, mode === 'page' ? 'application' : 'settings')
-    assert.equal(h.state.win98WindowOpen, mode === 'page')
+    assert.equal(h.state.activation.revision, 1)
     assert.equal(h.state.reader, null)
     assert.equal(h.state.assistantOpen, split)
     assert.equal(h.writes.filter((item) => item.key === 'assistantOpen').length, split ? 0 : 1)
@@ -120,7 +129,7 @@ await test('分栏中打开应用的三种形态保留助手，其他布局沿�
   const before = h.writes.length
   h.render().openApplication('missing')
   assert.equal(h.writes.length, before, '打开失败不能干扰当前导航或助手')
-  assert.deepEqual(h.errors, ['没有这个应用'])
+  assert.equal(h.errors.length, 1)
 })
 
 await test('设置、监控和市场在分栏中保留助手，非分栏仍关闭', () => {
@@ -128,8 +137,7 @@ await test('设置、监控和市场在分栏中保留助手，非分栏仍关�
     const h = makeNavigation({split})
     h.render()[callback]('application:notes')
     assert.equal(h.state.view, target)
-    assert.equal(h.state.win98WindowOpen, true)
-    assert.equal(h.state.win98Minimized, false)
+    assert.equal(h.state.activation.revision, 1)
     assert.equal(h.state.applicationView, null)
     assert.equal(h.state.assistantOpen, split)
     assert.equal(h.writes.filter((item) => item.key === 'assistantOpen').length, split ? 0 : 1)
@@ -147,9 +155,7 @@ await test('页面导航只更换左侧内容，不开关助手或改动布局�
     h.render().goPage('reading')
     assert.equal(h.state.pageId, 'reading')
     assert.equal(h.state.view, 'page')
-    assert.equal(h.state.switchBoard, false)
-    assert.equal(h.state.win98WindowOpen, true)
-    assert.equal(h.state.win98Minimized, false)
+    assert.equal(h.state.activation.revision, 1)
     assert.equal(h.state.applicationView, null)
     assert.equal(h.state.assistantOpen, open)
     assert.equal(h.state.panelMode, 'split')
@@ -183,13 +189,12 @@ await test('AI open_page 的真实待处理 effect 同样保留最小化应用�
     h.state.pendingPage = pendingPage
     h.render()
     const before = h.state.applicationView
-    const runEffect = evaluate(effect.arguments[0], {...h.dependencies, revealWin98Window: h.render().revealWin98Window, pendingPage, workspace: {pages: [{id: 'reading'}]}})
+    const runEffect = evaluate(effect.arguments[0], {...h.dependencies, pendingPage})
     runEffect()
     assert.equal(h.state.applicationView, !minimized && pendingPage === 'reading' ? null : before)
     assert.equal(h.state.pageId, pendingPage === 'reading' ? 'reading' : 'home')
     assert.equal(h.state.pendingPage, null)
-    assert.equal(h.state.switchBoard, pendingPage === 'reading' ? false : true)
-    assert.equal(h.state.win98WindowOpen, pendingPage === 'reading')
+    assert.equal(h.state.activation.revision, pendingPage === 'reading' ? 1 : 0)
   }
 })
 
@@ -244,7 +249,7 @@ await test('恢复最小化应用保留原形态，显式新形态优先，关�
   assert.equal(h.state.applicationView.mode, 'drawer', '显式请求仍可选择其他形态')
   h.render().minimizeApplication()
   h.render().openApplication('counter')
-  assert.deepEqual(h.state.applicationView, {id: 'counter', mode: 'modal'})
+  assert.deepEqual(JSON.parse(JSON.stringify(h.state.applicationView)), {id: 'counter', mode: 'modal'})
   const closing = h.render()
   closing.minimizeApplication()
   closing.closeApplication()
@@ -253,6 +258,51 @@ await test('恢复最小化应用保留原形态，显式新形态优先，关�
   assert.equal(h.applicationMinimizedRef.current, false)
 })
 
+await test('统一导航同目标每次发布revision，非法页面/应用/模式失败无修改', () => {
+  const h = makeNavigation({split: true})
+  h.render().goPage('reading')
+  const first = h.state.activation.revision
+  h.render().goPage('reading')
+  assert.equal(h.state.activation.revision, first + 1)
+  for (const target of [{kind: 'page', id: 'missing'}, {kind: 'application', id: 'missing'}, {kind: 'application', id: 'notes', mode: 'invalid'}]) {
+    const before = JSON.stringify(h.state)
+    const count = h.writes.length
+    assert.equal(h.render().navigate(target).ok, false)
+    assert.equal(JSON.stringify(h.state), before)
+    assert.equal(h.writes.length, count)
+  }
+})
+await test('真实导航hook同帧执行与应用最小化恢复沿用最新身份', () => {
+  const cells = []
+  let cursor = 0
+  let writes = 0
+  const react = {
+    useCallback: fn => fn,
+    useRef: value => {const at = cursor++; return cells[at] ??= {current: value}},
+    useState: value => {const at = cursor++; if (!(at in cells)) cells[at] = typeof value === 'function' ? value() : value; return [cells[at], value => {writes++;cells[at] = typeof value === 'function' ? value(cells[at]) : value}]},
+  }
+  const workspace = {pages: [{id: 'home', name: '首页'}], applications: [{id: 'notes', openMode: 'drawer', instance: {title: '笔记'}}]}
+  const api = compile('src/lib/useNavigation.ts', {react, './shell/navigation': navigation, './market': {isInstalled: () => false}, './workspaceStore': {getWorkspace: () => workspace}})
+  const options = {pageId: 'home', setPageId: () => {}, clearReader: () => {}, closeAssistant: () => {}, splitActive: true}
+  const render = () => {cursor = 0; return api.useNavigation(options)}
+  const host = render()
+  host.navigate({kind: 'application', id: 'notes', mode: 'modal'})
+  host.minimizeApplication()
+  host.navigate({kind: 'page', id: 'home'})
+  let result = render()
+  assert.equal(result.applicationView.id, 'notes')
+  assert.equal(result.applicationMinimized, true)
+  const instance = result.applicationView
+  result.restoreApplication()
+  result = render()
+  assert.equal(result.applicationView, instance)
+  assert.equal(result.applicationMinimized, false)
+  result.closeApplication()
+  assert.equal(render().applicationView, null)
+  const before = writes
+  assert.equal(host.navigate({kind: 'page', id: 'missing'}).ok, false)
+  assert.equal(writes, before)
+})
 await test('指定设置入口连续打开相同目标也产生新导航请求，普通进入不强制切详情', () => {
   const h = makeNavigation({split: true})
   h.render().openSettings()
@@ -356,6 +406,29 @@ await test('AI 设置工具支持 split 的 schema、保存和读取，非法偏
   assert.match(await read.execute({}, {}), /Dock AI 入口：分栏/)
   await assert.rejects(() => update.execute(update.parseArguments({sidebarAi: 'invalid'}), {}), /sidebarAi/)
   assert.equal(storage.get('sidebarAi'), 'split')
+})
+
+await test('删除后台页面只修引用，保留系统页和打开应用；当前页面删除才成功激活回退', () => {
+  const workspace = {pages: [{id: 'home', name: '首页'}], applications: []}
+  const base = {...navigationApi.initialNavigation('removed'), section: 'ai', settingsRequest: 3}
+  for (const view of ['settings', 'market', 'monitor', 'application', 'page']) {
+    for (const mode of ['modal', 'drawer', 'page']) {
+      const state = {...base, view, applicationView: {id: 'running', mode}, applicationMinimized: false}
+      const next = navigationApi.reconcileNavigationPage(state, workspace, {monitorInstalled: true, splitActive: true})
+      assert.equal(next.pageId, 'home')
+      assert.equal(next.view, view)
+      assert.deepEqual(next.applicationView, state.applicationView)
+      assert.equal(next.activation.revision, state.activation.revision)
+      assert.equal(next.section, 'ai')
+      assert.equal(next.settingsRequest, 3)
+    }
+  }
+  const fallback = navigationApi.reconcileNavigationPage(base, workspace, {monitorInstalled: true, splitActive: true})
+  assert.equal(fallback.pageId, 'home')
+  assert.equal(fallback.view, 'page')
+  assert.equal(fallback.activation.revision, base.activation.revision + 1)
+  assert.equal(fallback.activation.target.id, 'home')
+  assert.equal(navigationApi.reconcileNavigationPage(fallback, workspace, {monitorInstalled: true, splitActive: true}), fallback)
 })
 
 console.log(`AI 导航与布局偏好回归全部通过：${passed}/${passed}`)

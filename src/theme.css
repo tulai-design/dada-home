@@ -128,10 +128,10 @@ body {
 /* 背景的鼠标互动要能穿过外壳：外壳本身不挡，里面的按钮和内容块照常响应 */
 .app[data-fx='on'] .canvas,
 .app[data-fx='on'] .page,
-.app[data-fx='on'] .canvas > .topbar {
+.app[data-fx='on'] .canvas > .shell-content-stage > .topbar {
   pointer-events: none;
 }
-.app[data-fx='on'] .canvas > :not(.page):not(.topbar),
+.app[data-fx='on'] .canvas > .shell-content-stage > :not(.page):not(.topbar),
 .app[data-fx='on'] .topbar > * {
   pointer-events: auto;
 }
@@ -151,7 +151,7 @@ body {
 
 /* ---------- 顶栏：报头条 ---------- */
 
-.canvas > .topbar {
+.canvas > .shell-content-stage > .topbar {
   height: 40px !important;
   padding: 0 var(--gutter) !important;
   border-bottom: 1px solid var(--rule);
@@ -951,7 +951,7 @@ body {
 .canvas {
   border-left: 0;
 }
-.canvas > .topbar {
+.canvas > .shell-content-stage > .topbar {
   border-bottom: 0;
 }
 /* 当前页只用主色图标和字重表示，不再画竖条 */
@@ -1607,7 +1607,7 @@ body {
 /* ============================================================
    顶栏：小而静，贴着右上角
    ============================================================ */
-.canvas > .topbar {
+.canvas > .shell-content-stage > .topbar {
   height: 38px !important;
   min-height: 38px;
   padding: 0 8px 0 var(--gutter) !important;
@@ -2076,7 +2076,7 @@ body {
   }
 
   /* 顶栏：左边 logo，右边时钟和两个小图标 */
-  .canvas > .topbar {
+  .canvas > .shell-content-stage > .topbar {
     height: 48px !important;
     min-height: 48px;
     padding: 0 10px 0 var(--gutter) !important;
@@ -2339,7 +2339,7 @@ body {
 :root[data-skin='ios'] .app:has(.settings-page) {
   background: var(--bg) !important;
 }
-:root[data-skin='ios'] .canvas > .topbar {
+:root[data-skin='ios'] .canvas > .shell-content-stage > .topbar {
   background: transparent;
   backdrop-filter: none;
   border-bottom-color: transparent;
@@ -2350,7 +2350,7 @@ body {
 }
 /* 设置页用自己的标题当顶栏，系统顶栏让开。宽屏仍保留搜索和深浅色。 */
 @media (max-width: 760px) {
-  :root[data-skin='ios'] .app:has(.settings-page) .canvas > .topbar {
+  :root[data-skin='ios'] .app:has(.settings-page) .canvas > .shell-content-stage > .topbar {
     display: none;
   }
   :root[data-skin='ios'] .app:has(.settings-page) .canvas {
@@ -2768,7 +2768,7 @@ body {
   font-family: var(--pixel-font);
   color: var(--text);
 }
-:root[data-skin='pixel'] .canvas > .topbar {
+:root[data-skin='pixel'] .canvas > .shell-content-stage > .topbar {
   border-bottom: 2px solid var(--text);
   background: var(--bg);
 }
@@ -3181,7 +3181,7 @@ body {
   }
 }
 @media (max-width: 760px) {
-  :root[data-skin='pixel'] .app:has(.settings-page) .canvas > .topbar {
+  :root[data-skin='pixel'] .app:has(.settings-page) .canvas > .shell-content-stage > .topbar {
     display: none;
   }
   :root[data-skin='pixel'] .app:has(.settings-page) .canvas {
@@ -3195,3 +3195,11 @@ body {
     padding-bottom: calc(var(--dock-clear, 96px) + 8px);
   }
 }
+
+/* 附着抽屉保留固定 portal 与业务实例，外壳隐藏只改变可见性。 */
+.attached-drawer-layer {position:absolute; inset:var(--shell-top, 0px) var(--shell-right, 0px) var(--shell-bottom, 0px) var(--shell-left, 0px); z-index:999; pointer-events:none;}
+.attached-drawer-layer .canvas-overlay-shade {pointer-events:auto;}
+.attached-drawer {max-width:100%; max-height:100%; position:absolute; inset:0 0 0 auto; display:flex; flex-direction:column; min-width:0; min-height:0; z-index:1000; pointer-events:auto; background:var(--bg); color:var(--text); border-left:1px solid var(--border); box-shadow:var(--shadow);}
+.attached-drawer-header {display:flex; align-items:center; justify-content:space-between; flex:none; gap:12px; padding:16px 20px; border-bottom:1px solid var(--border);}
+.attached-drawer-header h2 {margin:0; font:600 16px/1.4 var(--font-sans);}
+.attached-drawer-content {flex:1; min-height:0; overflow:auto; padding:20px;}

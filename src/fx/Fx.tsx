@@ -164,7 +164,7 @@ export function hasBackdrop(layers?: Layer[]): boolean {
   return (layers ?? []).some((layer) => ['background', 'scene'].includes(getFx(layer.effect)?.kind ?? ''))
 }
 
-export function FxLayers({layers, page, container, children, portal}: {layers?: Layer[]; page?: Page; container?: HTMLElement | null; children: ReactNode; portal?: HTMLElement | null}) {
+export function FxLayers({layers, page, container, children, portal, active = true}: {active?: boolean; layers?: Layer[]; page?: Page; container?: HTMLElement | null; children: ReactNode; portal?: HTMLElement | null}) {
   const [root, setRoot] = useState<HTMLDivElement | null>(null)
   const [localNotices, setLocalNotices] = useState<Record<string, RuntimeNotice>>({})
   const report = useCallback((key: string, notice?: RuntimeNotice) => setLocalNotices((previous) => {
@@ -187,14 +187,14 @@ export function FxLayers({layers, page, container, children, portal}: {layers?: 
   const spark = defs.find(({def}) => def!.id === 'click-spark')
   const sparkTheme = useFxThemeParams(spark?.def, spark?.layer.params)
   const sparkDecision = plan.entries.find((entry) => entry.key === spark?.key)
-  const sparkDisabled = !spark || reduced || coarse || !visible || !inView || sparkDecision?.mode === 'static'
+  const sparkDisabled = !active || !spark || reduced || coarse || !visible || !inView || sparkDecision?.mode === 'static'
   const sparkParams = spark ? qualityParams('click-spark', sparkTheme.params, {compact, coarsePointer: coarse}) : {}
   const notices = [...new Set([
     ...plan.entries.filter((entry) => entry.mode === 'static').map((entry) => `${getFx(entry.effect)?.name ?? '未知效果'}：${entry.reason}`),
     ...(coarse && spark ? ['触屏已关闭点击火花装饰。'] : []),
     ...(reduced && plan.entries.length ? ['已按系统减少动画偏好显示静态效果。'] : []),
   ])]
-  const backdrop = behind.length ? <div className="fx-layers" aria-hidden="true">{behind.map(({layer, key}) => <div className="fx-layer" key={key}><FxEffect id={layer.effect} params={layer.params} effectKey={key} /></div>)}</div> : null
+  const backdrop = active && behind.length ? <div className="fx-layers" aria-hidden="true">{behind.map(({layer, key}) => <div className="fx-layer" key={key}><FxEffect id={layer.effect} params={layer.params} effectKey={key} /></div>)}</div> : null
   // Long sectioned pages must contribute their full height to the page's scroll area,
   // including the trailing space reserved for the mobile Dock.
   const contentHeight = page?.sections?.length ? {height: 'auto', minHeight: '100%'} : {height: '100%'}
@@ -205,7 +205,7 @@ export function FxLayers({layers, page, container, children, portal}: {layers?: 
         <ClickSpark {...sparkParams} className="fx-page-surface" disabled={sparkDisabled} style={contentHeight}>
           {backdrop && (portal ? createPortal(backdrop, portal) : backdrop)}
           {children}
-          {above.map(({layer, key}) => <div className="fx-overlay" key={key} aria-hidden="true"><FxEffect id={layer.effect} params={layer.params} effectKey={key} /></div>)}
+          {active && above.map(({layer, key}) => <div className="fx-overlay" key={key} aria-hidden="true"><FxEffect id={layer.effect} params={layer.params} effectKey={key} /></div>)}
           {(notices.length > 0 || Object.keys(localNotices).length > 0) && <div className="fx-policy-trigger"><Popover trigger="click" placement="topRight" content={
             <div className="fx-policy-notice"><ul>{notices.map((notice, index) => <li key={index}>{notice}</li>)}{Object.entries(localNotices).map(([key, notice]) => <li key={key}>{notice.message}{notice.retry && <Button size="small" type="text" onClick={notice.retry} aria-label={`重试${notice.message.split('：')[0]}`}>重试</Button>}</li>)}</ul><p>原配置已保留。可调整特效或重试，加载仍失败时刷新页面再试。</p></div>
           }><Button type="text" size="small">特效已简化</Button></Popover></div>}

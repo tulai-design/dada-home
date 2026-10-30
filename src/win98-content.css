@@ -1,5 +1,5 @@
 /* Win98 内容皮肤。只消费主题色；桌面、窗口框和任务栏由 Win98Shell 管理。 */
-:root[data-skin='win98'] .canvas > .page:has(.page-grid) {
+:root[data-skin='win98'] .canvas > .shell-content-stage > .page:has(.page-grid) {
   overflow-x: hidden !important;
   overflow-y: auto !important;
   scroll-padding-block: 20px;

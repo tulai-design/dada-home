@@ -1,5 +1,5 @@
-.canvas:has(> .homepage-draft-preview) {position: relative;}
-.canvas[data-homepage-draft-active] > .page {visibility: hidden; pointer-events: none;}
+.canvas:has(> .shell-content-stage > .homepage-draft-preview) {position: relative;}
+.canvas[data-homepage-draft-active] > .shell-content-stage > .page {visibility: hidden; pointer-events: none;}
 .homepage-draft-preview {
   position: absolute;
   inset: 40px 0 0;

@@ -49,8 +49,16 @@ const pageAppearance = (page: Page) => ({
   embeddedVisuals: page.components.filter((item) => ['fx', 'app', 'applet'].includes(item.type)).map((item) => ({id: item.id, type: item.type, title: item.title ?? '', note: '独立内容，外观还原保留；需单独检查其配置或源码'})),
 })
 
+/** 来自可信宿主已提交的渲染结果；与工作空间中的请求设计分别报告。 */
+export type RenderedAppearance = {
+  requested: {id: string; skin: string; shell: string}
+  effective: {skin: string; shell: string; mode: 'light' | 'dark'; values: Record<string, string>; sources: Record<string, string>}
+  content: 'visible' | 'launcher' | 'minimized' | 'closed'
+  fault: {requestedShell: string; reason: string} | null
+}
+
 /** 让 Agent 同时看到默认定义、当前生效值和背景/样式差异，不靠猜测逐项回退。 */
-export function getAppearance(workspace: Workspace) {
+export function getAppearance(workspace: Workspace, rendering?: RenderedAppearance | null) {
   const defaults = defaultAppearance()
   const currentTheme = activeTheme(workspace)
   const resolved = resolveTheme(currentTheme, workspace.theme.mode, {frameOff: workspace.theme.frameOff})
@@ -60,6 +68,7 @@ export function getAppearance(workspace: Workspace) {
     current: {
       mode: workspace.theme.mode,
       theme: {...currentTheme, resolved: resolved.values, sources: resolved.sources, capabilities: resolved.capabilities},
+      rendering: rendering && rendering.requested.id === currentTheme.id && rendering.requested.skin === currentTheme.skin && rendering.requested.shell === currentTheme.shell && rendering.effective.mode === workspace.theme.mode ? rendering : null,
       dock: workspace.dock ?? defaults.dock,
       pages,
     },

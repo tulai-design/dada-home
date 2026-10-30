@@ -20,55 +20,23 @@
   background: var(--win98-desktop);
   font-family: var(--font-sans);
 }
-:root[data-skin='win98'] .canvas > :is(.win98-titlebar, .topbar, .page) {
-  --win98-window-gap: 24px;
-  position: absolute;
-  left: var(--win98-window-gap);
-  right: var(--win98-window-gap);
-  width: auto;
-  margin: 0;
-  border-radius: 0;
-  pointer-events: auto;
+:root[data-skin='win98'] .win98-titlebar {
+  position: absolute; z-index: 5; left: var(--shell-left); right: var(--shell-right);
+  top: calc(var(--shell-top) - 32px); height: 32px; border-radius: 0;
 }
-:root[data-skin='win98'] .canvas[data-win98-maximized='true'] > :is(.win98-titlebar, .topbar, .page) { --win98-window-gap: 4px; }
-:root[data-skin='win98'] .canvas[data-win98-desktop='true'] > :is(.win98-titlebar, .topbar, .page) { display: none !important; }
-:root[data-skin='win98'] .canvas > .win98-titlebar {
-  z-index: 5;
-  top: var(--win98-window-gap);
-  height: 32px;
+:root[data-skin='win98'] .shell-content-stage > .topbar {
+  flex: none; height: 40px !important; min-height: 40px; padding: 0 10px !important;
+  border: 0; border-left: 2px solid var(--win98-light); border-right: 2px solid var(--win98-dark);
+  background: var(--win98-face); box-shadow: inset 0 -1px var(--win98-shadow), inset 0 -2px var(--win98-light);
+  font-family: var(--font-sans); letter-spacing: 0; text-transform: none;
 }
-:root[data-skin='win98'] .canvas > .topbar {
-  z-index: 4;
-  top: calc(var(--win98-window-gap) + 32px);
-  height: 40px !important;
-  min-height: 40px;
-  padding: 0 10px !important;
-  border: 0;
-  border-left: 2px solid var(--win98-light);
-  border-right: 2px solid var(--win98-dark);
-  background: var(--win98-face);
-  box-shadow: inset 0 -1px var(--win98-shadow), inset 0 -2px var(--win98-light);
-  font-family: var(--font-sans);
-  letter-spacing: 0;
-  text-transform: none;
-}
-:root[data-skin='win98'] .canvas > .topbar::after { display: none; }
-:root[data-skin='win98'] .canvas > .topbar .topbar-brand { display: none; }
-:root[data-skin='win98'] .canvas > .topbar .topbar-right { width: 100%; min-width: 0; justify-content: flex-end; gap: 8px; }
-:root[data-skin='win98'] .canvas > .page {
-  z-index: 3;
-  top: calc(var(--win98-window-gap) + 72px);
-  bottom: calc(var(--win98-taskbar-height) + var(--win98-window-gap));
-  height: auto;
-  min-height: 0;
-  padding-bottom: 0;
-  border: 0;
-  border-left: 2px solid var(--win98-light);
-  border-right: 2px solid var(--win98-dark);
-  border-bottom: 2px solid var(--win98-dark);
-  background: var(--win98-face);
-  box-shadow: inset -1px -1px var(--win98-shadow);
-  overflow: auto;
+:root[data-skin='win98'] .shell-content-stage > .topbar::after { display: none; }
+:root[data-skin='win98'] .shell-content-stage > .topbar .topbar-brand { display: none; }
+:root[data-skin='win98'] .shell-content-stage > .topbar .topbar-right { width: 100%; min-width: 0; justify-content: flex-end; gap: 8px; }
+:root[data-skin='win98'] .shell-content-stage > .page {
+  flex: 1; min-height: 0; padding-bottom: 0; border: 0;
+  border-left: 2px solid var(--win98-light); border-right: 2px solid var(--win98-dark); border-bottom: 2px solid var(--win98-dark);
+  background: var(--win98-face); box-shadow: inset -1px -1px var(--win98-shadow); overflow: auto;
 }
 
 :root[data-skin='win98'] :is(.win98-desktop, .win98-taskbar, .win98-titlebar) button {
@@ -256,7 +224,6 @@
 :root[data-skin='win98'] .win98-window-actions > button > svg { width: 14px; height: 14px; }
 
 @container win98-canvas (max-width: 760px) {
-  :root[data-skin='win98'] .canvas > :is(.win98-titlebar, .topbar, .page) { --win98-window-gap: 4px; }
   :root[data-skin='win98'] .win98-desktop-icons { grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); grid-template-rows: none; grid-auto-rows: minmax(104px, auto); padding: 16px 12px; gap: 10px 8px; }
   :root[data-skin='win98'] .win98-desktop-item { min-height: 104px; }
   :root[data-skin='win98'] .win98-window-actions > button { width: 28px; }
@@ -268,6 +235,5 @@
   :root[data-skin='win98'] .win98-tray { gap: 0; padding-right: 5px; }
 }
 @container win98-canvas (max-height: 420px) {
-  :root[data-skin='win98'] .canvas > :is(.win98-titlebar, .topbar, .page) { --win98-window-gap: 4px; }
   :root[data-skin='win98'] .win98-desktop-icons { padding-block: 10px; }
 }

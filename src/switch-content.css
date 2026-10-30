@@ -10,18 +10,11 @@
   box-shadow: none;
   background: var(--bg);
 }
-:root[data-skin='switch'] .canvas > .topbar { background: var(--bg); border-bottom: 1px solid var(--border); }
-:root[data-skin='switch'] .canvas[data-switch-board='true'] > .topbar,
-:root[data-skin='switch'] .canvas:has(.settings-page) > .topbar { display: none; }
-:root[data-skin='switch'] .canvas > .page {
-  padding-bottom: calc(72px + env(safe-area-inset-bottom));
+:root[data-skin='switch'] .canvas > .shell-content-stage > .topbar { background: var(--bg); border-bottom: 1px solid var(--border); }
+:root[data-skin='switch'] .canvas:has(.settings-page) > .shell-content-stage > .topbar { display: none; }
+:root[data-skin='switch'] .canvas > .shell-content-stage > .page {
+  padding-bottom: 16px;
 }
-:root[data-skin='switch'] .canvas[data-switch-board='true'] > .page {
-  padding: 0;
-  overflow: hidden !important;
-  background: var(--bg);
-}
-:root[data-skin='switch'] .canvas[data-switch-board='true'] > .page::before { display: none; }
 :root[data-skin='switch'] .page.sys-view:has(.settings-page) {
   overflow: hidden !important;
 }

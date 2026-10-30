@@ -241,4 +241,23 @@ test('连续恢复幂等，恢复结果与查询副本不会污染默认图层�
   assert.deepEqual(defaultAppearance().theme.fonts, {...DEFAULT_STACKS, serif: fontVars(IOS_THEME.fonts)['font-serif']})
 })
 
+test('外观查询分别报告请求设计和已提交故障回落，不伪造未挂载或陈旧运行状态', () => {
+  const ws = fixture(), before = clone(ws)
+  assert.equal(getAppearance(ws).current.rendering, null)
+  const rendering = {
+    requested: {id: 'night', skin: 'paper', shell: 'standard'},
+    effective: {skin: 'paper', shell: 'standard', mode: 'dark', values: {main: '#cc0000'}, sources: {main: 'default'}},
+    content: 'visible', fault: {requestedShell: 'standard', reason: '测试渲染失败'},
+  }
+  const report = getAppearance(ws, rendering)
+  assert.equal(report.current.theme.id, 'night')
+  assert.equal(report.current.theme.resolved.bg, '#07111f')
+  assert.deepEqual(report.current.rendering, rendering)
+  for (const requested of [{...rendering.requested, id: 'old'}, {...rendering.requested, skin: 'ios'}, {...rendering.requested, shell: 'win98'}]) {
+    assert.equal(getAppearance(ws, {...rendering, requested}).current.rendering, null)
+  }
+  assert.equal(getAppearance(ws, {...rendering, effective: {...rendering.effective, mode: 'light'}}).current.rendering, null)
+  assert.deepEqual(ws, before)
+})
+
 console.log(`外观恢复回归全部通过：${checks.length}/${checks.length}`)

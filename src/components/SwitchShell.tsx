@@ -3,7 +3,7 @@ import {Empty} from '@lobehub/ui'
 import {AppWindow, BatteryCharging, BatteryFull, BatteryLow, BatteryMedium, GameController, Gear, House, Monitor, SquaresFour, WifiHigh, WifiSlash} from '@phosphor-icons/react'
 import {useNow} from '../hooks'
 import {pageIcon} from '../lib/pageIcons'
-import type {GeneratedApplication, Page} from '../lib/workspace'
+import {type NavigationEntry, type ShellIntent} from '../lib/shell/navigation'
 import {ProfileAvatar} from './ProfileAvatar'
 import '../switch-shell.css'
 
@@ -50,38 +50,24 @@ function useConsoleStatus() {
 }
 
 /** 主屏只编排已有入口；封面与选中标题在同一滚动轨道，避免标题漂移。 */
-export function SwitchHome({name, avatarSeed, pages, applications, onPage, onApplication, onProfile, bindOpen}: {
+export function SwitchHome({name, avatarSeed, entries, dispatch, selectedKey, onSelect}: {
   name: string
   avatarSeed: string
-  pages: Page[]
-  applications: GeneratedApplication[]
-  onPage: (id: string) => void
-  onApplication: (id: string) => void
-  onProfile?: () => void
-  bindOpen: (open: () => void) => void
+  entries: readonly NavigationEntry[]
+  dispatch: (intent: ShellIntent) => void
+  selectedKey: string | null
+  onSelect: (key: string) => void
 }) {
-  const covers = [
-    ...pages.filter((page) => page.id !== 'home').map((page) => ({
-      id: page.id, name: page.label || page.name, icon: page.icon, kind: 'page' as const,
-    })),
-    ...applications.filter((item) => item.dock).map((item) => ({
-      id: item.id, name: item.instance.title || '应用', icon: undefined, kind: 'application' as const,
-    })),
-  ]
-  const [selectedKey, setSelectedKey] = useState<string | null>(null)
-  const keyOf = (cover: (typeof covers)[number]) => `${cover.kind}:${cover.id}`
+  const covers = entries.filter((entry) => !entry.home && entry.pinned && entry.target.kind !== 'system')
+  const keyOf = (cover: NavigationEntry) => cover.key
   const selectedIndex = Math.max(0, covers.findIndex((cover) => keyOf(cover) === selectedKey))
-  const selected = covers[selectedIndex]
   const coversRef = useRef<HTMLUListElement>(null)
   const gesture = useRef({x: 0, scroll: 0, active: false, dragged: false})
   const now = useNow(1000)
   const {online, battery} = useConsoleStatus()
   const BatteryIcon = battery?.charging ? BatteryCharging : (battery?.level ?? 0) > 70 ? BatteryFull : (battery?.level ?? 0) > 30 ? BatteryMedium : BatteryLow
-  const open = (cover: (typeof covers)[number]) => cover.kind === 'page' ? onPage(cover.id) : onApplication(cover.id)
+  const open = (cover: NavigationEntry) => dispatch({type: 'navigate', target: cover.target})
 
-  useEffect(() => {
-    bindOpen(() => { if (selected) open(selected) })
-  })
   useEffect(() => {
     const row = coversRef.current
     if (!row) return
@@ -104,7 +90,7 @@ export function SwitchHome({name, avatarSeed, pages, applications, onPage, onApp
       : event.key === 'Home' ? 0 : event.key === 'End' ? covers.length - 1 : null
     if (next !== null && covers[next]) {
       event.preventDefault()
-      setSelectedKey(keyOf(covers[next]))
+      onSelect(keyOf(covers[next]))
       coversRef.current?.querySelector<HTMLButtonElement>(`[data-index="${next}"]`)?.focus({preventScroll: true})
     } else if (event.key === 'ArrowDown') {
       event.preventDefault()
@@ -115,8 +101,7 @@ export function SwitchHome({name, avatarSeed, pages, applications, onPage, onApp
   return (
     <section className="switch-home" aria-label="主机主屏">
       <header className="switch-status">
-        {onProfile ? <button type="button" className="switch-avatar" aria-label={`${name || '朋友'}，个人设置`} onClick={onProfile}><ProfileAvatar seed={avatarSeed} /></button>
-          : <span className="switch-avatar" role="img" aria-label={name || '朋友'}><ProfileAvatar seed={avatarSeed} /></span>}
+        {<button type="button" className="switch-avatar" aria-label={`${name || '朋友'}，个人设置`} onClick={() => dispatch({type: 'navigate', target: {kind: 'system', name: 'settings', section: 'profile'}})}><ProfileAvatar seed={avatarSeed} /></button>}
         <div className="switch-status-side">
           <time className="switch-clock" dateTime={now.toISOString()}>{now.toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'})}</time>
           <span className="switch-network" role="img" aria-label={online ? '网络状态：在线' : '网络状态：离线'}>
@@ -147,7 +132,7 @@ export function SwitchHome({name, avatarSeed, pages, applications, onPage, onApp
             onPointerLeave={() => { gesture.current.active = false }}
           >
             {covers.map((cover, index) => {
-              const Icon = cover.kind === 'page' ? pageIcon(cover.icon) : AppWindow
+              const Icon = cover.icon.kind === 'page' ? pageIcon(cover.icon.name) : AppWindow
               const selected = index === selectedIndex
               return (
                 <li className="switch-cover-cell" key={keyOf(cover)}>
@@ -157,18 +142,18 @@ export function SwitchHome({name, avatarSeed, pages, applications, onPage, onApp
                     data-index={index}
                     data-on={selected || undefined}
                     aria-current={selected || undefined}
-                    aria-label={`${cover.name}${selected ? '，打开' : '，选择'}`}
+                    aria-label={`${cover.label}${selected ? '，打开' : '，选择'}`}
                     tabIndex={selected ? 0 : -1}
                     onClick={() => {
                       if (gesture.current.dragged) { gesture.current.dragged = false; return }
                       if (selected) open(cover)
-                      else setSelectedKey(keyOf(cover))
+                      else onSelect(keyOf(cover))
                     }}
                   >
-                    <span className="switch-title" aria-hidden="true">{cover.name}</span>
-                    <span className="switch-cover-art" data-tone={tone(cover.id)}>
+                    <span className="switch-title" aria-hidden="true">{cover.label}</span>
+                    <span className="switch-cover-art" data-tone={tone(cover.key)}>
                       <Icon className="switch-cover-icon" weight="fill" aria-hidden="true" />
-                      <span className="switch-cover-label" aria-hidden="true">{cover.name}</span>
+                      <span className="switch-cover-label" aria-hidden="true">{cover.label}</span>
                     </span>
                   </button>
                 </li>
@@ -182,18 +167,20 @@ export function SwitchHome({name, avatarSeed, pages, applications, onPage, onApp
 }
 
 /** 主屏圆形菜单；进入内容后收成一条系统操作栏，给设置和内容留出空间。 */
-export function SwitchDock({view, board, monitorInstalled, onBoard, onAssistant, onMarket, onMonitor, onSettings, onStart}: {
+export function SwitchDock({view, board, entries, dispatch, onBoard, onStart}: {
   view: View
   board: boolean
-  monitorInstalled: boolean
+  entries: readonly NavigationEntry[]
+  dispatch: (intent: ShellIntent) => void
   onBoard: () => void
-  onAssistant: () => void
-  onMarket: () => void
-  onMonitor: () => void
-  onSettings: () => void
   onStart?: () => void
 }) {
-  const home = board && view === 'page'
+  const home = board
+  const monitorInstalled = entries.some((entry) => entry.key === 'system:monitor')
+  const onAssistant = () => dispatch({type: 'assistant', action: 'toggle-preferred'})
+  const onMarket = () => dispatch({type: 'navigate', target: {kind: 'system', name: 'market'}})
+  const onMonitor = () => dispatch({type: 'navigate', target: {kind: 'system', name: 'monitor'}})
+  const onSettings = () => dispatch({type: 'navigate', target: {kind: 'system', name: 'settings'}})
   const items = [
     ...(!home ? [{id: 'board', name: '主屏', icon: House, on: false, run: onBoard}] : []),
     {id: 'ai', name: '搭搭', icon: null, on: false, run: onAssistant},

@@ -1,5 +1,5 @@
 /* 内置内容页：整页阅读滚动，组件保留自身布局；所有颜色来自主机主题。 */
-:root[data-skin='switch'] .canvas > .page:has(.page-grid) {
+:root[data-skin='switch'] .canvas > .shell-content-stage > .page:has(.page-grid) {
   overflow-x: hidden !important;
   overflow-y: auto !important;
   scroll-padding-block: 24px 96px;

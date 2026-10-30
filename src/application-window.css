@@ -1,6 +1,6 @@
 .application-window-layer {
   position: absolute;
-  inset: 0;
+  inset: var(--shell-top, 0px) var(--shell-right, 0px) var(--shell-bottom, 0px) var(--shell-left, 0px);
   z-index: 80;
   overflow: hidden;
   pointer-events: none !important;

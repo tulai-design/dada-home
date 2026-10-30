@@ -54,7 +54,7 @@ try {
     await settle()
     const sample = await page.evaluate(({label, target}) => {
       const box = e => {const r = e.getBoundingClientRect(); return {top: r.top, bottom: r.bottom, left: r.left, right: r.right, width: r.width, height: r.height}}
-      const canvas = document.querySelector('.canvas'), root = document.querySelector('.canvas > .page'), dock = document.querySelector('.switch-dock')
+      const canvas = document.querySelector('.canvas'), root = document.querySelector('.canvas > .shell-content-stage > .page'), dock = document.querySelector('.switch-dock')
       const last = [...document.querySelectorAll(target)].at(-1), end = last && box(last), footer = box(dock)
       const panes = [...root.querySelectorAll('.page-pane:not(.hot-pane):not(.feeds-pane):not(.bookmarks-pane), .hot-board, .mark-group, .feed-card, .music-queue, .pomo-stats')].filter(e => getComputedStyle(e).backgroundColor !== 'rgba(0, 0, 0, 0)').map(e => ({...box(e), padding: getComputedStyle(e).paddingInlineStart}))
       const hit = last && document.elementFromPoint(end.left + Math.min(end.width / 2, 100), end.top + Math.min(end.height / 2, 12))

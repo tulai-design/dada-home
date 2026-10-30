@@ -1,19 +1,13 @@
-import {useEffect, useId, useRef, useState, type KeyboardEvent} from 'react'
+import {useEffect, useLayoutEffect, useId, useRef, useState, type KeyboardEvent} from 'react'
 import {AppWindow, ArrowSquareOut, CopySimple, Desktop, Gear, House, Minus, Monitor, Moon, Square, SquaresFour, Sun, X} from '@phosphor-icons/react'
 import {useNow} from '../hooks'
 import {pageIcon} from '../lib/pageIcons'
-import type {GeneratedApplication, Page} from '../lib/workspace'
+import type {NavigationEntry, ShellIntent} from '../lib/shell/navigation'
 import '../win98-shell.css'
 
 export type Win98NavigationProps = {
-  pages: Page[]
-  applications: GeneratedApplication[]
-  onPage: (id: string) => void
-  onApplication: (id: string) => void
-  onAssistant: () => void
-  onMarket: () => void
-  onSettings: () => void
-  onMonitor?: () => void
+  entries: readonly NavigationEntry[]
+  dispatch: (intent: ShellIntent) => void
 }
 
 type DesktopEntry = {
@@ -26,25 +20,15 @@ type DesktopEntry = {
 
 /** 桌面仅显示固定入口，开始菜单可访问所有真实页面和应用。 */
 function navigationEntries(props: Win98NavigationProps, desktop: boolean): DesktopEntry[] {
+  const icons = {settings: Gear, market: SquaresFour, monitor: Monitor}
   return [
-    ...props.pages.filter((page) => !desktop || page.id === 'home' || page.dock !== false).map((page) => ({
-      id: `page:${page.id}`,
-      label: page.id === 'home' ? '我的主页' : page.label || page.name,
-      icon: page.id === 'home' ? House : pageIcon(page.icon),
-      kind: 'page' as const,
-      run: () => props.onPage(page.id),
+    ...props.entries.filter((entry) => !desktop || entry.pinned).map((entry) => ({
+      id: entry.key, label: entry.target.kind === 'system' && entry.target.name === 'settings' ? '控制面板' : entry.label,
+      icon: entry.home ? House : entry.icon.kind === 'page' ? pageIcon(entry.icon.name) : entry.icon.kind === 'application' ? AppWindow : icons[entry.icon.name],
+      kind: entry.target.kind,
+      run: () => props.dispatch({type: 'navigate', target: entry.target}),
     })),
-    ...props.applications.filter((application) => !desktop || application.dock).map((application) => ({
-      id: `application:${application.id}`,
-      label: application.instance.title || '应用',
-      icon: AppWindow,
-      kind: 'application' as const,
-      run: () => props.onApplication(application.id),
-    })),
-    {id: 'assistant', label: '搭搭', icon: null, kind: 'system', run: props.onAssistant},
-    {id: 'market', label: '组件市场', icon: SquaresFour, kind: 'system', run: props.onMarket},
-    ...(props.onMonitor ? [{id: 'monitor', label: '服务监控', icon: Monitor, kind: 'system' as const, run: props.onMonitor}] : []),
-    {id: 'settings', label: '控制面板', icon: Gear, kind: 'system', run: props.onSettings},
+    {id: 'assistant', label: '搭搭', icon: null, kind: 'system' as const, run: () => props.dispatch({type: 'assistant', action: 'toggle-preferred'})},
   ]
 }
 
@@ -116,17 +100,18 @@ export function Win98Desktop(props: Win98NavigationProps) {
   )
 }
 
-export function Win98Taskbar({title, windowOpen, desktop, onRestore, onDesktop, mode, onTheme, assistantOpen, ...navigation}: Win98NavigationProps & {
+export function Win98Taskbar({title, activationRevision, windowOpen, desktop, onRestore, onDesktop, mode, assistantOpen, ...navigation}: Win98NavigationProps & {
   title: string
+  activationRevision: number
   windowOpen: boolean
   desktop: boolean
   onRestore: () => void
   onDesktop: () => void
   mode: 'light' | 'dark'
-  onTheme: () => void
   assistantOpen?: boolean
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
+  useLayoutEffect(() => {setMenuOpen(false)}, [activationRevision])
   const startRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const menuId = useId()
@@ -193,7 +178,7 @@ export function Win98Taskbar({title, windowOpen, desktop, onRestore, onDesktop, 
       )}
       <span className="win98-taskbar-divider" aria-hidden="true" />
       <button type="button" className="win98-task-quick" aria-label="显示桌面" title="显示桌面" onClick={onDesktop}><Desktop weight="duotone" aria-hidden="true" /></button>
-      <button type="button" className="win98-task-quick win98-assistant-quick" aria-label="搭搭助手" title="搭搭助手" aria-pressed={assistantOpen || false} onClick={navigation.onAssistant}><img src={`${import.meta.env.BASE_URL}brand/dada-logo.png`} alt="" draggable={false} /></button>
+      <button type="button" className="win98-task-quick win98-assistant-quick" aria-label="搭搭助手" title="搭搭助手" aria-pressed={assistantOpen || false} onClick={() => navigation.dispatch({type: 'assistant', action: 'toggle-preferred'})}><img src={`${import.meta.env.BASE_URL}brand/dada-logo.png`} alt="" draggable={false} /></button>
       <span className="win98-taskbar-divider" aria-hidden="true" />
       <div className="win98-task-list">
         {windowOpen && <button type="button" className="win98-task-current win98-raised" data-pressed={!desktop || undefined} aria-label={`${desktop ? '恢复' : '最小化'}${title}`} onClick={desktop ? onRestore : onDesktop}>
@@ -201,7 +186,7 @@ export function Win98Taskbar({title, windowOpen, desktop, onRestore, onDesktop, 
         </button>}
       </div>
       <div className="win98-tray">
-        <button type="button" className="win98-theme-toggle" aria-label={mode === 'dark' ? '切换到浅色' : '切换到深色'} title={mode === 'dark' ? '切换到浅色' : '切换到深色'} onClick={onTheme}>{mode === 'dark' ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}</button>
+        <button type="button" className="win98-theme-toggle" aria-label={mode === 'dark' ? '切换到浅色' : '切换到深色'} title={mode === 'dark' ? '切换到浅色' : '切换到深色'} onClick={() => navigation.dispatch({type: 'toggle-color-mode'})}>{mode === 'dark' ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}</button>
         <time dateTime={now.toISOString()} title={now.toLocaleDateString('zh-CN', {year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'})}>{now.toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit', hour12: false})}</time>
       </div>
     </nav>

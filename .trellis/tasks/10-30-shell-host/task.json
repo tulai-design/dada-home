@@ -3,7 +3,7 @@
   "name": "shell-host",
   "title": "稳定内容舞台与内置桌面外壳",
   "description": "将普通、Switch和Win98接入统一导航与稳定内容舞台，主题切换保留应用、输入和助手执行。",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -12,7 +12,7 @@
   "assignee": "ROYIANS",
   "createdAt": "2026-10-30",
   "completedAt": null,
-  "branch": null,
+  "branch": "main",
   "base_branch": "main",
   "worktree_path": null,
   "commit": null,
@@ -21,11 +21,11 @@
   "children": [],
   "parent": "10-30-theme-shell-architecture",
   "relatedFiles": [],
-  "notes": "2026-10-30已完成架构研究与设计提案，分层开放方向已确认；生产实施尚未启动。",
+  "notes": "稳定宿主与三外壳已验收；122项新浏览器矩阵、定向审批/检查/后台删除、既有主题与真实MV3回归通过。Standards/Spec问题均修复复审，tsc/test/build通过。",
   "meta": {
     "blocked_by": [
       "theme-identity"
     ],
-    "design_status": "proposed"
+    "design_status": "accepted"
   }
 }

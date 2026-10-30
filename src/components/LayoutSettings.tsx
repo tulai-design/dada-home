@@ -7,10 +7,11 @@ import { DEFAULT_DOCK_PRESET, DOCK_PRESETS, visibleDock } from '../lib/dock'
 import { listStatusTypes, movePage, removePage, renamePage, setDock, setStatusbar } from '../lib/ops'
 import { PAGE_ICONS, PAGE_ICON_LABELS, pageIcon } from '../lib/pageIcons'
 import { getDefinition, type ConfigField } from '../lib/registry'
-import { activeTheme, FROZEN_PAGE_ID, MAX_STATUS_ITEMS, type Page } from '../lib/workspace'
+import { FROZEN_PAGE_ID, MAX_STATUS_ITEMS, type Page } from '../lib/workspace'
 import { Group, Row, TextRow } from './ios'
 import {ArrowCounterClockwise as RotateCcw} from '@phosphor-icons/react'
 import {configureApplication, listApplications} from '../lib/applications'
+import {useShellPresentation} from './shell'
 
 /* ---------------- 侧栏 ---------------- */
 
@@ -75,14 +76,14 @@ export function SidebarSettings() {
   const editingPage = editingIndex >= 0 ? pages[editingIndex] : null
 
   const dock = workspace.dock
-  const theme = activeTheme(workspace)
-  const ios = theme.skin === 'ios'
-  const pixel = theme.skin === 'pixel'
-  const win98 = theme.shell === 'win98'
+  const {capabilities, activeSkin} = useShellPresentation()
+  const ios = activeSkin === 'ios'
+  const pixel = activeSkin === 'pixel'
+  const taskbar = capabilities.navigation === 'taskbar'
   const shown = visibleDock(dock, ios, pixel)?.preset ?? DEFAULT_DOCK_PRESET
   return (
     <>
-      {win98 ? <Group title="桌面与任务栏" footer="页面和应用从桌面图标或开始菜单打开，任务栏可以恢复当前窗口。切换其他主题后仍保留原来的侧栏设置。"><Row label="Windows 98" hint="经典桌面、开始菜单与任务栏" /></Group> : <Group
+      {taskbar ? <Group title="桌面与任务栏" footer="页面和应用从桌面图标或开始菜单打开，任务栏可以恢复当前窗口。切换其他主题后仍保留原来的侧栏设置。"><Row label="桌面导航" hint="桌面入口与任务栏由当前外壳提供" /></Group> : <Group
         title="样式"
         footer={
           dock?.css
@@ -117,7 +118,7 @@ export function SidebarSettings() {
 
       <Group
         title={`页面 · ${pages.length} 个`}
-        footer={win98 ? '桌面与开始菜单按这里的页面顺序排列。想新增或整理页面，也可以直接让搭搭来。' : '按这里的顺序排，侧栏放不下的会自动收进「更多」，当前页面始终可见。想新增或整理页面，也可以直接让搭搭来。'}
+        footer={taskbar ? '桌面与开始菜单按这里的页面顺序排列。想新增或整理页面，也可以直接让搭搭来。' : '按这里的顺序排，侧栏放不下的会自动收进「更多」，当前页面始终可见。想新增或整理页面，也可以直接让搭搭来。'}
       >
         <Row label="首页" hint="固定在最前面" icon={<Lock size={15} />}>
           <Text type="secondary">固定</Text>

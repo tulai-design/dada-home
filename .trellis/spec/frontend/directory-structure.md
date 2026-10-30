@@ -5,6 +5,8 @@
 | [src/main.tsx](../../../src/main.tsx) | 样式、Lobe Provider、存储初始化、PWA 注册与开发工具入口 |
 | [src/App.tsx](../../../src/App.tsx) | 页面、助手与全局宿主协调 |
 | [src/components/](../../../src/components/) | 页面容器、应用窗口、设置、市场和助手 UI |
+| [src/components/shell/](../../../src/components/shell/) | 固定外壳宿主、可信 Adapter、呈现合同与错误回退 |
+| [src/lib/shell/](../../../src/lib/shell/) / [useNavigation](../../../src/lib/useNavigation.ts) | 单一导航投影、目标校验与宿主导航执行 |
 | [src/widgets/](../../../src/widgets/) | 通过注册协议接入页面的内置组件 |
 | [src/lib/registry.ts](../../../src/lib/registry.ts) | 组件定义、配置 schema、规整入口 |
 | [src/lib/](../../../src/lib/) | 工作空间纯操作、持久化、主题、AI、业务工具 |

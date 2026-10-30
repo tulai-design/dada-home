@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useIsMobile } from '../lib/useMedia'
-import { Alert, Button, Drawer, Empty, Flexbox, Markdown, Tag } from '@lobehub/ui'
+import { Alert, Button, Empty, Flexbox, Markdown, Tag } from '@lobehub/ui'
 import {Check, Copy, ArrowSquareOut as ExternalLink, ChatText as MessageSquareText, Gear as Settings, Sparkle as Sparkles} from '@phosphor-icons/react'
 import type { Article } from '../lib/types'
 import { sanitizeHtml } from '../lib/rss'
@@ -9,8 +8,11 @@ import { relativeTime } from '../lib/date'
 import { streamText, type ChatMessage } from '../lib/ai'
 import type { AiConfig } from '../lib/types'
 import {articleContext, summaryUnavailableReason} from '../lib/articleContext'
+import {AttachedDrawer} from './AttachedDrawer'
 
 type Props = {
+  hidden?: boolean
+  navigationRevision?: number
   article: Article | null
   ai: AiConfig
   onClose: () => void
@@ -20,7 +22,7 @@ type Props = {
   overlayContainer?: HTMLElement | null
 }
 
-export function Reader({ article, ai, onClose, onMarkRead, onAskAi, onOpenSettings, overlayContainer }: Props) {
+export function Reader({ article, ai, onClose, onMarkRead, onAskAi, onOpenSettings, overlayContainer, hidden = false, navigationRevision }: Props) {
   const mobile = useIsMobile()
   const [summary, setSummary] = useState('')
   const [summarizing, setSummarizing] = useState(false)
@@ -49,7 +51,7 @@ export function Reader({ article, ai, onClose, onMarkRead, onAskAi, onOpenSettin
     }
   }, [article?.id])
 
-  if (!article) return null
+  if (!article || !overlayContainer) return null
 
   const aiConfigured = Boolean(ai.baseUrl.trim() && ai.model.trim())
 
@@ -100,9 +102,7 @@ export function Reader({ article, ai, onClose, onMarkRead, onAskAi, onOpenSettin
   }
 
   return (
-    <>
-    {overlayContainer && createPortal(<div className="canvas-overlay-shade" aria-hidden="true"/>, overlayContainer)}
-    <Drawer getContainer={overlayContainer} mask={!overlayContainer} maskClosable={!overlayContainer} classNames={{popup: overlayContainer ? 'canvas-overlay-drawer' : undefined}} open width={mobile ? '100%' : 780} title={article.source} onClose={onClose}>
+    <AttachedDrawer container={overlayContainer} hidden={hidden} navigationRevision={navigationRevision} width={mobile ? '100%' : 780} title={article.source} onClose={onClose}>
       <Flexbox direction="vertical" gap={12} className="reader">
         <Tag>{relativeTime(article.date)}</Tag>
         <h1>{article.title}</h1>
@@ -143,7 +143,6 @@ export function Reader({ article, ai, onClose, onMarkRead, onAskAi, onOpenSettin
           <Empty title="这篇文章没有提供正文" />
         )}
       </Flexbox>
-    </Drawer>
-    </>
+    </AttachedDrawer>
   )
 }

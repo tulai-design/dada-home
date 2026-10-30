@@ -15,6 +15,7 @@ try {
   page.setDefaultTimeout(7000)
   page.on('pageerror', error => errors.push(error.message))
   await page.goto(base + '/', {waitUntil: 'domcontentloaded'})
+  await page.locator('.app').waitFor({state: 'attached'})
   await page.waitForFunction(() => window.__tada?.workspace())
   const settle = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
   const snapshot = async name => {
@@ -170,13 +171,13 @@ try {
   assert.equal(await covers.nth(1).evaluate(e => e === document.activeElement), true, '方向键同步键盘焦点')
   await page.keyboard.press('Enter')
   await home.waitFor({state: 'hidden'})
-  assert.equal(await page.locator('.canvas > .page').getAttribute('data-page-id'), pageIds[1], 'Enter 打开当前封面')
+  assert.equal(await page.locator('.canvas > .shell-content-stage > .page').getAttribute('data-page-id'), pageIds[1], 'Enter 打开当前封面')
   await board()
   await covers.nth(1).click()
   assert.equal(await home.count(), 1, '首次点击未选封面只选中')
   await covers.nth(1).click()
   await home.waitFor({state: 'hidden'})
-  assert.equal(await page.locator('.canvas > .page').getAttribute('data-page-id'), pageIds[1], '再次点击打开对应页面')
+  assert.equal(await page.locator('.canvas > .shell-content-stage > .page').getAttribute('data-page-id'), pageIds[1], '再次点击打开对应页面')
   await board()
 
   for (const viewport of [{width: 320, height: 720}, {width: 390, height: 844}, {width: 1280, height: 720}, {width: 1440, height: 900}, {width: 844, height: 390}]) {

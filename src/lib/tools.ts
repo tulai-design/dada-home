@@ -38,6 +38,8 @@ import type {HomepageDraftInspectionRequest, HomepageDraftInspectionReport} from
  */
 
 export type ToolHost = {
+  /** 宿主已提交的有效外观，包含外壳故障回落；离线领域查询不伪造运行结果。 */
+  getRenderedAppearance?: () => import('./appearance').RenderedAppearance | null
   /** 跳到某个页面（只影响当前视图，不改数据）。 */
   openPage: (pageId: string) => void
   /** 打开设置页的某一项（不改数据）。 */
@@ -211,10 +213,10 @@ export const HOME_TOOLS = [
     {
       name: 'get_appearance',
       title: '查看完整外观',
-      description: '读取系统默认外观、当前外观及差异：主题两套配色与字体、首页默认背景、Dock、每页壁纸与图层、页面 CSS 和组件外观。embeddedVisuals 列出独立特效组件和自编应用，它们的内容可能影响视觉，还原外观时会保留，需单独查看配置或源码。用户问默认长什么样、为什么还原后仍有背景或要恢复默认外观时先看这个；以返回的默认资料为准，不猜测。只读，不修改页面。',
+      description: '读取系统默认外观、当前外观及差异：主题两套配色与字体、首页默认背景、Dock、每页壁纸与图层、页面 CSS 和组件外观。embeddedVisuals 列出独立特效组件和自编应用，它们的内容可能影响视觉，还原外观时会保留，需单独查看配置或源码。用户问默认长什么样、为什么还原后仍有背景或要恢复默认外观时先看这个；以返回的默认资料为准，不猜测。只读，不修改页面。current.theme 是保存的请求设计；current.rendering 仅在可信宿主已挂载时报告有效 skin/shell/变量、可见性和故障回落，null 表示未取得匹配的运行快照，不能当成已生效。',
       effect: 'read',
       highRisk: () => false,
-      execute: async () => JSON.stringify(getAppearance(getWorkspace()), null, 2),
+      execute: async (_args, context) => JSON.stringify(getAppearance(getWorkspace(), context?.getRenderedAppearance?.()), null, 2),
     },
   ),
 

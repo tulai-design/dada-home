@@ -25,7 +25,7 @@ import {MemorySettings, ProfileForm, SoulSettings} from './PersonaSettings'
 import {usePersona} from '../lib/persona'
 import {ApplicationSettings} from './ApplicationSettings'
 import type {AssistantMode} from '../lib/assistantLayout'
-import {activeTheme} from '../lib/workspace'
+import {useShellPresentation} from './shell'
 import {ProfileAvatar} from './ProfileAvatar'
 import {ExtensionSettings} from './ExtensionSettings'
 import {isExtension} from '../lib/platform'
@@ -68,7 +68,8 @@ async function exportBackup() {
 export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest, onSection, onReset, generating = false}: Props) {
   const {settings, patch} = ctx
   const mobile = useIsMobile()
-  const consoleTheme = activeTheme(ctx.workspace).shell === 'switch'
+  const {capabilities} = useShellPresentation()
+  const wideHeader = capabilities.settings.header === 'wide'
   const persona = usePersona()
   const syncStatus = useSyncStatus()
   // 手机上一次只显示一栏：直接点进设置先看列表；从别处跳来指定某一项时直接显示那一项
@@ -117,7 +118,7 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest,
       render: () => (
         <>
           <Group footer="用在首页的问候语里，也是搭搭称呼你的方式。">
-            {consoleTheme && <Row label="头像">
+            {capabilities.settings.avatar && <Row label="头像">
               <span className="console-avatar-preview"><ProfileAvatar seed={settings.avatarSeed || settings.name} size={40} /></span>
               <Button size="small" onClick={() => patch({avatarSeed: uid()})}>换一个</Button>
             </Row>}
@@ -308,6 +309,7 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest,
   const all = [...general, ...system, ...apps]
   const resolved = section === 'storage' ? 'data' : section
   const current = all.find((item) => item.id === resolved) ?? general[0]
+  useEffect(() => {if (current.id !== section) onSection(current.id)}, [current.id, section, onSection])
   const indexes = [
     {title: '画像', ids: ['profile', 'soul', 'memory']},
     {title: '版面', ids: ['appearance', 'templates', 'sidebar', 'statusbar']},
@@ -337,9 +339,9 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest,
   return (
     <AppSettingsCtx.Provider value={ctx}>
       <div className="settings-page" data-pane={pane}>
-        {consoleTheme && <header className="console-settings-header"><Gear size={28} aria-hidden="true" /><h1>设置</h1></header>}
+        {wideHeader && <header className="console-settings-header"><Gear size={28} aria-hidden="true" /><h1>设置</h1></header>}
         <aside className="ios-side">
-          {!consoleTheme && <h1 className="ios-large"><Gear className="settings-console-mark" size={20} weight="fill" aria-hidden="true" />设置</h1>}
+          {!wideHeader && <h1 className="ios-large"><Gear className="settings-console-mark" size={20} weight="fill" aria-hidden="true" />设置</h1>}
           <nav aria-label="设置分类">
             {indexes.map((index) => (
               <div key={index.title} className="settings-index">
