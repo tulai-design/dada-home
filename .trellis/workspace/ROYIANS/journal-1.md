@@ -783,3 +783,38 @@
 ### Next Steps
 
 - 用户可开发者模式加载dist-extension或下载ZIP解压；未推送部署；Edge与原生来源批准弹窗待人工体验
+
+
+## Session 23: 归档已完成开发任务并更新过时文档
+<!-- trellis-session: v=2 fp=e51a53e52127d6f1 -->
+
+**Date**: 2026-10-30
+**Task**: 归档已完成开发任务并更新过时文档
+**Branch**: `main`
+
+### Summary
+
+按用户确认开发完成归档AI搭建和可选自建增量同步，后续验收由用户负责。
+
+### Main Changes
+
+- 两个父任务归档，保留原验收证据和未执行检查状态；存储同步父任务5/6，容量管理继续
+- 修正产品地图、质量规范、里程碑、ADR和任务中的过时进度，修复归档链接
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ca36056` | docs(trellis): 按开发完成归档搭建与增量同步任务 |
+
+### Testing
+
+- [OK] 16份Markdown本地链接、两个归档任务及存储父任务上下文校验、git diff --check通过；仅文档未重跑运行时测试
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 存储容量与同步范围管理、像素主题任务仍开放；未来bug另行跟踪
