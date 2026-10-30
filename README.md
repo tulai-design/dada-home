@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="public/brand/dada-ip.webp" width="104" alt="搭搭 IP 形象" />
+  <a href="docs/images/readme/brand-banner.webp"><img src="docs/images/readme/brand-banner.webp" width="900" alt="搭搭把书本、灵感与玻璃积木搭成自己的小世界" /></a>
   <h1>搭搭</h1>
   <p><strong>陪你把想法，搭成自己的主页。</strong></p>
   <p>AI 搭建 · 个人工作台 · 可生长的小应用</p>
@@ -15,13 +15,13 @@
   </p>
 </div>
 
-<p align="center"><a href="docs/images/readme/hero.png"><img src="docs/images/readme/hero.png" width="900" alt="搭搭 iOS 主题工作空间：把常用信息和小工具放在自己的主页里" /></a></p>
-
 **搭搭是一个本地优先、可以自己部署的 AI 个人主页搭建助手。** 你可以像整理桌面一样安排页面、订阅和小工具，也可以直接告诉它：“给我做一个安静的阅读主页”“做一个能记住记录的开销工具”。搭搭会利用已注册的组件、主题和工具，把这些想法变成可继续修改的工作空间。
 
 从一个简洁的新标签页开始，逐渐长成你的阅读角、日常工作台，甚至一组专属应用。配置和数据保存在自己的浏览器，模型、搜索和同步服务由自己选择；不配置 AI，也能手动搭建和使用本地功能。
 
-> 本文图片来自真实应用界面，使用独立环境中的演示配置与合成数据。AI 对话和应用示例用于展示交互形态，不代表某个在线模型或外部服务的实时结果。
+> 首屏品牌插画由用户借助 AI 创作并提供；其余产品截图来自真实应用界面，使用独立环境中的演示配置与合成数据。AI 对话和应用示例用于展示交互形态，不代表某个在线模型或外部服务的实时结果。
+
+<p align="center"><a href="docs/images/readme/hero.png"><img src="docs/images/readme/hero.png" width="900" alt="搭搭 iOS 主题工作空间：把常用信息和小工具放在自己的主页里" /></a></p>
 
 ## 看看搭搭能做什么
 
