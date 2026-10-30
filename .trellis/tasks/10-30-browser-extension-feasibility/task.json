@@ -1,0 +1,30 @@
+{
+  "id": "browser-extension-feasibility",
+  "name": "browser-extension-feasibility",
+  "title": "浏览器扩展产品形态与技术可行性调研",
+  "description": "核对现有书签桥、网页启动、存储、取数和 AI 应用执行边界，结合 Manifest V3 与商店政策评估新标签页、侧边栏及部署路线；仅调研，不实现扩展。",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "ROYIANS",
+  "assignee": "ROYIANS",
+  "createdAt": "2026-10-30",
+  "completedAt": "2026-10-30",
+  "branch": "main",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "docs/work/research/2026-10-30-browser-extension-feasibility.md",
+    "docs/README.md",
+    "docs/work/README.md"
+  ],
+  "notes": "完成源码与官方政策调研及平台专项复核。新标签页可行，生成应用与跨实例一致性需原型验证；未修改运行时代码，未上架。",
+  "meta": {}
+}

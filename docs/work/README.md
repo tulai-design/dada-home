@@ -4,6 +4,7 @@
 
 ## 当前记录
 
+- [2026-10-30：浏览器扩展可行性](research/2026-10-30-browser-extension-feasibility.md)：新标签页、侧边栏和网站桥接路线比较，以及 CSP、AI 应用、多页面存储和发布边界。
 - [2026-10-29：架构与扩展性评估](research/2026-10-29-architecture-extensibility-audit.md)：主题、Agent、应用和存储的源码证据、扩展成本与建议顺序。
 - [2026-10-29：内置组件主题适配检查](research/2026-10-29-builtin-theme-audit.md)：主机内容页与横向专注，以及其他主题移动端遮挡、溢出的修复和回归入口。
 - [2026-10-28：存储与可持续同步](milestones/2026-10-28-storage-sync.md)：源码审查、供应商边界和已拆分的实施任务。

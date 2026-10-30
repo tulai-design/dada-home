@@ -17,6 +17,7 @@
 
 ## 当前入口
 
+- [浏览器扩展可行性调研](work/research/2026-10-30-browser-extension-feasibility.md)：现有书签桥与完整新标签页的区别、MV3 约束、AI 应用边界及推荐验证阶段，尚未实施。
 - [架构与扩展性评估](work/research/2026-10-29-architecture-extensibility-audit.md)：主题、Agent、应用和存储的当前判断与演进建议，未作为已接受设计。
 - [运行时现状契约](specs/runtime-contract.md)：工作空间编辑、应用设置、形态、主题与生命周期。
 - [AI 页面生成质量目标](specs/ai-page-design-quality.md)：已接受的改进方向；未完成能力不能宣称已交付。
