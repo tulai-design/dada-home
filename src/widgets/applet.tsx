@@ -5,6 +5,7 @@ import {useDark} from '../fx/Fx'
 import {buildRunnerDoc} from '../lib/applet/runner'
 import {UiTree, useContainerWidth, type UiNode} from '../lib/applet/render'
 import {loadApplicationData, replaceApplicationData} from '../lib/applicationData'
+import {sandboxFrameProps} from '../lib/extensionSandbox'
 import {usePersistenceStatus} from '../lib/persistence'
 import {registerComponent, type ComponentHost, type ComponentProps} from '../lib/registry'
 import {bridgeFetch, copyText} from './app'
@@ -193,7 +194,7 @@ function Applet({instance, config, host}: ComponentProps<AppletConfig>) {
   return (
     <Flexbox ref={container} className="page-pane applet" gap={12} style={{minWidth: 0, maxWidth: '100%'}}>
       {/* 逻辑沙盒：看不见，只跑脚本 */}
-      <iframe ref={frame} title={`${instance.title || '小程序'}（逻辑）`} className="applet-runner" sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={srcdoc} aria-hidden tabIndex={-1} />
+      <iframe key={runtime.session} ref={frame} title={`${instance.title || '小程序'}（逻辑）`} className="applet-runner" sandbox="allow-scripts" referrerPolicy="no-referrer" {...sandboxFrameProps(srcdoc, runtime.session)} aria-hidden tabIndex={-1} />
 
       {error && (
         <Flexbox className="applet-error" gap={8} role="alert">

@@ -40,6 +40,7 @@ PATH="/Users/xiaomengdao/.nvm/versions/node/v24.11.0/bin:$PATH" /Users/xiaomengd
 | 长页与移动Dock可访问性 | [test-page-mobile-scroll-browser.mjs](../../../scripts/test-page-mobile-scroll-browser.mjs)，独立浏览器上下文加载真实App |
 | 首页组合与布局草稿 | [test-homepage-draft.mjs](../../../scripts/test-homepage-draft.mjs)、[test-homepage-draft-tools.mjs](../../../scripts/test-homepage-draft-tools.mjs)；隔离预览入口 [homepage-draft-regressions.html](../../../tests/homepage-draft-regressions.html) 与 [浏览器脚本](../../../scripts/test-homepage-draft-browser.mjs) |
 | 取数代理 | [proxy.test.mjs](../../../server/proxy.test.mjs) |
+| 完整浏览器扩展 | `test-extension-platform.mjs`、`test-extension-background.mjs`、`test-extension-workspace.mjs`、`test-extension-close-guard.mjs`、`test-extension-sandbox.mjs`；真实 MV3 与 Web 回归为 `test-extension-browser.mjs`，隔离应用与 3D 分别为 `test-extension-sandbox-browser.mjs`、`test-extension-spline-browser.mjs`；重定向和通知为 `test-extension-network-browser.mjs`、`test-extension-notification-browser.mjs` |
 
 新增测试优先观察公开工具/操作结果和运行时消息合同，不把提示词全文快照或实现字符串复述当作行为验证。纯文档或低影响措辞调整使用链接/一致性检查，不为它们制造脆弱测试。
 
@@ -52,5 +53,7 @@ PATH="/Users/xiaomengdao/.nvm/versions/node/v24.11.0/bin:$PATH" /Users/xiaomengd
 当前应用内 AI 可用 `inspect_page` 获取当前挂载页的有限 DOM 测量，但没有截图反馈。真实几何检查仍不能判断 iframe/Canvas 内部、对比度或审美。配置正确、打开应用、脚本通过，都不能等同于视觉验收。未执行的检查如实写为未执行。
 
 检查器回归需包含真实溢出→定位→修复→复查，以及合法局部滚动不误报、隐藏/未挂载页不可测和私密输入不进入报告。浏览器脚本通过调用方提供的 `DADA_PLAYWRIGHT_PATH` 使用测试工具，不增加生产依赖。
+
+扩展验收使用独立临时配置加载构建包；联网成功可用合成服务与临时预授权副本，但不能把它表述为原生权限弹窗已确认。主入口延后导入 App 时，网页 PWA 预缓存也须覆盖启动所需静态依赖，并通过关闭在线页后新开离线页验证；不以已有页面刷新代替首次离线启动。
 
 判断裁切时，`overflow:auto/scroll` 不是内容可访问的证明；滚动容器本身可能被外层 `hidden/clip` 截断。也不能把祖先容器的整个盒子当作组件范围，否则空白被裁会误归给可见组件。按根到组件的祖先链累计可访问区间，只有实际滚动范围和当前偏移可以扩展可达范围。保留“小组件完全可见不报错、长组件不可达要报告、局部滚动及滚动后不误报”的成对真实 DOM 回归。

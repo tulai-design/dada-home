@@ -20,6 +20,7 @@ globalThis.fetch = async (url, init) => {
 
 let controllerFactory = () => {throw new Error('unused')}
 let persistenceErrors = []
+let prepareRequest = () => undefined
 const modules = new Map()
 function load(path) {
   if (modules.has(path)) return modules.get(path)
@@ -30,7 +31,10 @@ function load(path) {
     if (id === '@tulai-design/sync-sdk/crypto') return encryption
     if (id === 'react') return {useSyncExternalStore: (_subscribe, snapshot) => snapshot()}
     if (id === './incrementalSync') return {createIncrementalSyncController: options => controllerFactory(options)}
-    if (id === './incrementalStore') return {incrementalStore: {}}
+    if (id === './incrementalStore') return {incrementalStore: {active: async () => ({epoch: 'test'})}}
+    if (id === './platform') return {prepareExtensionRequest: (...args) => prepareRequest(...args)}
+    if (id === './incrementalClient') return load('src/lib/incrementalClient.ts')
+    if (id === './syncKey') return load('src/lib/syncKey.ts')
     if (id === './persistence') return {getPersistenceStatus: () => ({errors: persistenceErrors})}
     if (id === './incrementalRows') return {SYNC_COLLECTIONS: ['config', 'component', 'applicationData', 'conversation', 'turn']}
     throw new Error('Unknown test import ' + id)
@@ -162,6 +166,87 @@ await test('解决冲突提交后落盘失败也向设置页保留重新加载�
   await assert.rejects(client.resolveConflict({ref: {collection: 'config', key: 'search'}, version: {localGeneration: 1, remoteRevision: 2}}, 'remote'), /localStorage full/)
   assert.equal(client.useIncrementalStatus().needsReload, true)
   persistenceErrors = []
+})
+
+await test('等待扩展授权期间不启动 SDK 请求或网络超时，批准后再请求', async () => {
+  const config = client.readIncrementalConfig()
+  const originalFetch = globalThis.fetch, originalTimeout = globalThis.setTimeout
+  let release, network = 0, timeouts = 0
+  prepareRequest = endpoint => {
+    assert.equal(endpoint, config.endpoint)
+    return new Promise(resolve => {release = resolve})
+  }
+  globalThis.fetch = async () => {
+    network++
+    return new Response(JSON.stringify({protocolVersion: 1, commits: [], cursor: 'c', hasMore: false}), {headers: {'content-type': 'application/json'}})
+  }
+  globalThis.setTimeout = (work, delay, ...args) => {
+    if (delay === 15000) timeouts++
+    return originalTimeout(work, delay, ...args)
+  }
+  try {
+    const pending = client.serverHasData(config)
+    await Promise.resolve(); await Promise.resolve()
+    assert.equal(network, 0); assert.equal(timeouts, 0)
+    release()
+    assert.equal(await pending, false)
+    assert.equal(network, 1); assert.ok(timeouts > 0)
+  } finally {
+    globalThis.fetch = originalFetch; globalThis.setTimeout = originalTimeout
+    prepareRequest = () => undefined
+  }
+})
+
+await test('拒绝授权阻止联网并收尾同步控制器，纯本地冲突与绑定不申请授权', async () => {
+  const config = client.readIncrementalConfig(), before = calls.length
+  let requests = 0, runs = 0, closed = 0
+  prepareRequest = async () => {requests++; throw new Error('permission denied')}
+  controllerFactory = () => ({
+    async bind() {}, async inspect() {return {records: []}}, async resolve() {return {needsReload: false}},
+    async run() {runs++; throw new Error('unexpected network')}, close() {closed++},
+  })
+  try {
+    await assert.rejects(client.preflight(config), /permission denied/)
+    await assert.rejects(client.serverHasData(config), /permission denied/)
+    await assert.rejects(client.listDevices(config), /permission denied/)
+    await assert.rejects(client.revokeDevice('phone-1', config), /permission denied/)
+    await assert.rejects(client.createInvite('long enough pass', 'phone-1', null, config), /permission denied/)
+    const result = await client.runIncremental()
+    assert.equal(result.phase, 'error'); assert.match(result.message, /permission denied/)
+    assert.equal(runs, 0); assert.equal(closed, 1)
+    const beforeLocal = requests
+    await client.bindIncremental(config)
+    await client.listConflicts(config)
+    await client.resolveConflict({ref: {collection: 'config', key: 'search'}, version: {localGeneration: 1, remoteRevision: 2}}, 'local')
+    assert.equal(requests, beforeLocal)
+    assert.equal(calls.length, before)
+  } finally {prepareRequest = () => undefined}
+})
+
+await test('同步服务等待授权后才执行，拒绝会关闭控制器，本地冲突不触发授权', async () => {
+  const service = load('src/lib/syncService.ts'), keys = load('src/lib/syncKey.ts')
+  const key = keys.encodeSyncKey(client.readIncrementalConfig())
+  let release, runs = 0, closed = 0, permissions = 0
+  prepareRequest = () => {permissions++; return new Promise(resolve => {release = resolve})}
+  controllerFactory = () => ({
+    async bind() {}, async inspect() {return {records: []}}, async resolve() {return {needsReload: false}},
+    async run() {runs++; return {pushed: 0, pulled: 0, conflicts: 0, hasMore: false, needsReload: false}}, close() {closed++},
+  })
+  try {
+    const pending = service.runServiceSync(key, 'push')
+    while (!release) await Promise.resolve()
+    assert.equal(runs, 0)
+    release(); assert.equal((await pending).hasMore, false)
+    assert.equal(runs, 1); assert.equal(closed, 1)
+    prepareRequest = async () => {permissions++; throw new Error('permission denied')}
+    await assert.rejects(service.testServiceConnection(key), /permission denied/)
+    await assert.rejects(service.runServiceSync(key, 'push'), /permission denied/)
+    assert.equal(runs, 1); assert.equal(closed, 2)
+    const beforeLocal = permissions
+    await service.serviceConflicts(key)
+    await service.resolveService(key, {collection: 'config', key: 'search'}, {localGeneration: 1, remoteRevision: 2}, 'local')
+    assert.equal(permissions, beforeLocal)
+  } finally {prepareRequest = () => undefined}
 })
 
 console.log(`共 ${passed} 项通过`)

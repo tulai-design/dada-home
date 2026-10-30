@@ -8,6 +8,7 @@
  */
 
 import {lazy, type ComponentType, type CSSProperties, type LazyExoticComponent, type ReactNode} from 'react'
+import {isExtension} from '../lib/platform'
 
 export type FxViewProps = {
   /** 文字内容（文字/卡片/轮播类使用） */
@@ -165,7 +166,7 @@ const VIEWS: Record<string, () => LazyExoticComponent<ComponentType<FxViewProps>
 
   // ───── 3D：地址在目录里已限定为 spline.design 官方域 ─────
   spline: view(
-    () => import('@splinetool/react-spline'),
+    () => isExtension() ? import('./ExtensionSpline') : import('@splinetool/react-spline'),
     (C, {p}) => <C scene={String(p.scene ?? '')} style={{width: '100%', height: '100%'}} />,
   ),
 

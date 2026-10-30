@@ -5,6 +5,8 @@ import {useDark} from '../fx/Fx'
 import {checkUrl} from '../lib/customWidget'
 import {proxied} from '../lib/rss'
 import {loadApplicationData, setApplicationValue} from '../lib/applicationData'
+import {sandboxFrameProps} from '../lib/extensionSandbox'
+import {prepareExtensionRequest} from '../lib/platform'
 import {registerComponent, type ComponentHost, type ComponentProps} from '../lib/registry'
 
 /**
@@ -178,13 +180,16 @@ export async function bridgeFetch(url: string, host: ComponentHost): Promise<{ok
     const approved = await host.requestNetworkGrant(check.host)
     if (!approved) throw new Error(`未允许访问 ${check.host}，请求已取消`)
   }
+  const target = proxied(check.url, host.proxy)
+  const preparing = prepareExtensionRequest(target)
+  if (preparing) await preparing
   // 授权等待与实际请求分开计时，读取响应体也受 15 秒限制。
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 15_000)
   let res: Response
   let text: string
   try {
-    res = await fetch(proxied(check.url, host.proxy), {signal: controller.signal})
+    res = await fetch(target, {signal: controller.signal})
     text = (await res.text()).slice(0, 1_000_000)
   } catch (cause) {
     if (controller.signal.aborted) throw new Error('请求超时（15 秒），请稍后重试')
@@ -340,13 +345,13 @@ function AppBlock({instance, config, host}: ComponentProps<AppConfig>) {
         </Flexbox>
       )}
       <iframe
+        key={appDocument.session}
         ref={frame}
         className="app-frame"
         title={instance.title || '应用'}
         sandbox="allow-scripts"
         referrerPolicy="no-referrer"
-        srcDoc={srcdoc}
-        onLoad={syncTheme}
+        {...sandboxFrameProps(srcdoc, appDocument.session, syncTheme)}
         style={{height: config.surface === 'status' ? '100%' : config.height}}
       />
     </>

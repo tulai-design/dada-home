@@ -17,6 +17,10 @@ type Entry = {
 const entries = new Map<string, Entry>()
 // 包括尚在等待首次读取的保存调用，恢复/导出不能绕过这些已接收请求。
 const writes = new Set<Promise<void>>()
+/** 包括尚在首次加载期间排队的保存调用，不以 iframe 已卸载视为保存完成。 */
+export function hasPendingApplicationWrites(): boolean {
+  return Boolean(writes.size || [...entries.values()].some(entry => entry.pending || entry.flushing))
+}
 const readSource = (entry: Entry) => `application-read:${entry.key}`
 const writeSource = (entry: Entry) => `application-write:${entry.key}`
 

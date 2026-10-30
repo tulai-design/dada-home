@@ -1,4 +1,5 @@
 import {useEffect, useState} from 'react'
+import {extensionApi} from './platform'
 import {addBookmarks, getBookmarks, groupName, setBookmarks, type BookmarkInput} from './bookmarks'
 
 /**
@@ -24,6 +25,11 @@ type Reply = {source: 'dada-ext'; id: string; ok: boolean; data?: unknown; error
 let seq = 0
 
 export function call<T>(op: string, args: unknown = {}, timeout = 8000): Promise<T> {
+  const api = extensionApi()
+  if (api) return api.runtime.sendMessage<{ok: boolean; data?: T; error?: string}>({source: 'dada-extension', op, args}).then(reply => {
+    if (!reply?.ok) throw new Error(reply?.error ?? '浏览器书签操作失败')
+    return reply.data as T
+  })
   return new Promise((resolve, reject) => {
     const id = `${Date.now()}-${seq++}`
     const timer = window.setTimeout(() => {

@@ -17,6 +17,7 @@ function load(relative) {
   return module.exports
 }
 const {buildRunnerDoc} = load('src/lib/applet/runner.ts')
+const extensionSandbox = load('src/lib/extensionSandbox.ts')
 function harness(source, session = '') {
   const messages = [], listeners = {}, timeouts = new Set(), intervals = new Set()
   const sandbox = {
@@ -80,6 +81,7 @@ function hostHarness() {
       '../lib/applet/render':{UiTree:'UiTree',useContainerWidth:()=>({ref:{current:null},width:400})},
       '../lib/registry':{registerComponent:value=>{definition=value}},'../lib/applicationData':repository,'./app':{},
       '../lib/persistence':{usePersistenceStatus:()=>({errors:persistenceErrors})},
+      '../lib/extensionSandbox':extensionSandbox,
     })[id]??{},
   })
   const render=(source=currentSource)=>{cursor=0;currentSource=source;tree=definition.component({instance:{id:'fixture'},config:{source},host:{}});effects.splice(0).forEach(fn=>fn());return tree}

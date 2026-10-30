@@ -26,6 +26,10 @@ const pending = new Map<string, Pending>()
 let version = 0
 let timer: number | undefined
 let flushing: Promise<void> | undefined
+/** 用于关闭页面前提醒；队列仅在真实事务提交后移除。 */
+export function hasPendingComponentWrites(): boolean {
+  return Boolean(pending.size || flushing)
+}
 
 function key(instanceId: string): string {return `${PREFIX}${instanceId}`}
 function notify(instanceId: string) {listeners.get(instanceId)?.forEach(fn => fn())}

@@ -4,6 +4,7 @@ import {incrementalFetch} from './incrementalClient'
 import {incrementalStore} from './incrementalStore'
 import type {JsonValue, SyncConflictVersion, SyncRef} from './incrementalRows'
 import {encodeSyncKey, parseSyncKey, syncKeyFromLegacyConfig, type SyncKeyMaterial} from './syncKey'
+import {prepareExtensionRequest} from './platform'
 
 export type ServiceConflict = {ref: SyncRef; version: SyncConflictVersion; remoteReady: boolean; remoteValue?: JsonValue | null}
 export type ServiceSyncResult = {pushed: number; pulled: number; conflicts: number; hasMore: boolean; needsReload: boolean; recovered?: boolean}
@@ -42,6 +43,7 @@ async function openBound(material: SyncKeyMaterial) {
 /** 只确认服务认这把密钥，不上传、不绑定。 */
 export async function testServiceConnection(key: string): Promise<string> {
   const material = parseSyncKey(key)
+  await prepareExtensionRequest(material.endpoint)
   const client = createSyncClient({baseUrl: material.endpoint, appId: material.appId, spaceId: material.spaceId, token: material.token, retries: 1, timeoutMs: 15000, fetchImpl: incrementalFetch})
   const capabilities = await client.capabilities()
   const missing = (['records', 'atomicBatch', 'idempotency', 'changeLog', 'objects'] as const).filter(name => !capabilities[name])
@@ -78,6 +80,7 @@ async function runServiceOnce(material: SyncKeyMaterial, mode: 'full' | 'push'):
   const controller = await openBound(material)
   const total: ServiceSyncResult = {pushed: 0, pulled: 0, conflicts: 0, hasMore: false, needsReload: false}
   try {
+    await prepareExtensionRequest(material.endpoint)
     for (let round = 0; round < 100; round += 1) {
       const result = await controller.run({pull: false, maxPush: 100})
       total.pushed += result.pushed

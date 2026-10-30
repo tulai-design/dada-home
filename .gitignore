@@ -5,3 +5,7 @@ dist
 # 本地验证脚本的临时目录
 .probe/
 .smoke/
+
+# 完整浏览器扩展构建与下载包
+dist-extension/
+public/dada-extension.zip

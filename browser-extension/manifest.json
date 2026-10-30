@@ -1,0 +1,43 @@
+{
+  "manifest_version": 3,
+  "name": "搭搭 · AI 新标签页",
+  "version": "0.1.0",
+  "description": "打开新标签页，用搭搭的 AI、主题和小工具搭建自己的数字空间。开发者模式自用版。",
+  "minimum_chrome_version": "120",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwT6vAVFFTQC8loQ43e2MyHt/LuQIiM6+yOKkI9+nX3N1KL+VKwE9yVmfkqbNFppJ8ouAXiDUj955TM55nm2Ohtcrv844Vmfn75AKRbFq1nVrAtbkYNZZcBh8ZvywUcq7qBusTLc4AaJCAYSYyPlN1WfwXwbSDUUCuMkal3NQUeIczKMh51zGfs0Whpk+x3NjYtsEgzYkJtSws2mX0VKhfH01dPDjJldO/b5HXM3lJLtF2CYl1RD4IcTcxFQ4mUBdoG29GXnSfnPqyz5a4wGU2hGn9zfOWWwAl7KbzQCr6DrpCf+hH0cPZvgKiKyWHO72Lu+nHtgyljN4z8h4lp7UmwIDAQAB",
+  "permissions": [
+    "bookmarks",
+    "notifications",
+    "storage",
+    "unlimitedStorage"
+  ],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "chrome_url_overrides": {
+    "newtab": "index.html"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "打开搭搭"
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "sandbox": {
+    "pages": [
+      "sandbox.html",
+      "spline.html"
+    ]
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'none'; frame-src 'self';",
+    "sandbox": "sandbox allow-scripts; script-src 'self' 'unsafe-inline' 'unsafe-eval' https: blob:; style-src 'unsafe-inline' https:; font-src https: data:; img-src http: https: data: blob:; media-src http: https: data: blob:; connect-src https: blob: data:; worker-src blob:; frame-src https: blob: data:; object-src 'none';"
+  }
+}

@@ -13,6 +13,10 @@ const hostVariables = {
 const module = {exports: {}}
 const source = readFileSync(new URL('../src/widgets/app.tsx', import.meta.url), 'utf8')
 const compiled = ts.transpileModule(source, {compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText
+const frameModule = {exports: {}}
+vm.runInNewContext(ts.transpileModule(readFileSync(new URL('../src/lib/extensionSandbox.ts', import.meta.url), 'utf8'), {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022}}).outputText, {
+  module: frameModule, exports: frameModule.exports, require: () => ({isExtension: () => false}),
+})
 vm.runInNewContext(compiled, {
   module, exports:module.exports,
   require: id => id === '../lib/registry' ? {registerComponent(){}} : {},
@@ -75,6 +79,8 @@ function bridgeRunner() {
     require:id=>({
       react,'react/jsx-runtime':{jsx,jsxs:jsx},'../lib/applicationData':repository,
       '../lib/registry':{registerComponent:value=>{definition=value}},'../fx/Fx':{useDark:()=>false},
+      '../lib/extensionSandbox':frameModule.exports,
+      '../lib/platform':{prepareExtensionRequest:()=>undefined},
     })[id]??{},
     crypto:{randomUUID:()=>`session-${++uuid}`},
     window:{addEventListener:(name,fn)=>{if(name==='message')listeners.add(fn)},removeEventListener:(_name,fn)=>listeners.delete(fn)},
@@ -186,5 +192,33 @@ await test('同一会话重复 set 不重新执行，旧会话消息和旧异步
   assert.equal(h.rows.get('app:fixture').counter,3,'已接受的旧运行保存继续完成')
   h.setWriteBarrier(undefined)
   assert.equal((await h.send({id:1,op:'get',key:'counter'})).result,3)
+})
+await test('扩展取数先等待两层授权，用户等待不占用15秒网络超时且拒绝不请求',async()=>{
+  const permission=deferred(),events=[]
+  let preparing=permission.promise
+  const appModule={exports:{}}
+  vm.runInNewContext(compiled,{
+    module:appModule,exports:appModule.exports,
+    require:id=>({
+      '../lib/registry':{registerComponent(){}},
+      '../lib/customWidget':{checkUrl:url=>({ok:true,url,host:'data.example'})},
+      '../lib/rss':{proxied:(url,proxy)=>proxy?proxy+encodeURIComponent(url):url},
+      '../lib/platform':{prepareExtensionRequest:target=>{events.push(['browser-permission',target]);return preparing}},
+    })[id]??{},
+    AbortController:class {constructor(){events.push(['controller']);this.signal={aborted:false}}},
+    setTimeout:(_fn,ms)=>{events.push(['timeout',ms]);return 1},clearTimeout(){},
+    fetch:async target=>{events.push(['fetch',target]);return {ok:true,status:200,text:async()=>'{"value":7}'}},
+  })
+  const host={networkGrants:[],requestNetworkGrant:async host=>{events.push(['application-permission',host]);return true},proxy:'https://proxy.example/?url='}
+  const pending=appModule.exports.bridgeFetch('https://data.example/api',host)
+  await tick()
+  assert.deepEqual(events,[['application-permission','data.example'],['browser-permission','https://proxy.example/?url=https%3A%2F%2Fdata.example%2Fapi']])
+  permission.resolve()
+  assert.equal((await pending).json.value,7)
+  assert.deepEqual(events.slice(2).map(event=>event[0]),['controller','timeout','fetch'])
+  const before=events.length
+  preparing=Promise.reject(new Error('用户拒绝浏览器网络权限'))
+  await assert.rejects(appModule.exports.bridgeFetch('https://data.example/api',host),/用户拒绝/)
+  assert.deepEqual(events.slice(before).map(event=>event[0]),['application-permission','browser-permission'])
 })
 console.log(`HTML应用运行时回归全部通过：${passed}/${passed}`)

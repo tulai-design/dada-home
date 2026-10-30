@@ -1,4 +1,5 @@
 import {proxied} from './rss'
+import {prepareExtensionRequest} from './platform'
 import {FILE, MAX_GIST_BYTES, MAX_SYNC_BYTES, type RemoteRead, type RemoteVersion, type SyncConfig, type SyncRemote} from './syncTypes'
 
 export {FILE, MAX_GIST_BYTES, MAX_SYNC_BYTES} from './syncTypes'
@@ -136,6 +137,9 @@ async function check(response: Response, label: string, key: string, webdav: boo
 
 /** 超时覆盖请求和正文读取；不靠长时间 sleep 重试或挂住上层同步。 */
 async function request<T>(url: string, init: RequestInit, label: string, key: string, consume: (response: Response) => Promise<T>): Promise<T> {
+  assertReady(key)
+  const preparing = prepareExtensionRequest(url, init.signal)
+  if (preparing) await preparing
   assertReady(key)
   const controller = new AbortController()
   let timer: ReturnType<typeof setTimeout> | undefined

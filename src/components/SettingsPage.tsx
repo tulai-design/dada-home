@@ -27,6 +27,8 @@ import {ApplicationSettings} from './ApplicationSettings'
 import type {AssistantMode} from '../lib/assistantLayout'
 import {activeTheme, SWITCH_THEME_ID} from '../lib/workspace'
 import {ProfileAvatar} from './ProfileAvatar'
+import {ExtensionSettings} from './ExtensionSettings'
+import {isExtension} from '../lib/platform'
 
 /**
  * 设置页：左边是分组目录，右边是当前项。
@@ -215,7 +217,7 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest,
       name: '网络',
       icon: Globe,
       summary: PROXY_PRESETS.find((p) => p.template === settings.proxy)?.label.split(' ')[0] ?? '自定义',
-      description: '订阅、热榜、监控取数时共用的代理。浏览器直接请求会被跨域拦住，需要走代理。',
+      description: isExtension() ? '管理取数代理和应用授权。扩展按你的许可连接外部来源，内置同源代理预设会直接请求目标。' : '订阅、热榜、监控取数时共用的代理。浏览器直接请求会被跨域拦住，需要走代理。',
       render: () => (
         <>
           <Group title="代理预设">
@@ -269,6 +271,14 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest,
       ),
     },
     {
+      id: 'extension',
+      name: '浏览器扩展',
+      icon: PanelTop,
+      summary: isExtension() ? '已安装' : '下载与安装',
+      description: '将搭搭设为 Chrome / Edge 新标签页，打开浏览器就是自己的数字空间。',
+      render: () => <ExtensionSettings />,
+    },
+    {
       id: 'about',
       name: '关于',
       icon: Info,
@@ -303,7 +313,7 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest,
     {title: '版面', ids: ['appearance', 'templates', 'sidebar', 'statusbar']},
     {title: '搭搭', ids: ['ai', 'search']},
     ...(apps.length ? [{title: '应用', ids: apps.map((app) => app.id)}] : []),
-    {title: '本机', ids: ['network', 'sync', 'data', 'about']},
+    {title: '本机', ids: ['network', 'sync', 'data', 'extension', 'about']},
   ]
 
   const select = (id: string) => {

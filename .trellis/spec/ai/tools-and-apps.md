@@ -1,5 +1,7 @@
 # 工具与生成应用
 
+完整浏览器扩展保留 App/Applet，但通过 manifest 声明的包内 sandbox bootstrap 引导同一生成文档；普通扩展页不运行动态代码，Web 仍走原 srcdoc。消息来源、session、授权与保存回执不能因平台适配削弱。见[扩展契约](../../../docs/specs/browser-extension.md)。
+
 ## 工具操作链
 
 [tools.ts](../../../src/lib/tools.ts) 使用 agent-core 的工具工厂描述参数与能力。新增工具同时考虑 schema、解析、`effect`、风险分类、执行结果与错误反馈；不能只加自然语言说明而不提供能力。

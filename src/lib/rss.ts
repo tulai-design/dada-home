@@ -1,4 +1,5 @@
 import type { Article, Feed } from './types'
+import {prepareExtensionRequest} from './platform'
 
 /** 代理模板里用 {url} 占位；`direct` 表示不加代理。 */
 export const PROXY_PRESETS = [
@@ -30,6 +31,8 @@ function unwrapBody(text: string): string {
 
 /** RSS 和热榜共用取数边界：避免 SPA 的 HTML 首页被当作数据。 */
 export async function fetchSourceText(url: string, proxy: string, accept: string, label: string): Promise<string> {
+  const preparing = prepareExtensionRequest(proxied(url, proxy))
+  if (preparing) await preparing
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 15_000)
   try {

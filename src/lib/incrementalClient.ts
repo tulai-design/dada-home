@@ -5,6 +5,7 @@ import {createIncrementalSyncController} from './incrementalSync'
 import {SYNC_COLLECTIONS, type JsonValue, type SyncCollection, type SyncConflictVersion, type SyncRef} from './incrementalRows'
 import {incrementalStore} from './incrementalStore'
 import {getPersistenceStatus} from './persistence'
+import {prepareExtensionRequest} from './platform'
 
 /**
  * 自建增量同步在设置页的运行时：连接信息、状态、自动调度、设备配对与冲突。
@@ -97,6 +98,7 @@ const messageOf = (error: unknown) => error instanceof Error ? error.message : S
 /** 只读预检：确认服务可达、令牌有效、协议能力齐全；不上传也不应用任何数据。 */
 export async function preflight(config: IncrementalConfig): Promise<string> {
   if (!config.endpoint.trim() || !config.token.trim()) throw new Error('请先填写服务地址和访问令牌。')
+  await prepareExtensionRequest(config.endpoint.trim())
   const capabilities = await clientFor(config).capabilities()
   const missing = (['records', 'atomicBatch', 'idempotency', 'changeLog', 'objects'] as const).filter(name => !capabilities[name])
   if (missing.length) throw new Error(`目标服务缺少所需能力：${missing.join('、')}。`)
@@ -105,6 +107,7 @@ export async function preflight(config: IncrementalConfig): Promise<string> {
 
 /** 服务器上这个空间是否已有数据。已有数据说明密钥在别的设备上，新建一把只会读不了。 */
 export async function serverHasData(config: IncrementalConfig): Promise<boolean> {
+  await prepareExtensionRequest(config.endpoint.trim())
   const page = await clientFor(config).changes({limit: 1})
   return page.commits.length > 0 || page.hasMore
 }
@@ -139,6 +142,8 @@ export function runIncremental(options: {pull: boolean} = {pull: true}): Promise
       total.needsReload ||= result.needsReload; total.hasMore = result.hasMore
     }
     try {
+      // 授权等待不计入 SDK 的网络超时，也不占用同步保存锁。
+      await prepareExtensionRequest(config.endpoint.trim())
       // 上传阶段没有远端应用，允许分批继续；避免第一页入站后再次采样旧内存。
       for (let round = 0; round < 100; round++) {
         add(await controller.run({pull: false, maxPush: 100}))
@@ -200,8 +205,14 @@ export async function detachIncremental(): Promise<void> {
   setStatus({phase: 'idle'})
 }
 
-export const listDevices = (config = readIncrementalConfig()): Promise<Device[]> => clientFor(config).devices().then(result => result.devices)
-export const revokeDevice = (deviceId: string, config = readIncrementalConfig()) => clientFor(config).revoke(deviceId).then(() => undefined)
+export async function listDevices(config = readIncrementalConfig()): Promise<Device[]> {
+  await prepareExtensionRequest(config.endpoint.trim())
+  return (await clientFor(config).devices()).devices
+}
+export async function revokeDevice(deviceId: string, config = readIncrementalConfig()): Promise<void> {
+  await prepareExtensionRequest(config.endpoint.trim())
+  await clientFor(config).revoke(deviceId)
+}
 
 /** 服务允许的设备期限上限（一年）；null 表示设备长期有效。配对码本身另有服务端固定的短期限。 */
 const MAX_DEVICE_TERM_MS = 366 * 86_400_000
@@ -212,6 +223,7 @@ export async function createInvite(passphrase: string, deviceId: string, expires
   if (passphrase.length < 8) throw new Error('邀请口令至少 8 个字符，用于加密传递空间密钥。')
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(deviceId)) throw new Error('设备标识只能包含字母、数字、点、下划线和连字符。')
   if (expiresAt !== null && !(expiresAt > Date.now() && expiresAt <= Date.now() + MAX_DEVICE_TERM_MS)) throw new Error('设备到期时间必须在未来，且最长一年；需要更久请选择长期有效。')
+  await prepareExtensionRequest(config.endpoint.trim())
   const pairing = await clientFor(config).pair({deviceId, scopes: [{appId: config.appId, spaceId: config.spaceId}], expiresAt})
   const invite: PairingInvite = {
     format: 'dada-sync-invite', version: 1, endpoint: config.endpoint.trim(), appId: config.appId, spaceId: config.spaceId,
@@ -226,6 +238,7 @@ export async function acceptInvite(text: string, passphrase: string): Promise<In
   try {invite = JSON.parse(text) as PairingInvite} catch {throw new Error('邀请内容不是有效的 JSON。')}
   if (invite?.format !== 'dada-sync-invite' || invite.version !== 1 || typeof invite.pairingToken !== 'string' || typeof invite.endpoint !== 'string') throw new Error('这不是搭搭的同步邀请。')
   const keyring = await unwrapKeyring(invite.keyring, passphrase, {appId: invite.appId, spaceId: invite.spaceId})
+  await prepareExtensionRequest(invite.endpoint.trim())
   const bytes = crypto.getRandomValues(new Uint8Array(32)), token = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')
   await clientFor({endpoint: invite.endpoint, appId: invite.appId, spaceId: invite.spaceId, token}).redeem({pairingToken: invite.pairingToken, token})
   const config: IncrementalConfig = {...readIncrementalConfig(), endpoint: invite.endpoint, appId: invite.appId, spaceId: invite.spaceId, deviceId: invite.deviceId, token, keyring}

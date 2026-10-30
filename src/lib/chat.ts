@@ -24,6 +24,10 @@ const active = new Map<string, StoredTurn>(), knownConvs = new Map<string, Conv>
 type ReadOverlay = {convId?: string; turns: Map<string, StoredTurn>; convs: Map<string, Conv>}
 const reads = new Set<ReadOverlay>()
 let flushing: Promise<void> | undefined, initPromise: Promise<void> | undefined
+/** 只报告已接受但尚未确认的写入，不把历史读取或会话导航当成保存。 */
+export function hasPendingChatWrites(): boolean {
+  return Boolean(flushing || dirty.size || dirtyConvs.size || dirtyDetails.size)
+}
 let timer: number | undefined, navigation = 0, convGeneration = 0
 let turnCursor: [number, string] | undefined, convCursor: [number, string] | undefined
 let olderRequest: Promise<void> | undefined, convRequest: Promise<void> | undefined

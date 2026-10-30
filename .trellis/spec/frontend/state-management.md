@@ -10,6 +10,8 @@
 
 ## 数据分离
 
+完整新标签页扩展采用启动前独占运行实例策略：等待页不初始化业务缓存，持有 Web Lock 才启动应用/自动同步；不得用心跳过期抢锁或在等待页提前读写业务。此约束不表示 Web 版已支持多标签页协同编辑，详见[扩展契约](../../../docs/specs/browser-extension.md)。
+
 - 页面、组件配置与主题属于工作空间；见 `workspaceStore.ts`。
 - 实例私有业务数据使用 [componentData.ts](../../../src/lib/componentData.ts)；IndexedDB 可用时使用库，否则回落到本地存储。
 - 全局小设置通过 [store.ts](../../../src/lib/store.ts)；聊天和组件大数据由 [db.ts](../../../src/lib/db.ts) 与 [storage.ts](../../../src/lib/storage.ts) 初始化。

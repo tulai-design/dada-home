@@ -116,10 +116,10 @@ function pwa() {
       ],
     },
     workbox: {
-      // 预缓存只放「打开应用必需」的：入口页、样式、入口脚本、图标。
+      // 预缓存包含延后初始化的 App 及其静态同步依赖，保证离线仍能启动。
       // 其余懒加载的块（代码高亮语言包、Spline、物理引擎等加起来 20MB 以上）不预下载，
       // 用到哪个、缓存哪个（见下面的 runtimeCaching），首次安装才不会吃掉一大笔流量。
-      globPatterns: ['index.html', 'manifest.webmanifest', 'favicon.ico', 'brand/*.{png,webp}', 'assets/*.css', 'assets/index-*.js'],
+      globPatterns: ['index.html', 'manifest.webmanifest', 'favicon.ico', 'brand/*.{png,webp}', 'assets/*.css', 'assets/index-*.js', 'assets/App-*.js', 'assets/incrementalClient-*.js', 'assets/syncService-*.js', 'assets/virtual_pwa-register-*.js', 'assets/workbox-window*.js'],
       maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
       navigateFallback: '/index.html',
       navigateFallbackDenylist: [/^\/__proxy/, /^\/healthz/, /^\/config\.js/, /^\/privacy/],
@@ -155,7 +155,9 @@ function pwa() {
   })
 }
 
-export default defineConfig({
-  plugins: [react(), devProxy(), pwa()],
+export default defineConfig(({mode}) => ({
+  plugins: [react(), devProxy(), ...(mode === 'extension' ? [] : [pwa()])],
+  // 扩展公共资源由打包脚本筛选复制，避免把下载 ZIP 再装进自身。
+  build: mode === 'extension' ? {outDir: 'dist-extension', copyPublicDir: false} : {},
   server: { port: 5173, host: true },
-})
+}))

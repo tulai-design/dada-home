@@ -1,0 +1,17 @@
+.extension-waiting {
+  min-height: 100dvh;
+  max-width: 520px;
+  margin-inline: auto;
+  padding: max(48px, 14dvh) 24px 48px;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 20px;
+  text-align: center;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.extension-waiting img { object-fit: contain; }
+.extension-waiting h1 { margin: 0; font: 600 24px/1.4 var(--font-sans); }
+.extension-waiting p { margin: 0; color: var(--text2); }
+.extension-network-copy { display: grid; gap: 12px; overflow-wrap: anywhere; }
