@@ -818,3 +818,39 @@
 ### Next Steps
 
 - 存储容量与同步范围管理、像素主题任务仍开放；未来bug另行跟踪
+
+
+## Session 24: 完善 README 产品展示与 Vercel 一键部署
+<!-- trellis-session: v=2 fp=abd3b9f96f5df2d0 -->
+
+**Date**: 2026-10-30
+**Task**: 完善 README 产品展示与 Vercel 一键部署
+**Branch**: `main`
+
+### Summary
+
+重写图文 README，补齐九张真实界面截图、使用/开发/部署指南与三组可选品牌图提示词；支持 Vercel 配置和可移植扩展 ZIP。
+
+### Main Changes
+
+- 真实 iOS 首页、AI 分栏、应用、五主题和手机截图；演示数据与对话明确标识。
+- 复用受控代理适配 Vercel Functions，扩展 ZIP 改用 Node/zlib；不依赖系统 zip。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1aa9b5e` | docs(readme): 完善产品展示与 Vercel 一键部署 |
+
+### Testing
+
+- [OK] tsc、完整 test、build 通过；代理/部署/ZIP 13 项回归；双轴审查无阻塞。
+- [OK] 79 个本地链接有效；本地 GFM 桌面/窄屏预览与全部图片通过检查。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 按需生成可选品牌插画；实际 Vercel 云部署需另行执行，本轮未推送或部署。

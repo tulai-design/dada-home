@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 23
+- **Total Sessions**: 24
 - **Last Active**: 2026-10-30
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~820 | Active |
+| `journal-1.md` | ~856 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 24 | 2026-10-30 | 完善 README 产品展示与 Vercel 一键部署 | `1aa9b5e` | `main` |
 | 23 | 2026-10-30 | 归档已完成开发任务并更新过时文档 | `ca36056` | `main` |
 | 22 | 2026-10-30 | 完整浏览器扩展与下载安装入口 | `5be4fe1` | `main` |
 | 21 | 2026-10-30 | 浏览器扩展可行性调研 | `cba8efc` | `main` |
