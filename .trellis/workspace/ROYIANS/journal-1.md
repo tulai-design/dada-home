@@ -854,3 +854,38 @@
 ### Next Steps
 
 - 按需生成可选品牌插画；实际 Vercel 云部署需另行执行，本轮未推送或部署。
+
+
+## Session 25: 落实架构评估 A1/A2
+<!-- trellis-session: v=2 fp=81c4c9cc32e972cc -->
+
+**Date**: 2026-10-30
+**Task**: 落实架构评估 A1/A2
+**Branch**: `main`
+
+### Summary
+
+修复 Agent 审批取消、旧请求隔离和工具失败语义，补齐异步写入边界及双协议真实页面回归，更新架构评估与运行时合同。
+
+### Main Changes
+
+- 停止结束待决审批，审批 ID 经聊天 schema 保留，迟到授权与输出不能影响新轮次。
+- 领域错误统一失败事件，异步提交和书签分批前检查取消，已发生效果保留。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `3289280` | fix(agent): 修复审批取消与工具失败状态 |
+
+### Testing
+
+- [OK] 本机 pnpm tsc --noEmit、完整 test、build 和 git diff --check 通过；新增执行28项、协议11项、真实 Chromium双协议10/10；Standards/Spec独立审查均0项。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 按架构评估继续考虑 A3：视觉主题与桌面外壳职责分离；本轮尚未实施。
