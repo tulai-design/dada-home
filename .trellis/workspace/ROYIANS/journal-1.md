@@ -889,3 +889,38 @@
 ### Next Steps
 
 - 按架构评估继续考虑 A3：视觉主题与桌面外壳职责分离；本轮尚未实施。
+
+
+## Session 26: A3 深度主题与创意工坊架构审查
+<!-- trellis-session: v=2 fp=e08a9fd5119265cb -->
+
+**Date**: 2026-10-30
+**Task**: A3 深度主题与创意工坊架构审查
+**Branch**: `main`
+
+### Summary
+
+完成主题身份、外壳、Agent作者与工坊隔离研究；用户确认分层开放，形成父设计与四个纵向子任务，全部保持planning。
+
+### Main Changes
+
+- 确认内置派生丢皮肤与模板误选iOS两类缺陷；规划完整ThemeSpec变体、稳定内容舞台、统一作者目录和本地包。
+- 记录ADR0005及术语，更新研究索引，未修改运行时代码或将提案标成已实现。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `2f8a4c5` | docs(architecture): 规划深度主题外壳与创意工坊演进 |
+
+### Testing
+
+- [OK] 真实领域隔离探针4/4复现；5项task validate、本地链接122项、依赖父子检查和git diff --check通过；独立复核无可行动项。文档轮未跑产品全量测试或浏览器矩阵。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 审阅A3提案后先推进theme-identity，再依次shell-host、theme-authoring、local-theme-packages；父任务保持未完成。
