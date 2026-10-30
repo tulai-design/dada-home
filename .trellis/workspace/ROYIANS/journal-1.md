@@ -714,3 +714,37 @@
 ### Next Steps
 
 - 已完成；未推送发布。
+
+
+## Session 21: 浏览器扩展可行性调研
+<!-- trellis-session: v=2 fp=cd3a66320ed4a705 -->
+
+**Date**: 2026-10-30
+**Task**: 浏览器扩展可行性调研
+**Branch**: `main`
+
+### Summary
+
+结合现有书签桥、主页构建、存储与 AI 应用代码和官方政策，完成浏览器扩展研究，推荐共用核心的 Chrome/Edge 本地新标签页路线。
+
+### Main Changes
+
+- 新增中文可行性报告与文档入口；区分源码事实、平台约束和待验证原型。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `cba8efc` | docs(extension): 评估浏览器扩展形态与技术可行性 |
+
+### Testing
+
+- [OK] 53 条本地文档链接和 git diff --check 通过；平台资料专项只读复核完成。纯研究未运行 tsc/test/build。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 若进入实施，先明确新标签页发布范围并验证 AI 应用沙盒与多页面一致性；未授权上架。
