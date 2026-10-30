@@ -23,7 +23,7 @@
 - [AI 页面生成质量目标](specs/ai-page-design-quality.md)：已接受的改进方向；未完成能力不能宣称已交付。
 - [AI 搭建能力增强里程碑](work/milestones/2026-10-27-ai-builder.md)：本轮范围与实施顺序。
 - [代码与组件生态审查](work/research/2026-10-27-ai-builder-audit.md)：问题证据与扩展候选。
-- [存储与可持续同步计划](work/milestones/2026-10-28-storage-sync.md)：可靠保存、应用存储、快照同步与长期聊天已交付；共用自建同步服务与容量管理继续分期实施。
+- [存储与可持续同步计划](work/milestones/2026-10-28-storage-sync.md)：可靠保存、应用存储、快照同步、长期聊天和自建增量同步开发已交付；容量与同步范围管理继续完善。
 
 ## 单一事实来源
 

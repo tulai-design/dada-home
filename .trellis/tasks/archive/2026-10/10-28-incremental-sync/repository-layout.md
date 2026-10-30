@@ -1,8 +1,8 @@
-# 共用同步服务仓库与接入计划
+# 共用同步服务仓库与接入记录
 
-日期：2026-10-28。状态：planning；仓库归属已落实，本文件记录职责与后续实施顺序，当前记录、对象与设备服务已实现，SDK与客户端加密基础已实现，产品接入与部署尚未完成。对应[架构决策](../../../docs/decisions/0004-shared-sync-repository.md)。
+当前状态（2026-10-30）：服务/SDK、搭搭完整业务接入、设置与部署配置已交付，按用户确认开发完成归档。后续产品/实际部署验收由用户负责；aifenjing 的产品接入由其仓库单独管理。当前契约见[加密增量同步](../../../../../docs/specs/application-incremental-sync.md)。以下为早期阶段记录，其中“未接入”“planning”等描述只代表当时状态，不作为当前待办。对应[架构决策](../../../../../docs/decisions/0004-shared-sync-repository.md)。
 
-## 本轮范围
+## 2026-10-28 阶段记录（历史）
 
 问题是共用服务代码放在哪里、与两个产品怎样协作。当前两端没有接入可部署的共同增量服务。服务必须能够独立测试和发布，产品继续拥有本地数据和业务规则。
 
@@ -50,7 +50,7 @@ tulai-design/momoki               # 本地目录 aifenjing
 - aifenjing `packages/studio/src/app/workflows/checkpoint.ts`仍是`momoki.protocol-fixture.v1`、partial project/media投影；`.trellis/spec/frontend/checkpoint-protocol.md`明确缺少完整生产codec、真实鉴权和native落盘验收。本轮只读复核，不声称已经具备完整同步产品。
 - GitHub CLI创建前核对组织已有`dada-home`、`momoki`、`ai-platform`等，确认无`sync`后按用户授权创建私有仓库；本轮没有改动其他仓库的可见性或发布配置。
 
-上述入口的详细研究见[跨项目存储与服务研究](../10-28-storage-sync/research/shared-service.md)。其中旧兼容/迁移建议已被用户后续“无需旧实例兼容”的授权取代，不在新服务引入旧协议桥。
+上述入口的详细研究见[跨项目存储与服务研究](../../../10-28-storage-sync/research/shared-service.md)。其中旧兼容/迁移建议已被用户后续“无需旧实例兼容”的授权取代，不在新服务引入旧协议桥。
 
 ## 可验证的实施顺序
 

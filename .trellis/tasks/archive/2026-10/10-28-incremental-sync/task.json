@@ -3,7 +3,7 @@
   "name": "incremental-sync",
   "title": "可选自建增量同步服务",
   "description": "交付单人多设备的可选同步服务与客户端，支持变更游标、幂等写入、冲突保留和离线重试。",
-  "status": "in_progress",
+  "status": "completed",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -11,7 +11,7 @@
   "creator": "ROYIANS",
   "assignee": "ROYIANS",
   "createdAt": "2026-10-28",
-  "completedAt": null,
+  "completedAt": "2026-10-30",
   "branch": null,
   "base_branch": "main",
   "worktree_path": null,
@@ -24,7 +24,7 @@
   ],
   "parent": "10-28-storage-sync",
   "relatedFiles": [],
-  "notes": "独立服务/SDK与应用业务数据程序接入已交付，配置/聊天/设置/部署仍待后续。",
+  "notes": "2026-10-30 用户确认开发任务完成并要求归档；后续产品验收由用户自行执行，发现问题另行跟踪。未执行的验收不记为通过。",
   "meta": {
     "planning_depth": "behavior-specified",
     "blocked_by": [

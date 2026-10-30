@@ -1,8 +1,8 @@
 # 可选自建增量同步服务
 
-状态：in_progress；按完整纵向子任务实施，配置/聊天/设置入口和部署配置已有实现，完整产品验收与剩余边界仍需核对。父任务：[存储与同步](../10-28-storage-sync/prd.md)。
+状态：completed；开发交付已完成，配置/聊天/设置入口和部署配置已实现。2026-10-30 用户确认按开发完成归档，后续产品验收由用户负责。父任务：[存储与同步](../../../10-28-storage-sync/prd.md)。
 
-2026-10-28 用户授权使用 gh 后，已创建私有仓库 [tulai-design/sync](https://github.com/tulai-design/sync)，本地目录 `/Users/xiaomengdao/WebstormProjects/tulai-sync`；服务/协议/轻量SDK同仓，两个产品各自保留适配器。职责、源码核对与接入顺序见 [repository-layout.md](repository-layout.md)。后续已在服务仓库完成记录、分块对象与可撤销配对设备，76项真实存储/HTTP/进程测试通过；后续SDK与客户端加密基础亦已实现并通过111项服务/SDK测试及浏览器互通；部署和本仓产品接入尚未完成，不把合成投影验证当成产品已接入。
+2026-10-28 用户授权使用 gh 后，已创建私有仓库 [tulai-design/sync](https://github.com/tulai-design/sync)，本地目录 `/Users/xiaomengdao/WebstormProjects/tulai-sync`；服务/协议/轻量SDK同仓，两个产品各自保留适配器。职责、源码核对与接入顺序见 [repository-layout.md](repository-layout.md)。后续已在服务仓库完成记录、分块对象与可撤销配对设备，76项真实存储/HTTP/进程测试通过；后续SDK与客户端加密基础亦已实现并通过111项服务/SDK测试及浏览器互通；这是早期阶段记录；当前搭搭产品接入与部署配置已交付，实际部署/运维验收由用户负责。
 
 ## 目标
 
@@ -19,7 +19,10 @@
 - 提供服务配置入口、连接预检和关闭方式；HTTP整包provider与新服务协议是不同能力，明确识别版本，不解码旧快照格式。
 - 交付独立接口与Docker部署资料、健康检查、备份/恢复；可与搭搭同机部署但不嵌入其公共取数代理，保持/__proxy原只读合同，PWA不缓存同步API。
 
-## 验收
+## 完成与验收口径
+
+2026-10-30 用户确认开发任务完成并要求归档，后续产品与部署验收由用户自行执行。以下保留原验收清单，不将未执行检查标为通过。密钥轮换等 SDK 能力与搭搭当前绑定密钥范围，以 docs/specs/application-incremental-sync.md 为准。
+
 
 - [ ] 两个隔离浏览器连接本地临时服务，初次引导后新增一轮只发送变更，不重复历史；记录实际请求和字节。
 - [ ] 丢响应后重试不重复，服务重启后数据和游标保持；拉取失败不跳过未应用数据。
@@ -35,6 +38,6 @@
 
 ## 依据
 
-[sync](../10-28-storage-sync/research/sync.md)、[provider-limits](../10-28-storage-sync/research/provider-limits.md)、[local-storage](../10-28-storage-sync/research/local-storage.md)、[chat-growth](../10-28-storage-sync/research/chat-growth.md)。具体依赖见 task.json.meta.blocked_by。
+[sync](../../../10-28-storage-sync/research/sync.md)、[provider-limits](../../../10-28-storage-sync/research/provider-limits.md)、[local-storage](../../../10-28-storage-sync/research/local-storage.md)、[chat-growth](../../../10-28-storage-sync/research/chat-growth.md)。具体依赖见 task.json.meta.blocked_by。
 
-2026-10-28 应用业务数据程序接入子任务完成，实现真实 apps/outbox 原子写入与加密增量传输、冲突双方和入站游标事务。具体能力与限制见 [应用增量同步契约](../../../docs/specs/application-incremental-sync.md)。父任务上述完整产品验收继续保留，不把 apps 子集等同配置/聊天全量接入。
+2026-10-28 应用业务数据程序接入子任务完成，实现真实 apps/outbox 原子写入与加密增量传输、冲突双方和入站游标事务。具体能力与限制见 [应用增量同步契约](../../../../../docs/specs/application-incremental-sync.md)。后续配置、组件、聊天和设置入口已接通，完整业务范围与连续拉取修复见 sync-completeness 子任务。

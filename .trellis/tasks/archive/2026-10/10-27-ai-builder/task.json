@@ -3,7 +3,7 @@
   "name": "ai-builder",
   "title": "AI 页面搭建能力增强",
   "description": "按已确认的三批方案，提高 AI 首页改造、特效适配和实用应用生成的稳定性；先建立文档与任务体系。",
-  "status": "in_progress",
+  "status": "completed",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -11,7 +11,7 @@
   "creator": "ROYIANS",
   "assignee": "ROYIANS",
   "createdAt": "2026-10-27",
-  "completedAt": null,
+  "completedAt": "2026-10-30",
   "branch": "main",
   "base_branch": "main",
   "worktree_path": null,
@@ -31,6 +31,6 @@
   ],
   "parent": null,
   "relatedFiles": [],
-  "notes": "",
+  "notes": "2026-10-30 用户确认开发任务完成并要求归档；后续产品验收由用户自行执行，发现问题另行跟踪。未执行的验收不记为通过。",
   "meta": {}
 }

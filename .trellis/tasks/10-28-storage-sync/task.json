@@ -28,7 +28,7 @@
   ],
   "parent": null,
   "relatedFiles": [],
-  "notes": "",
+  "notes": "2026-10-30：增量同步开发完成并归档，当前5/6子任务完成；容量与同步范围管理继续，后续产品/部署验收由用户负责。",
   "meta": {
     "planning_depth": "implementation-started"
   }
