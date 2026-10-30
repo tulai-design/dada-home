@@ -1,3 +1,4 @@
+import type {ThemePackageRef, ThemeRendererContract, OpaqueThemeDesign} from './themePackages/contracts'
 /**
  * 工作空间数据模型。
  *
@@ -15,7 +16,7 @@
 import type {DockStyle} from './dock'
 import type {ThemeFont} from './fonts'
 
-export const WORKSPACE_VERSION = 8
+export const WORKSPACE_VERSION = 9
 
 /** 内置组件类型。新增内置组件要在 registry 里注册，并在这里加一个值。 */
 export type BuiltinType =
@@ -292,8 +293,11 @@ export type ThemeShellConfig = {coverScale?: number; windowGap?: number}
 
 export type ThemeEntry = {
   /** 造型与桌面交互实现，不随实例另存或改名变化。 */
-  skin: ThemeSkin
-  shell: ThemeShell
+  skin: string
+  shell: string
+  packageRef?: ThemePackageRef
+  rendererContract?: ThemeRendererContract
+  opaqueDesign?: OpaqueThemeDesign
   /** 定义来源仅供溯源，运行时不继承来源的值。 */
   origin?: ThemeOrigin
   id: string

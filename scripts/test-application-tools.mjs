@@ -34,6 +34,7 @@ const model = loadCore('workspace')
 const fxPolicy = compile('src/fx/policy.ts', {'./capabilities': compile('src/fx/capabilities.ts'), '../lib/errors': loadCore('errors')})
 let workspace, commits, opens
 const dependencies = {
+  './themePackages/contracts': compile('src/lib/themePackages/contracts.ts'),
   '@tulai-design/agent-core': {createToolFactory: () => (schema, definition) => ({...definition, parameters: schema.json, parseArguments: schema.schema.parse})},
   './errors': loadCore('errors'), './workspace': model, './registry': registry, './applications': applications,
   './dock': loadCore('dock'), './pageSections': loadCore('pageSections'),

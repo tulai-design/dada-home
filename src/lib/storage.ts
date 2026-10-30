@@ -8,15 +8,18 @@ import {commitStorage, readLocal, recoverStorage, replaceOperations, saveBarrier
 export {recoverStorage} from './storageCommit'
 import {waitForSyncIdle} from './sync'
 import {assertWorkspaceThemes} from './themes'
+import {assertThemePackageRepositoryBudget, deserializeStoredThemePackage, serializeStoredThemePackage, validateStoredThemePackage} from './themePackages/codec'
+import {initThemePackages} from './themePackages/repository'
+import type {StoredThemePackage} from './themePackages/contracts'
 
 /** 整包 JSON 备份的读取预算，不是 IndexedDB 或浏览器存储配额。 */
 export const MAX_BACKUP_BYTES = 256 * 1024 * 1024
 const BACKUP_APP = 'dada-backup'
-const BACKUP_VERSION = 3
+const BACKUP_VERSION = 4
 
-type DataSnapshot = {apps: ApplicationDataRecord[]; kv: {k: string; v: unknown}[]; convs: Conv[]; turns: StoredTurn[]; toolDetails: ToolDetail[]}
+type DataSnapshot = {apps: ApplicationDataRecord[]; kv: {k: string; v: unknown}[]; convs: Conv[]; turns: StoredTurn[]; toolDetails: ToolDetail[]; themePackages: StoredThemePackage[]}
 type LocalSnapshot = Record<string, string>
-export type BackupSummary = {keys: number; convs: number; turns: number; data: number; apps: number}
+export type BackupSummary = {keys: number; convs: number; turns: number; data: number; apps: number; themePackages: number; themeResourceBytes: number}
 type ValidBackup = {dump: Record<string, unknown>; summary: BackupSummary; local: LocalSnapshot; data: DataSnapshot}
 
 const object = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -43,8 +46,9 @@ function checkJson(value: unknown, ancestors = new Set<object>(), depth = 0): vo
 }
 
 function checkData(raw: unknown): DataSnapshot {
-  if (!object(raw) || !Array.isArray(raw.kv) || !Array.isArray(raw.apps) || !object(raw.chat) || !Array.isArray(raw.chat.convs) || !Array.isArray(raw.chat.turns) || !Array.isArray(raw.chat.toolDetails)) invalid('备份缺少完整的组件、应用或对话数据。')
-  const data = {kv: raw.kv, apps: raw.apps.map(validateApplicationDataRecord), convs: raw.chat.convs, turns: raw.chat.turns, toolDetails: raw.chat.toolDetails}
+  if (!object(raw) || !Array.isArray(raw.kv) || !Array.isArray(raw.apps) || !Array.isArray(raw.themePackages) || !object(raw.chat) || !Array.isArray(raw.chat.convs) || !Array.isArray(raw.chat.turns) || !Array.isArray(raw.chat.toolDetails)) invalid('备份缺少完整的组件、应用、主题包或对话数据。')
+  const data = {kv: raw.kv, apps: raw.apps.map(validateApplicationDataRecord), convs: raw.chat.convs, turns: raw.chat.turns, toolDetails: raw.chat.toolDetails, themePackages: raw.themePackages.map(deserializeStoredThemePackage)}
+  assertThemePackageRepositoryBudget(data.themePackages)
   const checkIds = (rows: unknown[], key: 'id' | 'k', label: string) => {
     const seen = new Set<string>()
     for (const row of rows) {
@@ -93,7 +97,7 @@ function validateBackup(raw: unknown): ValidBackup {
   const data = checkData(raw.indexedDB)
   // 复制经校验的 JSON，避免确认弹窗打开后调用者修改对象影响实际替换。
   const dump = JSON.parse(text) as Record<string, unknown>
-  return {dump, local: checkLocal(dump), data: checkData(dump.indexedDB), summary: {keys: Object.keys(local).length, convs: data.convs.length, turns: data.turns.length, data: data.kv.length, apps: data.apps.length}}
+  return {dump, local: checkLocal(dump), data: checkData(dump.indexedDB), summary: {keys: Object.keys(local).length, convs: data.convs.length, turns: data.turns.length, data: data.kv.length, apps: data.apps.length, themePackages: data.themePackages.length, themeResourceBytes: data.themePackages.reduce((sum, row) => sum + row.resources.reduce((bytes, resource) => bytes + resource.bytes.byteLength, 0), 0)}}
 }
 
 /** 先处理上次未完成恢复，再初始化业务数据；失败交给宿主展示和重试。 */
@@ -101,6 +105,7 @@ export async function initStorage(): Promise<void> {
   await recoverStorage()
   // 已提交的入站配置必须在任何模块读取配置之前落到 localStorage。
   await applyPendingConfig()
+  await initThemePackages()
   await initComponentData()
   await initChat()
 }
@@ -109,7 +114,9 @@ export async function initStorage(): Promise<void> {
 export async function exportBackupSnapshot(): Promise<Record<string, unknown>> {
   await saveBarrier()
   const data = await db.snapshot()
-  const dump = {app: BACKUP_APP, version: BACKUP_VERSION, ...readLocal(), indexedDB: {kv: data.kv, apps: data.apps, chat: {convs: data.convs, turns: data.turns, toolDetails: data.toolDetails}}}
+  const packages = await Promise.all(data.themePackages.map(validateStoredThemePackage))
+  assertThemePackageRepositoryBudget(packages)
+  const dump = {app: BACKUP_APP, version: BACKUP_VERSION, ...readLocal(), indexedDB: {kv: data.kv, apps: data.apps, themePackages: packages.map(serializeStoredThemePackage), chat: {convs: data.convs, turns: data.turns, toolDetails: data.toolDetails}}}
   // 配置和业务数据库并无共同事务；此快照不声称覆盖屏障之后所有并发改动。
   // 原样救援保留损坏配置与旧业务键；这类文件可供人工恢复，不能通过当前格式导入。
   if (new TextEncoder().encode(JSON.stringify(dump)).byteLength > MAX_BACKUP_BYTES) invalid('备份超过当前整包读取预算（256 MiB），没有截断数据。')
@@ -120,7 +127,9 @@ export async function exportBackupSnapshot(): Promise<Record<string, unknown>> {
 export async function exportIdb() {
   await saveBarrier()
   const data = await db.snapshot()
-  return {kv: data.kv, apps: data.apps, chat: {convs: data.convs, turns: data.turns, toolDetails: data.toolDetails}}
+  const packages = await Promise.all(data.themePackages.map(validateStoredThemePackage))
+  assertThemePackageRepositoryBudget(packages)
+  return {kv: data.kv, apps: data.apps, themePackages: packages.map(serializeStoredThemePackage), chat: {convs: data.convs, turns: data.turns, toolDetails: data.toolDetails}}
 }
 
 /** 检查格式与完整性；此函数不会修改任何存储。 */
@@ -140,10 +149,14 @@ async function replaceStorage(target: ValidBackup): Promise<void> {
 
 /** 整体替换，而不是合并；再次校验直接调用的输入，清库前无副作用。 */
 export async function importBackup(dump: Record<string, unknown>): Promise<void> {
-  await replaceStorage(validateBackup(dump))
+  const target = validateBackup(dump)
+  // 同步parse只验证结构；摘要和真实字节在任何存储写入之前重新校验。
+  target.data.themePackages = await Promise.all(target.data.themePackages.map(validateStoredThemePackage))
+  assertThemePackageRepositoryBudget(target.data.themePackages)
+  await replaceStorage(target)
 }
 
 /** 重置保留非搭搭存储；排空旧队列后用同样的可恢复替换流程清理。 */
 export async function resetStorage(): Promise<void> {
-  await replaceStorage(validateBackup({app: BACKUP_APP, version: BACKUP_VERSION, indexedDB: {kv: [], apps: [], chat: {convs: [], turns: [], toolDetails: []}}}))
+  await replaceStorage(validateBackup({app: BACKUP_APP, version: BACKUP_VERSION, indexedDB: {kv: [], apps: [], themePackages: [], chat: {convs: [], turns: [], toolDetails: []}}}))
 }

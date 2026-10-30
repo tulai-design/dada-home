@@ -1,5 +1,6 @@
 import {WorkspaceError} from '../errors'
-import {assertThemeEntry} from '../themes'
+import {getThemePackageAvailability} from '../themePackages/availability'
+import {assertThemeEditable, assertThemeEntry} from '../themes'
 import {instanceId, MAX_THEMES, activeTheme, type ThemeEntry, type Workspace} from '../workspace'
 import {THEME_CATALOG_VERSION} from './catalog'
 import {applyThemeOperations, type ThemePatchOperation} from './validation'
@@ -24,7 +25,7 @@ export function fingerprint(value: unknown): string {
     ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item)
 }
 export function themeDependenciesFingerprint(theme: ThemeEntry): string {
-  return fingerprint({catalogVersion: THEME_CATALOG_VERSION, skin: theme.skin, shell: theme.shell, rendererContractVersion: 1})
+  return fingerprint({catalogVersion: THEME_CATALOG_VERSION, skin: theme.skin, shell: theme.shell, rendererContractVersion: 1, packageRef: theme.packageRef, availability: getThemePackageAvailability(theme)})
 }
 export function assertDraftInput(raw: unknown, keys: readonly string[]): asserts raw is Record<string, unknown> {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw) || Object.keys(raw).some(key => !keys.includes(key))) throw new WorkspaceError('主题草稿参数包含未知字段或不是对象')
@@ -41,6 +42,7 @@ export function createDraft(workspace: Workspace, input: CreateThemeDraftInput, 
   if (!source) throw new WorkspaceError('来源主题不存在')
   if (input.intent === 'edit' && source.builtin) throw new WorkspaceError('内置主题不能直接编辑，请派生变体')
   assertThemeEntry(source)
+  assertThemeEditable(source)
   const theme = structuredClone(source)
   if (input.name !== undefined) theme.name = metadata(input.name, 'name', 20)
   else if (input.intent === 'derive') {
@@ -48,8 +50,10 @@ export function createDraft(workspace: Workspace, input: CreateThemeDraftInput, 
     theme.name = `${source.name.slice(0, 20 - suffix.length)}${suffix}`
   }
   delete theme.builtin
+  const draftId = instanceId('theme-draft')
+  if (input.intent === 'derive') theme.id = draftId
   assertThemeEntry(theme)
-  return {id: instanceId('theme-draft'), revision: 1, intent: input.intent, sourceId: source.id,
+  return {id: draftId, revision: 1, intent: input.intent, sourceId: source.id,
     sourceFingerprint: fingerprint(source), selectedIdAtCreate: workspace.theme.active, selectionGeneration,
     dependenciesFingerprint: themeDependenciesFingerprint(source), theme}
 }
@@ -79,6 +83,7 @@ export function buildDraftCommit(workspace: Workspace, draft: ThemeDraft, select
   const conflict = draftConflict(workspace, draft, selectionGeneration)
   if (conflict) throw new WorkspaceError(conflict)
   assertThemeEntry(draft.theme)
+  assertThemeEditable(draft.theme)
   const theme = structuredClone(draft.theme)
   if (draft.intent === 'derive') {
     if (workspace.themes.length >= MAX_THEMES) throw new WorkspaceError('主题库已满，请先删除不用的主题')

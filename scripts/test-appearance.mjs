@@ -260,4 +260,20 @@ test('外观查询分别报告请求设计和已提交故障回落，不伪造�
   assert.deepEqual(ws, before)
 })
 
+test('外壳故障使用系统字体并保留精确请求诊断，不启动默认远端字体', () => {
+  const {resolveShellTheme} = load('src/lib/shell/theme.ts')
+  const {resolveTheme} = load('src/lib/themes.ts')
+  const ws = fixture()
+  const theme = {...ws.themes[2], packageRef: {packageId:'fixture.missing',version:'1.0.0',digest:'a'.repeat(64),themeId:'night'}, rendererContract:{schemaVersion:1,skinVersion:1,shellVersion:1}, fonts:[]}
+  const requested = resolveTheme(theme, 'dark')
+  const actual = resolveShellTheme(requested, {fault:{reason:'fixture'}})
+  assert.equal(actual.id, theme.id)
+  assert.deepEqual(actual.requested, requested.requested)
+  assert.deepEqual(actual.availability, requested.availability)
+  assert.equal(actual.skin, 'paper')
+  assert.equal(actual.shell, 'standard')
+  assert.deepEqual(actual.effectiveFonts, [])
+  for (const [role, stack] of Object.entries(DEFAULT_STACKS)) assert.equal(actual.values[`font-${role}`], stack)
+})
+
 console.log(`外观恢复回归全部通过：${checks.length}/${checks.length}`)

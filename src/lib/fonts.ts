@@ -1,4 +1,6 @@
 import {WorkspaceError} from './errors'
+import {cleanLocalThemeFontRef, localThemeFontFamily, verifyLocalThemeFontBytes} from './fontResource'
+import type {LocalThemeFontRef, LocalThemeResourceReader} from './themePackages/contracts'
 
 /**
  * 主题字体：从 Google Fonts 引入，并（可选）指定接管哪一类字体。
@@ -8,7 +10,7 @@ import {WorkspaceError} from './errors'
  */
 
 export type FontRole = 'serif' | 'sans' | 'mono'
-export type ThemeFont = {family: string; role?: FontRole}
+export type ThemeFont = {family: string; role?: FontRole; resource?: LocalThemeFontRef}
 
 export const MAX_FONTS = 4
 
@@ -37,8 +39,10 @@ export function cleanFonts(raw: unknown): ThemeFont[] {
     if (!FAMILY.test(family)) throw new WorkspaceError(`字体名不合法：${String(source?.family)}。只能是 Google Fonts 上的名字，例如 Playfair Display。`)
     const role = (source as {role?: unknown}).role
     if (role !== undefined && role !== 'serif' && role !== 'sans' && role !== 'mono') throw new WorkspaceError('字体的 role 只能是 serif（标题和正文）、sans（界面控件）或 mono（数字和标签）')
-    if (out.some((entry) => entry.family.toLowerCase() === family.toLowerCase())) continue
-    out.push({family, ...(role ? {role} : {})})
+    const resource = source && 'resource' in source && source.resource !== undefined ? cleanLocalThemeFontRef(source.resource) : undefined
+    const identity = resource ? JSON.stringify(resource) : family.toLowerCase()
+    if (out.some((entry) => (entry.resource ? JSON.stringify(entry.resource) : entry.family.toLowerCase()) === identity && entry.role === role)) continue
+    out.push({family, ...(role ? {role} : {}), ...(resource ? {resource} : {})})
   }
   return out
 }
@@ -56,7 +60,7 @@ export function readFonts(raw: unknown): ThemeFont[] {
 export function fontVars(fonts: ThemeFont[] | undefined): Record<string, string> {
   const out: Record<string, string> = Object.fromEntries(Object.entries(DEFAULT_STACKS).map(([role, value]) => [`font-${role}`, value]))
   const byRole = new Map<FontRole, string[]>()
-  for (const font of fonts ?? DEFAULT_THEME_FONTS) if (font.role) byRole.set(font.role, [...(byRole.get(font.role) ?? []), `'${font.family}'`])
+  for (const font of fonts ?? DEFAULT_THEME_FONTS) if (font.role) byRole.set(font.role, [...(byRole.get(font.role) ?? []), `'${font.resource ? localThemeFontFamily(font.resource) : font.family}'`])
   for (const [role, names] of byRole) out[`font-${role}`] = `${names.join(', ')}, ${DEFAULT_STACKS[role]}`
   return out
 }
@@ -66,7 +70,7 @@ const href = (family: string) => `https://fonts.googleapis.com/css?family=${enco
 export type ThemeFontStatus = {family: string; status: 'ready' | 'error'; reason?: string}
 export type ThemeFontReadiness = {ready: boolean; fonts: ThemeFontStatus[]}
 export type ThemeFontLease = {ready: Promise<ThemeFontReadiness>; release: () => void}
-type FontEntry = {family: string; refs: number; started: boolean; settled: boolean; result?: ThemeFontStatus; link: HTMLLinkElement | null; timer?: ReturnType<typeof setTimeout>; ready: Promise<ThemeFontStatus>; settle: (result: ThemeFontStatus) => void; dispose: () => void}
+type FontEntry = {family: string; font: ThemeFont; reader: LocalThemeResourceReader; controller: AbortController; refs: number; started: boolean; settled: boolean; result?: ThemeFontStatus; link: HTMLLinkElement | null; face: FontFace | null; timer?: ReturnType<typeof setTimeout>; ready: Promise<ThemeFontStatus>; settle: (result: ThemeFontStatus) => void; dispose: () => void}
 type FontScope = {entries: Map<string, FontEntry>; active: number; pump: () => void}
 const scopes = new WeakMap<Document, FontScope>()
 const FONT_SAMPLE = '搭搭 Aa0123'
@@ -82,10 +86,17 @@ function scopeFor(doc: Document): FontScope {
   return scope
 }
 
-function createEntry(doc: Document, scope: FontScope, family: string, timeoutMs: number): FontEntry {
+const defaultLocalReader: LocalThemeResourceReader = async (ref, signal) => (await import('./themePackages/repository')).readLocalThemeFont(ref, signal)
+const fontKey = (font: ThemeFont): string => font.resource ? `local:${JSON.stringify(font.resource)}` : `google:${font.family.toLowerCase()}`
+function createEntry(doc: Document, scope: FontScope, font: ThemeFont, timeoutMs: number, reader: LocalThemeResourceReader): FontEntry {
+  const family = font.family
   let resolve!: (status: ThemeFontStatus) => void
-  const entry: FontEntry = {family, refs: 0, started: false, settled: false, link: null, ready: new Promise(done => {resolve = done}), settle: () => {}, dispose: () => {}}
-  const detach = () => {if (entry.link) {entry.link.onload = null; entry.link.onerror = null; entry.link.remove(); entry.link = null}}
+  const entry: FontEntry = {family, font, reader, controller: new AbortController(), refs: 0, started: false, settled: false, link: null, face: null, ready: new Promise(done => {resolve = done}), settle: () => {}, dispose: () => {}}
+  const detach = () => {
+    entry.controller.abort()
+    if (entry.link) {entry.link.onload = null; entry.link.onerror = null; entry.link.remove(); entry.link = null}
+    if (entry.face) {doc.fonts.delete(entry.face); entry.face = null}
+  }
   entry.settle = (result) => {
     if (entry.settled) return
     entry.settled = true
@@ -108,6 +119,23 @@ function createEntry(doc: Document, scope: FontScope, family: string, timeoutMs:
       if (pending.started || pending.settled || pending.refs === 0) continue
       pending.started = true
       scope.active += 1
+      if (pending.font.resource) {
+        const ref = pending.font.resource
+        void Promise.resolve().then(() => pending.reader(ref, pending.controller.signal)).then(bytes => verifyLocalThemeFontBytes(ref, bytes, pending.controller.signal)).then(async bytes => {
+          if (pending.settled) return
+          const Constructor = doc.defaultView?.FontFace
+          if (!Constructor || !doc.fonts?.add) throw new WorkspaceError('当前文档不支持本地字体加载')
+          const face = new Constructor(localThemeFontFamily(ref), bytes)
+          await face.load()
+          if (pending.settled) return
+          if (face.status !== 'loaded') throw new WorkspaceError('本地 WOFF2 字体无法解码')
+          doc.fonts.add(face)
+          pending.face = face
+          if (!doc.fonts.check(`16px "${localThemeFontFamily(ref)}"`, FONT_SAMPLE)) throw new WorkspaceError('本地字体未能在当前文档就绪')
+          pending.settle({family: pending.family, status: 'ready'})
+        }).catch(error => pending.settle({family: pending.family, status: 'error', reason: error instanceof Error ? error.message : String(error)}))
+        continue
+      }
       const link = doc.createElement('link')
       pending.link = link
       link.rel = 'stylesheet'
@@ -131,26 +159,35 @@ function createEntry(doc: Document, scope: FontScope, family: string, timeoutMs:
 }
 
 /** 只准备字体，不写 root 或主题变量。undefined 使用默认字体，[] 明确系统后备。 */
-export function acquireThemeFonts(doc: Document, fonts: ThemeFont[] | undefined, options: {signal?: AbortSignal; timeoutMs?: number} = {}): ThemeFontLease {
-  const wanted = cleanFonts(fonts ?? [...DEFAULT_THEME_FONTS])
+export function acquireThemeFonts(doc: Document, fonts: ThemeFont[] | undefined, options: {signal?: AbortSignal; timeoutMs?: number; localResources?: LocalThemeResourceReader} = {}): ThemeFontLease {
+  // 设计保留各角色，资源 lease 仍只按物理字体身份计数、加载与检查。
+  const wanted = [...new Map(cleanFonts(fonts ?? [...DEFAULT_THEME_FONTS]).map(font => [fontKey(font), font])).values()]
   const scope = scopeFor(doc)
-  const keys = wanted.map(font => font.family.toLowerCase())
+  const keys = wanted.map(fontKey)
   const newCount = keys.filter(key => !scope.entries.has(key)).length
   if (scope.entries.size + newCount > MAX_DOCUMENT_FONTS) return {ready: Promise.resolve({ready: false, fonts: wanted.map(({family}) => ({family, status: 'error', reason: '当前文档字体资源数量超出上限'}))}), release: () => {}}
   const timeoutMs = Math.max(1, Math.min(30_000, options.timeoutMs ?? 8_000))
+  const reader = options.localResources ?? defaultLocalReader
+  const access = new Map<FontEntry, Promise<ThemeFontStatus | null>>()
+  const accessController = new AbortController()
   const entries = wanted.map((font, index) => {
     const key = keys[index]
     let entry = scope.entries.get(key)
-    if (!entry || entry.result?.status === 'error') {entry = createEntry(doc, scope, font.family, timeoutMs); scope.entries.set(key, entry)}
+    if (!entry || entry.result?.status === 'error') {entry = createEntry(doc, scope, font, timeoutMs, reader); scope.entries.set(key, entry)}
+    // 已缓存字节不代表当前仍有启用权限；每个新consumer重查本机资源门禁。
+    else if (font.resource) access.set(entry, Promise.resolve().then(() => reader(font.resource!, accessController.signal)).then(bytes => verifyLocalThemeFontBytes(font.resource!, bytes, accessController.signal)).then(() => null, error => ({family: font.family, status: 'error' as const, reason: error instanceof Error ? error.message : String(error)})))
     entry.refs += 1
     return entry
   })
   let released = false
   let finish!: (value: ThemeFontReadiness) => void
   const ready = new Promise<ThemeFontReadiness>(resolve => {finish = resolve})
+  const accessTimer = setTimeout(() => {accessController.abort(); finish({ready: false, fonts: wanted.map(({family}) => ({family, status: 'error', reason: '字体资源权限检查超时'}))})}, timeoutMs)
   const release = () => {
     if (released) return
     released = true
+    clearTimeout(accessTimer)
+    accessController.abort()
     options.signal?.removeEventListener('abort', release)
     for (const entry of entries) entry.refs -= 1
     for (const [index, entry] of entries.entries()) {
@@ -159,7 +196,7 @@ export function acquireThemeFonts(doc: Document, fonts: ThemeFont[] | undefined,
     finish({ready: false, fonts: wanted.map(({family}) => ({family, status: 'error', reason: options.signal?.aborted ? '字体请求已取消' : '字体请求已释放'}))})
     scope.pump()
   }
-  void Promise.all(entries.map(entry => entry.ready)).then(results => {if (!released) finish({ready: results.every(font => font.status === 'ready'), fonts: results})})
+  void Promise.all(entries.map(async entry => (await access.get(entry)) ?? await entry.ready)).then(results => {if (!released) {clearTimeout(accessTimer); finish({ready: results.every(font => font.status === 'ready'), fonts: results})}})
   options.signal?.addEventListener('abort', release, {once: true})
   if (options.signal?.aborted) release()
   else scope.pump()

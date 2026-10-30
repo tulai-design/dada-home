@@ -49,3 +49,7 @@ Spline 使用单独的 `spline.html` 隔离页运行包内 runtime，以支持�
 - 完整 MV3 安装与应用：`scripts/test-extension-browser.mjs`
 
 运行证据以对应 Trellis 任务 verification 为准，不能从脚本存在推断测试已通过。原可行性分析见[调研](../work/research/2026-10-30-browser-extension-feasibility.md)。
+
+## 本地主题包
+
+扩展外观设置使用与 Web 相同的本地声明式包流程，定义和 WOFF2 字节保存在本机 IndexedDB。字体以 ArrayBuffer 交给各自文档的 FontFaceSet，不注入脚本或扩大 host/CSP 权限。主题预览仍是包内可信页面；本地包不等于可执行插件授权。备份和同步边界见[主题包合同](local-theme-packages.md)。

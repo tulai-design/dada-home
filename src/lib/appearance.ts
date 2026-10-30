@@ -67,7 +67,7 @@ export function getAppearance(workspace: Workspace, rendering?: RenderedAppearan
     defaults,
     current: {
       mode: workspace.theme.mode,
-      theme: {...currentTheme, resolved: resolved.values, sources: resolved.sources, capabilities: resolved.capabilities},
+      theme: {...currentTheme, requested: resolved.requested, availability: resolved.availability, effective: {skin: resolved.skin, shell: resolved.shell, fonts: resolved.effectiveFonts}, resolved: resolved.values, sources: resolved.sources, capabilities: resolved.capabilities},
       rendering: rendering && rendering.requested.id === currentTheme.id && rendering.requested.skin === currentTheme.skin && rendering.requested.shell === currentTheme.shell && rendering.effective.mode === workspace.theme.mode ? rendering : null,
       dock: workspace.dock ?? defaults.dock,
       pages,

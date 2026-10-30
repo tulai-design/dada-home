@@ -12,6 +12,7 @@ import {NO_EXTENSION_HINT, SYNC_FOLDER, call, detect, importFromBrowser, listBro
 import {addBookmarks, countBookmarks, getBookmarks, removeBookmarks, removeGroup, renameGroup, setBookmarks, updateBookmark} from './bookmarks'
 import {activeTheme} from './workspace'
 import {resolveTheme} from './themes'
+import {localThemeFontRefJsonSchema} from './themePackages/contracts'
 import {getAppearance, resetAppearance} from './appearance'
 import {createApplication, updateApplication, configureApplication, findApplication, listApplications, mountApplication, removeApplication} from './applications'
 import type {ApplicationOpenMode} from './workspace'
@@ -69,6 +70,13 @@ const themeVars = (value: unknown, field: string): Record<string, unknown> | nul
   if (value === undefined || value === null) return value
   if (typeof value !== 'object' || Array.isArray(value)) throw new WorkspaceError(`${field} 必须是 CSS 变量对象或 null`)
   return value as Record<string, unknown>
+}
+const themeFontsJson = {
+  type: 'array', maxItems: 4,
+  description: '整组结构化字体；[] 明确系统后备。本地字体保留从主题读回的完整 resource 精确引用，不能编造或从 URL 下载。普通主题可使用受控 Google Fonts，包主题仅接受系统/本地字体。',
+  items: {type: 'object', additionalProperties: false, properties: {
+    family: {type: 'string', maxLength: 40}, role: {type: 'string', enum: ['serif', 'sans', 'mono']}, resource: localThemeFontRefJsonSchema(),
+  }, required: ['family']},
 }
 const applicationPatch = (raw: unknown) => {
   const value = obj(raw)
@@ -501,7 +509,7 @@ export const HOME_TOOLS = [
           overrides: {type: ['object', 'null'], description: '共享变量补丁，键不带 `--`，例如 {"main":"#2b6cf6","radius":"8px","frame":"0px"}。bg/text/border 等中性色仅修改当前模式；共享 main 等会移除两模式旧同名覆盖，再叠加本次显式 light/dark（优先级最高）。传 null 清空全部自定义变量和字体并保留造型/外壳，此时其他设计补丁不生效'},
           light: {type: ['object', 'null'], description: '仅浅色模式的变量补丁，与已有浅色变量合并；bg/bg2/bg3、text/text2/text3/text4、border/rule 等放这里。传 null 清空这一分支，未传保留'},
           dark: {type: ['object', 'null'], description: '仅深色模式的变量补丁，与已有深色变量合并。传 null 清空这一分支，未传保留'},
-          fonts: {type: 'array', description: '从 Google Fonts 引入的字体，一次传整个数组；传 [] 清掉', items: {type: 'object', properties: {family: {type: 'string'}, role: {type: 'string', enum: ['serif', 'sans', 'mono']}}, required: ['family']}},
+          fonts: themeFontsJson,
         },
       },
     },
@@ -515,7 +523,7 @@ export const HOME_TOOLS = [
         guard(() => {
           const result = ops.setTheme(getWorkspace(), args)
           commit(result.workspace)
-          const loaded = args.fonts !== undefined ? '字体来自 Google Fonts，需要联网加载；加载失败页面会提示。' : ''
+          const loaded = args.fonts !== undefined ? '字体设计已保存，实际资源状态请查看主题预览与外观诊断。' : ''
           return loaded + (result.forked ? `当前是内置主题，已完整另存为「${result.forked.name}」并应用修改。想起个名字可以用 save_theme。` : '主题已更新。')
         }),
     },
@@ -527,7 +535,7 @@ export const HOME_TOOLS = [
     {
       name: 'list_themes',
       title: '查看主题库',
-      description: '列出所有主题的实例 id、造型 skin、外壳 shell、定义来源 origin、共享与双模式设计，以及双模式有效值和每项来源。有效值为语义 CSS 值，不是浏览器 computedStyle 或视觉验收。当前主题还披露外框用户偏好后的实际结果。',
+      description: '列出所有主题的实例 id、造型 skin、外壳 shell、定义来源 origin、精确 packageRef 与依赖 availability、共享与双模式设计，以及双模式有效值和每项来源。缺包或停用时有效值为基础回退，原设计保留。有效值为语义 CSS 值，不是浏览器 computedStyle 或视觉验收。当前主题还披露外框用户偏好后的实际结果。',
       effect: 'read',
       highRisk: () => false,
       execute: async () => {
@@ -537,7 +545,7 @@ export const HOME_TOOLS = [
             const light = resolveTheme(item, 'light')
             const dark = resolveTheme(item, 'dark')
             const current = item.id === workspace.theme.active ? resolveTheme(item, workspace.theme.mode, {frameOff: workspace.theme.frameOff}) : undefined
-            return `${item.id}｜${item.name}｜skin ${item.skin}｜shell ${item.shell}｜origin ${JSON.stringify(item.origin ?? null)}｜${item.id === workspace.theme.active ? `使用中（当前 ${workspace.theme.mode}）` : '未使用'}${item.id === 'default' ? '｜默认（不可改删）' : item.builtin ? '｜预设（不可改删）' : ''}${item.mode ? `｜应用时初始偏好 ${item.mode}（仍可切换）` : ''}\n  ${item.description || '（无说明）'}\n  共享 overrides ${JSON.stringify(item.overrides)}\n  浅色 light ${item.light && Object.keys(item.light).length ? JSON.stringify(item.light) : '未单独覆盖，继承共享变量与系统浅色基础配色'}\n  深色 dark ${item.dark && Object.keys(item.dark).length ? JSON.stringify(item.dark) : '未单独覆盖，继承共享变量与系统深色基础配色'}${item.fonts?.length ? `\n  字体 ${JSON.stringify(item.fonts)}` : ''}\n  浅色有效值 ${JSON.stringify(light.values)}\n  浅色来源 ${JSON.stringify(light.sources)}\n  深色有效值 ${JSON.stringify(dark.values)}\n  深色来源 ${JSON.stringify(dark.sources)}${current ? `\n  当前有效值 ${JSON.stringify(current.values)}\n  当前来源 ${JSON.stringify(current.sources)}` : ''}`
+            return `${item.id}｜${item.name}｜skin ${item.skin}｜shell ${item.shell}｜origin ${JSON.stringify(item.origin ?? null)}｜packageRef ${JSON.stringify(item.packageRef ?? null)}｜availability ${JSON.stringify(light.availability)}｜${item.id === workspace.theme.active ? `使用中（当前 ${workspace.theme.mode}）` : '未使用'}${item.id === 'default' ? '｜默认（不可改删）' : item.builtin ? '｜预设（不可改删）' : ''}${item.mode ? `｜应用时初始偏好 ${item.mode}（仍可切换）` : ''}\n  ${item.description || '（无说明）'}\n  共享 overrides ${JSON.stringify(item.overrides)}\n  浅色 light ${item.light && Object.keys(item.light).length ? JSON.stringify(item.light) : '未单独覆盖，继承共享变量与系统浅色基础配色'}\n  深色 dark ${item.dark && Object.keys(item.dark).length ? JSON.stringify(item.dark) : '未单独覆盖，继承共享变量与系统深色基础配色'}${item.fonts?.length ? `\n  字体 ${JSON.stringify(item.fonts)}` : ''}\n  浅色有效值 ${JSON.stringify(light.values)}\n  浅色来源 ${JSON.stringify(light.sources)}\n  深色有效值 ${JSON.stringify(dark.values)}\n  深色来源 ${JSON.stringify(dark.sources)}${current ? `\n  当前有效值 ${JSON.stringify(current.values)}\n  当前来源 ${JSON.stringify(current.sources)}` : ''}`
           })
           .join('\n')
       },
@@ -561,7 +569,7 @@ export const HOME_TOOLS = [
           overrides: {type: ['object', 'null'], description: '共享变量，键不带 `--`，如 main 主色、radius 圆角、frame 外框粗细（0px 去掉外框）。传入时替换整组共享变量，null 或 {} 清空共享变量，未传保留；bg/text 等核心配色应放进 light/dark'},
           light: {type: ['object', 'null'], description: '浅色模式的一整套覆盖。新建完整风格应与 dark 一起提供：bg/bg2/bg3、text/text2/text3/text4、border/rule 等。传入时替换整组浅色变量，null 或 {} 清空，未传保留'},
           dark: {type: ['object', 'null'], description: '深色模式的一整套覆盖。新建完整风格应与 light 一起提供，保证深浅色切换可读。传入时替换整组深色变量，null 或 {} 清空，未传保留'},
-          fonts: {type: 'array', description: '从 Google Fonts 引入的字体，例如 [{"family":"Playfair Display","role":"serif"}]；role 为 serif / sans / mono，决定接管哪类字体', items: {type: 'object', properties: {family: {type: 'string'}, role: {type: 'string', enum: ['serif', 'sans', 'mono']}}, required: ['family']}},
+          fonts: themeFontsJson,
           mode: {type: 'string', enum: ['light', 'dark'], description: '应用主题时的初始明暗偏好；不锁定模式，用户仍可切换，刷新保留用户选择'},
           id: {type: 'string', description: '要更新的已有主题 id；不填则按名字匹配，匹配不到就新建'},
           activate: {type: 'boolean', description: '存完是否立刻启用，默认启用'},
@@ -597,7 +605,10 @@ export const HOME_TOOLS = [
         guard(() => {
           const result = ops.applyTheme(getWorkspace(), args.ref)
           commit(result.workspace)
-          return `已切换到主题「${result.theme.name}」。`
+          const resolved = resolveTheme(result.theme, result.workspace.theme.mode)
+          return resolved.availability.status === 'available'
+            ? `已切换到主题「${result.theme.name}」。`
+            : `已选择主题「${result.theme.name}」，原设计已保留；当前暂用基础外观：${resolved.availability.reason || resolved.availability.status}。请在设置 → 外观管理依赖包。`
         }),
     },
   ),

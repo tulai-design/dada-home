@@ -195,4 +195,23 @@ await test('派生主题与模板经快照配置双向往返保留完整身份�
     }
   }
 })
+await test('缺包/未知schema经配置及完整快照保留，包bytes/本机启停不进入wire或采样指纹', async () => {
+  const theme = {id: 'future', name: '未知实现', description: '', skin: 'future', shell: 'future-shell', overrides: {}, fonts: [], packageRef: {packageId: 'test.future', version: '2.0.0', digest: 'b'.repeat(64), themeId: 'sample'}, rendererContract: {schemaVersion: 7, skinVersion: 2, shellVersion: 2}, opaqueDesign: {schemaVersion: 7, payload: {newField: ['保留', {nested: true}]}}}
+  const source = workspace(); source.themes.push(theme); source.theme.active = theme.id
+  source.templates = [{id: 'keep', name: '保留依赖', description: '', createdAt: 1, updatedAt: 1, snapshot: {pages: source.pages, statusbar: [], layout: source.layout, widgets: [], addons: [], theme}}]
+  const h = runtime({'fp.workspace': source})
+  for (const scope of ['configuration', 'full']) {
+    const projected = h.api.project('config:workspace', source, scope, false)
+    h.api.validateRecord('config:workspace', projected, false, scope)
+    const restored = h.api.applyConfig('workspace', clone(projected), workspace(), scope, false)
+    assert.deepEqual(clone(restored.themes.find(item => item.id === theme.id)), theme)
+    assert.deepEqual(clone(restored.templates[0].snapshot.theme), theme)
+    assert.equal(restored.theme.active, theme.id)
+  }
+  const before = await h.api.collect('full', false)
+  h.data.themePackages = [{k: 'local-only', enabled: true, resources: [{bytes: [1, 2, 3]}]}]
+  const after = await h.api.collect('full', false)
+  assert.equal(before.fingerprint, after.fingerprint)
+  assert.equal(JSON.stringify([...after.values]).includes('local-only'), false)
+})
 console.log(`同步记录codec回归全部通过：${passed}/${passed}`)

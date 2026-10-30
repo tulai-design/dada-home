@@ -5,13 +5,13 @@ import {reportPersistenceError} from './persistence'
  * 读写失败必须 reject，不能把数据库故障当成空表或成功保存。
  */
 const NAME = 'dada'
-const VERSION = 6
-export type StoreName = 'kv' | 'apps' | 'convs' | 'turns' | 'toolDetails' | 'recovery' | 'incrementalSync'
+const VERSION = 7
+export type StoreName = 'kv' | 'apps' | 'convs' | 'turns' | 'toolDetails' | 'themePackages' | 'recovery' | 'incrementalSync'
 export type DbOperation =
   | {store: StoreName; type: 'put'; value: unknown}
   | {store: StoreName; type: 'delete'; key: string}
   | {store: StoreName; type: 'clear'}
-export type DbSnapshot = {kv: {k: string; v: unknown}[]; apps: {k: string; v: unknown}[]; convs: unknown[]; turns: unknown[]; toolDetails: unknown[]}
+export type DbSnapshot = {kv: {k: string; v: unknown}[]; apps: {k: string; v: unknown}[]; convs: unknown[]; turns: unknown[]; toolDetails: unknown[]; themePackages: unknown[]}
 
 let opened: Promise<IDBDatabase | null> | null = null
 let connection: IDBDatabase | null = null
@@ -50,6 +50,7 @@ export function openDb(): Promise<IDBDatabase | null> {
         if (!convs.indexNames.contains('recent')) convs.createIndex('recent', ['updatedAt', 'id'])
         if (!turns.indexNames.contains('chronological')) turns.createIndex('chronological', ['convId', 'startedAt', 'id'])
         if (!database.objectStoreNames.contains('recovery')) database.createObjectStore('recovery', {keyPath: 'k'})
+        if (!database.objectStoreNames.contains('themePackages')) database.createObjectStore('themePackages', {keyPath: 'k'})
         // 早期仅程序入口的应用同步仓没有产品入口；新方案使用独立仓，旧协调数据不迁移。业务五仓不受影响。
         if (database.objectStoreNames.contains('applicationSync')) database.deleteObjectStore('applicationSync')
         if (!database.objectStoreNames.contains('incrementalSync')) {
@@ -214,14 +215,15 @@ export const db = {
   delMany: (store: StoreName, keys: string[]) => batch(keys.map(key => ({store, type: 'delete', key}))),
   clear: (store: StoreName) => batch([{store, type: 'clear'}]),
   batch,
-  snapshot: (): Promise<DbSnapshot> => transaction(['kv', 'apps', 'convs', 'turns', 'toolDetails'], 'readonly', async tx => {
-    const [kv, apps, convs, turns, toolDetails] = await Promise.all([
+  snapshot: (): Promise<DbSnapshot> => transaction(['kv', 'apps', 'convs', 'turns', 'toolDetails', 'themePackages'], 'readonly', async tx => {
+    const [kv, apps, convs, turns, toolDetails, themePackages] = await Promise.all([
       wrap(tx.objectStore('kv').getAll()) as Promise<DbSnapshot['kv']>,
       wrap(tx.objectStore('apps').getAll()) as Promise<DbSnapshot['apps']>,
       wrap(tx.objectStore('convs').getAll()) as Promise<unknown[]>,
       wrap(tx.objectStore('turns').getAll()) as Promise<unknown[]>,
       wrap(tx.objectStore('toolDetails').getAll()) as Promise<unknown[]>,
+      wrap(tx.objectStore('themePackages').getAll()) as Promise<unknown[]>,
     ])
-    return {kv, apps, convs, turns, toolDetails}
+    return {kv, apps, convs, turns, toolDetails, themePackages}
   }),
 }

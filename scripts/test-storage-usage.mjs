@@ -8,6 +8,7 @@ const data = {
   kv: [{k: 'a', v: 1}], apps: [{k: 'b', v: {x: 1}}],
   convs: [{id: 'old', updatedAt: now - 200 * DAY}, {id: 'new', updatedAt: now - DAY}],
   turns: [{id: 't1', convId: 'old'}, {id: 't2', convId: 'old'}, {id: 't3', convId: 'new'}],
+  themePackages: [{manifest:{name:'本机字体'},resources:[{bytes:new ArrayBuffer(123)}]}],
   toolDetails: [{convId: 'old', bytes: 1000}, {convId: 'new', bytes: 50}],
 }
 const deleted = []
@@ -16,6 +17,8 @@ const mocks = {
   './db': {db: {all: async store => data[store]}},
   './chat': {flush: async () => undefined, exportChat: async () => ({}), deleteConv: async id => {if (id === 'busy') throw new Error('请先停止生成'); deleted.push(id)}},
   './bookmarks': {download: () => undefined},
+  './themePackages/repository': {flushThemePackages:async()=>{}},
+  './themePackages/codec': {validateStoredThemePackage:async row=>row},
 }
 const code = ts.transpileModule(readFileSync(new URL('../src/lib/storageUsage.ts', import.meta.url), 'utf8'), {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022}}).outputText
 const module = {exports: {}}
@@ -30,6 +33,8 @@ await test('占用统计按类别汇总，工具明细使用记录的字节数',
   assert.equal(by.config.count, 1)
   assert.equal(by.turn.count, 3)
   assert.equal(by.tool.bytes, 1050)
+  assert.equal(by['theme-package'].count,1)
+  assert.ok(by['theme-package'].bytes>=123)
   assert.equal(result.total, result.items.reduce((sum, item) => sum + item.bytes, 0))
 })
 

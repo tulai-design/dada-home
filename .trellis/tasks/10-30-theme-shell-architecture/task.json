@@ -12,7 +12,7 @@
   "assignee": "ROYIANS",
   "createdAt": "2026-10-30",
   "completedAt": null,
-  "branch": null,
+  "branch": "main",
   "base_branch": "main",
   "worktree_path": null,
   "commit": null,
@@ -26,9 +26,9 @@
   ],
   "parent": null,
   "relatedFiles": [],
-  "notes": "2026-10-30 theme-identity、shell-host、theme-authoring 已完成验收；下一项 local-theme-packages；父任务继续 in_progress。",
+  "notes": "2026-10-30 四阶段开发与集成验收完成；本地JSON/WOFF2主题包、精确依赖回退、完整备份与同步引用边界已实现。全量test/tsc/build、PWA离线/MV3/跨壳浏览器及双轴审查通过，准备归档。",
   "meta": {
     "blocked_by": [],
-    "design_status": "proposed"
+    "design_status": "implemented"
   }
 }

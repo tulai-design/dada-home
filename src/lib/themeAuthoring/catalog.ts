@@ -1,5 +1,5 @@
 import {DEFAULT_STACKS} from '../fonts'
-import type {ThemeEntry, ThemeShell, ThemeSkin} from '../workspace'
+import type {ThemeEntry} from '../workspace'
 
 export const THEME_CATALOG_VERSION = 1
 export type ThemeScope = 'shared' | 'light' | 'dark' | 'both' | 'recipe' | 'shell' | 'resource'
@@ -14,8 +14,8 @@ export type ThemeField = {
   storedShared?: boolean
   min?: number
   max?: number
-  skins?: readonly ThemeSkin[]
-  shells?: readonly ThemeShell[]
+  skins?: readonly string[]
+  shells?: readonly string[]
   css?: string
   options?: readonly {value: string; label: string; storedValue?: string}[]
 }
@@ -65,7 +65,7 @@ function field(seed: FieldSeed): ThemeField {
       : seed.group === 'shell' ? `shellConfig.${seed.path}；缺省沿用外壳默认` : 'fonts；undefined为默认字体，[]为明确系统后备'
   return {...seed, description: seed.description ?? `${seed.label}，仅影响已登记的宿主部件`, storage}
 }
-function color(path: string, label: string, description: string, skins?: readonly ThemeSkin[]): ThemeField {
+function color(path: string, label: string, description: string, skins?: readonly string[]): ThemeField {
   return field({path, label, description, group: 'tokens', type: 'color',
     scopes: skins?.includes('switch') ? ['shared', 'light', 'dark', 'both'] : ['light', 'dark', 'both'],
     ...(path === 'main' ? {storedShared: true} : {}), ...(skins ? {skins} : {}), css: `--${path}`})
@@ -88,7 +88,7 @@ export const THEME_FIELDS: readonly ThemeField[] = [
   ...(['button', 'input'] as const).map(part => field({path: `${part}.radius`, label: `${part === 'button' ? '按钮' : '输入框'}圆角`, description: '普通宿主业务控件的显式圆角；不重造桌面封面和标题栏', group: 'recipes', type: 'number', scopes: ['recipe'], min: 0, max: 24, css: `--recipe-${part}-radius`})),
   field({path: 'coverScale', label: '封面比例', description: '主机封面在现有响应式基准上的缩放百分比', group: 'shell', type: 'number', scopes: ['shell'], min: 80, max: 120, shells: ['switch'], css: '--switch-cover-scale'}),
   field({path: 'windowGap', label: '窗口边距', description: '经典桌面非最大化窗口距画布的期望边距；窄画布会安全收缩', group: 'shell', type: 'number', scopes: ['shell'], min: 4, max: 40, shells: ['win98']}),
-  field({path: 'fonts', label: '字体资源', description: '最多4个结构化Google字体；空数组明确使用系统后备且不联网', group: 'resources', type: 'fonts', scopes: ['resource']}),
+  field({path: 'fonts', label: '字体资源', description: '最多4个结构化Google字体或已安装包的精确本地资源引用；空数组明确系统后备且不联网', group: 'resources', type: 'fonts', scopes: ['resource']}),
 ]
 
 export function listThemeFields(theme: Pick<ThemeEntry, 'skin' | 'shell'>, group?: ThemeField['group']): ThemeField[] {

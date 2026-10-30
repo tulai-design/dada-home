@@ -15,7 +15,7 @@ function load(file){
   return module.exports
 }
 const protocol=load('src/lib/themeAuthoring/previewProtocol.ts'),bridge=load('src/lib/themeAuthoring/previewBridge.ts'),workspace=load('src/lib/workspace.ts')
-const request={protocol:protocol.THEME_PREVIEW_PROTOCOL,type:'render',channel:'isolated-channel',draftId:'draft-1',revision:1,requestId:'request-1',theme:structuredClone(workspace.IOS_THEME),mode:'dark',width:390,reducedMotion:true}
+const request={protocol:protocol.THEME_PREVIEW_PROTOCOL,type:'render',channel:'isolated-channel',draftId:'draft-1',revision:1,requestId:'request-1',packageGeneration:0,theme:structuredClone(workspace.IOS_THEME),mode:'dark',width:390,reducedMotion:true,availability:{status:'available',generation:0}}
 let count=0
 function test(name,fn){fn();count++;console.log(`通过：${name}`)}
 test('全部内置主题经过正式schema才可进入预览',()=>{for(const theme of [workspace.DEFAULT_THEME,workspace.IOS_THEME,workspace.PIXEL_THEME,workspace.SWITCH_THEME,workspace.WIN98_THEME])assert.equal(protocol.isThemePreviewRequest({...request,theme}),true)})
@@ -25,7 +25,7 @@ test('拒绝未知视口和模式、数组伪装模式、非正整数版本',()=
 test('必需随机通道与请求身份',()=>{for(const patch of [{channel:''},{draftId:''},{requestId:''},{protocol:'other'}])assert.equal(protocol.isThemePreviewRequest({...request,...patch}),false)})
 test('按UTF8字节执行64KiB上限，循环对象拒绝',()=>{assert.equal(protocol.themePreviewFitsBudget({text:'中'.repeat(23000)}),false);const circular={};circular.self=circular;assert.equal(protocol.themePreviewFitsBudget(circular),false)})
 const report={draftId:'draft-1',revision:1,requestId:'request-1',mode:'dark',width:390,ready:true,resources:[],geometry:{viewport:390,contentWidth:390,overflow:false,sampleCount:4},limits:['对比度和审美：unknown']}
-const response={protocol:request.protocol,type:'report',channel:request.channel,draftId:report.draftId,revision:1,requestId:report.requestId,report}
+const response={protocol:request.protocol,type:'report',channel:request.channel,draftId:report.draftId,revision:1,requestId:report.requestId,packageGeneration:0,report}
 test('只接受完整有限回执',()=>assert.equal(protocol.isThemePreviewResponse(response),true))
 test('回执外壳和报告版本/请求必须一致',()=>{for(const patch of [{revision:2},{draftId:'other'},{requestId:'other'}])assert.equal(protocol.isThemePreviewResponse({...response,...patch}),false)})
 test('拒绝NaN/无限/负值几何与超范围视口',()=>{for(const geometry of [{...report.geometry,contentWidth:Infinity},{...report.geometry,contentWidth:NaN},{...report.geometry,sampleCount:-1},{...report.geometry,viewport:10000}])assert.equal(protocol.isThemePreviewResponse({...response,report:{...report,geometry}}),false)})

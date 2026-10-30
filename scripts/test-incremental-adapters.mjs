@@ -87,4 +87,15 @@ test('增量配置保留派生主题和模板完整设计，坏身份在入站�
     }
   }
 })
+test('缺包/未知renderer/opaque设计经增量配置完整保留且不接受本机安装状态', () => {
+  const theme = {id: 'future', name: '未知实现', description: '', skin: 'future', shell: 'future-shell', overrides: {}, fonts: [], packageRef: {packageId: 'test.future', version: '2.0.0', digest: 'b'.repeat(64), themeId: 'sample'}, rendererContract: {schemaVersion: 7, skinVersion: 2, shellVersion: 2}, opaqueDesign: {schemaVersion: 7, payload: {newField: ['保留', {nested: true}]}}}
+  const source = workspace(); source.themes.push(theme); source.theme.active = theme.id
+  source.templates = [{id: 'keep', name: '保留依赖', description: '', createdAt: 1, updatedAt: 1, snapshot: {pages: source.pages, statusbar: [], layout: source.layout, widgets: [], addons: [], theme}}]
+  const projected = projectIncrementalConfig('workspace', source)
+  const restored = applyIncrementalConfig('workspace', structuredClone(projected), workspace())
+  assert.deepEqual(restored.themes.find(item => item.id === theme.id), theme)
+  assert.deepEqual(restored.templates[0].snapshot.theme, theme)
+  assert.equal(restored.theme.active, theme.id)
+  assert.throws(() => validateIncrementalConfig('workspace', {...projected, themePackages: [{enabled: true}]}))
+})
 console.log(`增量同步适配器契约通过：${passed} 组`)

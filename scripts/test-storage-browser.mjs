@@ -46,7 +46,7 @@ const detail={id:JSON.stringify(['saved-turn',0]),turnId:'saved-turn',convId:'sa
 const turn = {id: 'saved-turn', convId: 'saved-conv', prompt: '原对话', answer: '原答案', reasoning: '', tools: [{name:'inspect',title:'检查',ok:true,detailId:detail.id}], error: '', startedAt: 10, endedAt: 20}
 const conv = {id: 'saved-conv', title: '原对话', createdAt: 10, updatedAt: 20}
 const original = {local: {'fp.profile': '{"name":"原配置"}', 'fp.conv': '"saved-conv"'}, data: {kv: [{k: 'saved-data', v: {body: '原业务数据'}}], apps: [{k: 'app:saved', v: {body: '原应用数据'}}], convs: [conv], turns: [turn], toolDetails: [detail]}}
-const target = {app: 'dada-backup', version: 3, 'fp.profile': '{"name":"导入配置"}', indexedDB: {kv: [{k: 'target', v: '目标数据'}], apps: [{k: 'applet:target', v: {body: '目标应用数据'}}], chat: {convs: [], turns: [], toolDetails: []}}}
+const target = {app: 'dada-backup', version: 4, 'fp.profile': '{"name":"导入配置"}', indexedDB: {themePackages: [], kv: [{k: 'target', v: '目标数据'}], apps: [{k: 'applet:target', v: {body: '目标应用数据'}}], chat: {convs: [], turns: [], toolDetails: []}}}
 
 async function seed(page, value = original) {
   await page.evaluate(async value => {
@@ -371,7 +371,7 @@ try {
       await page.evaluate(async ({original, target}) => {
         localStorage.setItem('fp.profile', target['fp.profile'])
         localStorage.setItem('fp.partial', '"崩溃后的半成品"')
-        await window.storageQA.database.db.batch([{store: 'recovery', type: 'put', value: {k: 'backup-restore', version: 4, before: original}}, {store: 'kv', type: 'put', value: target.indexedDB.kv[0]}])
+        await window.storageQA.database.db.batch([{store: 'recovery', type: 'put', value: {k: 'backup-restore', version: 5, before: original}}, {store: 'kv', type: 'put', value: target.indexedDB.kv[0]}])
       }, {original, target})
       await page.reload(); await page.waitForFunction(() => window.storageQA)
       await page.evaluate(() => window.storageQA.storage.initStorage())
@@ -477,7 +477,7 @@ try {
     try {
       await page.evaluate(async ({original, target}) => {
         localStorage.setItem('fp.profile', target['fp.profile'])
-        await window.storageQA.database.db.batch([{store: 'recovery', type: 'put', value: {k: 'backup-restore', version: 4, before: original}}, {store: 'kv', type: 'put', value: target.indexedDB.kv[0]}])
+        await window.storageQA.database.db.batch([{store: 'recovery', type: 'put', value: {k: 'backup-restore', version: 5, before: original}}, {store: 'kv', type: 'put', value: target.indexedDB.kv[0]}])
       }, {original, target})
       await page.addInitScript(() => {
         window.__qaNativeSet = Storage.prototype.setItem

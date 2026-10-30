@@ -16,6 +16,6 @@ export function isThemeRenderer(skin: unknown, shell: unknown): skin is ThemeSki
   return typeof skin === 'string' && Object.hasOwn(SKINS, skin) && SKINS[skin as ThemeSkin].shell === shell
 }
 
-export function themeCapabilities(skin: ThemeSkin): {frame: 'toggle' | 'variable' | 'none'} {
-  return {frame: SKINS[skin].frame}
+export function themeCapabilities(skin: string): {frame: 'toggle' | 'variable' | 'none'} {
+  return {frame: (SKINS[skin as ThemeSkin] ?? SKINS.paper).frame}
 }

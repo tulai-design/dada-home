@@ -31,11 +31,11 @@ const clone = value => structuredClone(value)
 const conv = {id:'c1',title:'合成会话',createdAt:1,updatedAt:2}
 const turn = {id:'t1',convId:'c1',prompt:'问题',answer:'回答',reasoning:'思考',tools:[{name:'inspect',title:'读取',ok:true,text:'完整工具正文中文🙂'.repeat(30000)}],error:'',startedAt:1,endedAt:2}
 const stored = chatSchemaModule.exports.splitTurn(turn)
-const makeBackup = (extra={}) => ({app:'dada-backup',version:3,'fp.settings':'{"name":"备份"}',indexedDB:{kv:[{k:'note',v:'备份便签'}],apps:[{k:'app:tool',v:{text:'备份应用'}}],chat:{convs:[conv],turns:[stored.turn],toolDetails:stored.details}},...extra})
+const makeBackup = (extra={}) => ({app:'dada-backup',version:4,'fp.settings':'{"name":"备份"}',indexedDB:{themePackages:[],kv:[{k:'note',v:'备份便签'}],apps:[{k:'app:tool',v:{text:'备份应用'}}],chat:{convs:[conv],turns:[stored.turn],toolDetails:stored.details}},...extra})
 function harness({activeBinding=false,existing}={}) {
   const ls = existing?.ls ?? new Map([['fp.settings','{"name":"原配置"}'],['unrelated','keep']])
-  const tables = existing?.tables ?? {apps:new Map([['app:tool',{k:'app:tool',v:{text:'原应用'}}]]),kv:new Map([['note',{k:'note',v:'原便签'}]]),convs:new Map(),turns:new Map(),toolDetails:new Map(),recovery:new Map()}
-  const log=[];const failures={batch:false,set:false,rollback:false};let reloads=0;let exclusive=false;let flushData=async()=>{};let flushChat=async()=>{};let flushApps=async()=>{};let retry=async()=>{}
+  const tables = existing?.tables ?? {apps:new Map([['app:tool',{k:'app:tool',v:{text:'原应用'}}]]),kv:new Map([['note',{k:'note',v:'原便签'}]]),convs:new Map(),turns:new Map(),toolDetails:new Map(),themePackages:new Map(),recovery:new Map()}
+  const log=[];const failures={batch:false,set:false,rollback:false,snapshot:false};let reloads=0;let exclusive=false;let flushData=async()=>{};let flushChat=async()=>{};let flushApps=async()=>{};let retry=async()=>{};let flushPackages=async()=>{}
   const navigator={locks:{request:async(_name,_options,work)=>work()}}
   const storage = {
     get length(){return ls.size},key:i=>[...ls.keys()][i]??null,getItem:k=>ls.get(k)??null,
@@ -45,13 +45,13 @@ function harness({activeBinding=false,existing}={}) {
   const db={
     async get(store,key){return clone(tables[store].get(key))},
     async all(store){return clone([...tables[store].values()])},
-    async snapshot(){log.push('snapshot');return Object.fromEntries(['kv','apps','convs','turns','toolDetails'].map(k=>[k,clone([...tables[k].values()])]))},
+    async snapshot(){log.push('snapshot');if(failures.snapshot)throw Error('模拟主题包仓读取失败');return Object.fromEntries(['kv','apps','convs','turns','toolDetails','themePackages'].map(k=>[k,clone([...tables[k].values()])]))},
     async batch(ops){
       log.push('batch')
       if(failures.batch){failures.batch=false;throw new Error('模拟事务abort')}
       if(failures.rollback && ops.some(o=>o.type==='put' && o.store==='kv' && o.value.v==='原便签'))throw new Error('模拟回退失败')
       const next=Object.fromEntries(Object.entries(tables).map(([s,rows])=>[s,new Map(rows)]))
-      for(const o of ops){if(o.type==='clear')next[o.store].clear();else if(o.type==='delete')next[o.store].delete(o.key);else next[o.store].set(o.store==='kv'||o.store==='apps'||o.store==='recovery'?o.value.k:o.value.id,clone(o.value))}
+      for(const o of ops){if(o.type==='clear')next[o.store].clear();else if(o.type==='delete')next[o.store].delete(o.key);else next[o.store].set(o.store==='kv'||o.store==='apps'||o.store==='themePackages'||o.store==='recovery'?o.value.k:o.value.id,clone(o.value))}
       for(const s of Object.keys(tables))tables[s]=next[s]
     },
     async del(s,k){tables[s].delete(k)},
@@ -67,6 +67,8 @@ function harness({activeBinding=false,existing}={}) {
     './applicationDataSchema':schemaModule.exports,
     './chatStorageSchema':chatSchemaModule.exports,
     './themes':themeApi,
+    './themePackages/codec':loadThemeModule(new URL('../src/lib/themePackages/codec.ts',import.meta.url)),
+    './themePackages/repository':{initThemePackages:async()=>log.push('initPackages'),flushThemePackages:async()=>{log.push('flushPackages');await flushPackages()}},
     './applicationData':{flushApplicationData:async()=>{log.push('flushApps');await flushApps()}},
     './sync':{waitForSyncIdle:async()=>{}},
     './persistence':{
@@ -79,7 +81,7 @@ function harness({activeBinding=false,existing}={}) {
   vm.runInNewContext(ts.transpileModule(readFileSync(new URL('../src/lib/storageCommit.ts', import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{module:commitModule,exports:commitModule.exports,require:id=>{if(!Object.hasOwn(mocks,id))throw new Error('Unknown dependency '+id);return mocks[id]},localStorage:storage,navigator,TextEncoder,structuredClone,console})
   mocks['./storageCommit']=commitModule.exports
   vm.runInNewContext(source,{module,exports:module.exports,require:id=>{if(!Object.hasOwn(mocks,id))throw new Error('Unknown dependency '+id);return mocks[id]},localStorage:storage,navigator,location:{reload(){reloads++}},TextEncoder,structuredClone,console},{filename:'storage.ts'})
-  return {api:module.exports,commit:commitModule.exports,ls,tables,log,failures,navigator,get reloads(){return reloads},get exclusive(){return exclusive},errors,setFlushData(fn){flushData=fn},setFlushChat(fn){flushChat=fn},setFlushApps(fn){flushApps=fn},setRetry(fn){retry=fn}}
+  return {api:module.exports,commit:commitModule.exports,ls,tables,log,failures,navigator,get reloads(){return reloads},get exclusive(){return exclusive},errors,setFlushData(fn){flushData=fn},setFlushChat(fn){flushChat=fn},setFlushApps(fn){flushApps=fn},setRetry(fn){retry=fn},setFlushPackages(fn){flushPackages=fn}}
 }
 let passed=0
 async function test(name,run){await run();passed++;console.log(`通过：${name}`)}
@@ -87,7 +89,7 @@ async function test(name,run){await run();passed++;console.log(`通过：${name}
 await test('不可信备份在替换前严格验证，旧格式直接拒绝',async()=>{
   const h=harness()
   for(const bad of [
-    {indexedDB:true},{'fp.settings':'{}'},makeBackup({version:1}),makeBackup({version:2}),{app:'dada-backup',version:99,indexedDB:{}},
+    {indexedDB:true},{'fp.settings':'{}'},makeBackup({version:1}),makeBackup({version:2}),makeBackup({version:3}),{app:'dada-backup',version:99,indexedDB:{}},
     makeBackup({'fp.settings':7}),makeBackup({'fp.settings':'{broken'}),
     makeBackup({indexedDB:{kv:[],apps:[],chat:{convs:[conv],turns:[{...turn,convId:'missing'}]}}}),
     makeBackup({indexedDB:{kv:[{k:'same',v:1},{k:'same',v:2}],apps:[],chat:{convs:[],turns:[]}}}),
@@ -164,7 +166,7 @@ await test('应用备份缺仓、重复身份、坏JSON值和超预算均在清�
   await assert.rejects(()=>h.api.importBackup(bad))
 })
 
-await test('v3拒绝旧业务键且零写入，原样导出仍保留救援来源',async()=>{
+await test('v4拒绝旧业务键且零写入，原样导出仍保留救援来源',async()=>{
   for(const key of ['fp.chatTurns.v2','fp.data.shadow','fp.app.tool','fp.applet.tool']){
     for(const value of ['{}','{broken']){
       const h=harness(),bad=makeBackup({[key]:value}),before=structuredClone({local:[...h.ls],apps:[...h.tables.apps],kv:[...h.tables.kv]})
@@ -188,7 +190,7 @@ await test('导出先等待保存屏障，包含最新配置和业务数据',asy
   const dump=await h.api.exportBackupSnapshot()
   assert.equal(dump['fp.settings'],'{"name":"刚改名"}')
   assert.equal(dump.indexedDB.kv[0].v,'刚编辑')
-  assert.equal(dump.app,'dada-backup');assert.equal(dump.version,3)
+  assert.equal(dump.app,'dada-backup');assert.equal(dump.version,4)
   assert.equal(dump.indexedDB.apps[0].v.text,'刚写应用')
   assert.ok(h.log.indexOf('snapshot')>h.log.indexOf('flushApps'))
   assert.ok(h.log.indexOf('snapshot')>h.log.indexOf('flushData'))
@@ -272,7 +274,7 @@ await test('救援导出保留坏旧配置，恢复日志也能原样回退坏�
   const dump=await h.api.exportBackupSnapshot()
   assert.equal(dump['fp.data.old'],'{broken')
   assert.throws(()=>h.api.parseBackup(JSON.stringify(dump)),/旧业务存储/)
-  h.tables.recovery.set('backup-restore',{k:'backup-restore',version:4,before:{local:{'fp.data.old':'{broken'},data:{kv:[{k:'old',v:7}],apps:[{k:'app:raw',v:{text:'中'.repeat(3*1024*1024)}}],convs:[],turns:[{id:'orphan',convId:'removed'}],toolDetails:[{id:'raw-broken-body',text:'原坏正文'}]}}})
+  h.tables.recovery.set('backup-restore',{k:'backup-restore',version:5,before:{local:{'fp.data.old':'{broken'},data:{kv:[{k:'old',v:7}],apps:[{k:'app:raw',v:{text:'中'.repeat(3*1024*1024)}}],convs:[],turns:[{id:'orphan',convId:'removed'}],toolDetails:[{id:'raw-broken-body',text:'原坏正文'}]}}})
   await h.api.initStorage()
   assert.equal(h.tables.apps.get('app:raw').v.text.length,3*1024*1024);assert.equal(h.ls.get('fp.data.old'),'{broken');assert.equal(h.tables.turns.get('orphan').convId,'removed')
   assert.equal(h.tables.recovery.size,0)
@@ -294,7 +296,7 @@ await test('仅配置提交的quota回退不读取或清空业务表',async()=>{
 await test('仅配置中断日志重新启动只恢复配置，保留期间的业务表',async()=>{
   const h=harness();h.ls.set('fp.settings','{"name":"中断"}')
   h.tables.kv.set('new',{k:'new',v:'业务继续保留'})
-  h.tables.recovery.set('backup-restore',{k:'backup-restore',version:4,before:{local:{'fp.settings':'{"name":"原配置"}'},data:null}})
+  h.tables.recovery.set('backup-restore',{k:'backup-restore',version:5,before:{local:{'fp.settings':'{"name":"原配置"}'},data:null}})
   await h.api.recoverStorage()
   assert.equal(h.ls.get('fp.settings'),'{"name":"原配置"}');assert.equal(h.tables.kv.get('new').v,'业务继续保留')
   assert.equal(h.tables.recovery.size,0);assert.equal(h.log.includes('batch'),false)
@@ -310,12 +312,90 @@ await test('活动绑定期间普通组件回退再失败，重启按精确日�
   const h=harness({activeBinding:true});h.failures.set=true;h.failures.rollback=true
   await assert.rejects(h.commit.commitStorage({local:{'fp.settings':'{"name":"远端"}'},operations:[{store:'kv',type:'put',value:{k:'note',v:'远端便签'}}]}),/恢复日志已保留/)
   const point=h.tables.recovery.get('backup-restore')
-  assert.equal(point.version,4);assert.deepEqual(Object.keys(point.before.data),['kv']);assert.equal(h.errors.has('backup-restore'),true)
+  assert.equal(point.version,5);assert.deepEqual(Object.keys(point.before.data),['kv']);assert.equal(h.errors.has('backup-restore'),true)
   h.tables.apps.set('app:tool',{k:'app:tool',v:{text:'另一标签保存的新应用'}})
   const restarted=harness({activeBinding:true,existing:h})
   await restarted.api.initStorage()
   assert.equal(restarted.tables.kv.get('note').v,'原便签');assert.equal(restarted.tables.apps.get('app:tool').v.text,'另一标签保存的新应用')
   assert.equal(restarted.tables.recovery.size,0);assert.equal(restarted.errors.has('backup-restore'),false)
   assert.equal(restarted.ls.get('fp.settings'),'{"name":"原配置"}')
+})
+const packageCodec=loadThemeModule(new URL('../src/lib/themePackages/codec.ts',import.meta.url))
+const resourceApi=loadThemeModule(new URL('../src/lib/fontResource.ts',import.meta.url))
+const fontFile=readFileSync(new URL('../node_modules/.pnpm/katex@0.16.47/node_modules/katex/dist/fonts/KaTeX_Main-Regular.woff2',import.meta.url))
+const fontBytes=fontFile.buffer.slice(fontFile.byteOffset,fontFile.byteOffset+fontFile.byteLength)
+const packageManifest={packageId:'backup.fixture',version:'1.0.0',digest:'0'.repeat(64),kind:'declarative-theme',schemaVersion:1,name:'字体备份',description:'合成资源包',requiredRenderers:[{skin:'paper',shell:'standard',skinVersion:1,shellVersion:1}],contributions:[{id:'main',kind:'theme',design:{name:'离线纸张',description:'合成字体',skin:'paper',shell:'standard',overrides:{},fonts:[{family:'Local Main',role:'serif',resourceId:'Main'}]}}],resources:[{id:'Main',mime:'font/woff2',bytes:fontBytes.byteLength,sha256:await resourceApi.sha256Bytes(fontBytes)}]}
+packageManifest.digest=await packageCodec.themePackageDigest(packageManifest)
+const packageRow={k:'backup.fixture@1.0.0',manifest:packageManifest,resources:[{id:'Main',bytes:fontBytes}],enabled:true,generation:3,installedAt:123,state:'installed'}
+
+await test('完整备份包含真实WOFF2字节，所有恢复记录disabled且身份/字节不丢',async()=>{
+  const h=harness();h.tables.themePackages.set(packageRow.k,clone(packageRow))
+  const dump=await h.api.exportBackupSnapshot()
+  assert.equal(dump.version,4)
+  const saved=dump.indexedDB.themePackages[0]
+  assert.equal(saved.enabled,false)
+  assert.equal(saved.file.resources[0].base64,Buffer.from(fontBytes).toString('base64'))
+  const parsed=h.api.parseBackup(JSON.stringify(dump))
+  assert.equal(parsed.summary.themePackages,1);assert.equal(parsed.summary.themeResourceBytes,fontBytes.byteLength)
+  const receiver=harness();await receiver.api.importBackup(parsed.dump)
+  const restored=receiver.tables.themePackages.get(packageRow.k)
+  assert.equal(restored.enabled,false);assert.equal(restored.manifest.digest,packageManifest.digest)
+  assert.deepEqual(new Uint8Array(restored.resources[0].bytes),new Uint8Array(fontBytes))
+})
+await test('备份字体摘要篡改在异步校验中拒绝，任何配置或仓都未写入',async()=>{
+  const h=harness(),backup=makeBackup()
+  backup.indexedDB.themePackages=[packageCodec.serializeStoredThemePackage(packageRow)]
+  const content=Buffer.from(new Uint8Array(fontBytes));content[content.length-1]^=1
+  backup.indexedDB.themePackages[0].file.resources[0].base64=content.toString('base64')
+  assert.equal(h.api.parseBackup(JSON.stringify(backup)).summary.themePackages,1)
+  await assert.rejects(h.api.importBackup(backup),/摘要/)
+  assert.equal(h.log.includes('batch'),false);assert.equal(h.tables.themePackages.size,0)
+  assert.equal(h.ls.get('fp.settings'),'{"name":"原配置"}')
+})
+await test('备份资源缺仓、坏header、重复版本与总量超限在任何清库前拒绝',async()=>{
+  const saved=packageCodec.serializeStoredThemePackage(packageRow)
+  for(const mutate of [
+    backup=>delete backup.indexedDB.themePackages,
+    backup=>backup.indexedDB.themePackages[0].file.resources[0].base64='AAAA',
+    backup=>backup.indexedDB.themePackages.push(clone(saved)),
+    backup=>backup.indexedDB.themePackages=Array.from({length:17},()=>clone(saved)),
+  ]){
+    const h=harness(),backup=makeBackup();backup.indexedDB.themePackages=[clone(saved)];mutate(backup)
+    assert.throws(()=>h.api.parseBackup(JSON.stringify(backup)))
+    await assert.rejects(h.api.importBackup(backup));assert.equal(h.log.includes('batch'),false)
+  }
+})
+await test('资源包保存屏障等待已接受写入，失败不导出空仓成功',async()=>{
+  const h=harness()
+  let complete;const wait=new Promise(resolve=>complete=resolve)
+  h.setFlushPackages(async()=>{await wait;h.tables.themePackages.set(packageRow.k,clone(packageRow))})
+  const exporting=h.api.exportBackupSnapshot();await new Promise(resolve=>setImmediate(resolve))
+  assert.equal(h.log.includes('snapshot'),false)
+  complete();const dump=await exporting
+  assert.equal(dump.indexedDB.themePackages.length,1)
+  h.setFlushPackages(async()=>{throw Error('模拟包尚未保存')})
+  await assert.rejects(h.api.exportBackupSnapshot(),/包尚未保存/)
+  const badRead=harness();badRead.failures.snapshot=true
+  await assert.rejects(badRead.api.exportBackupSnapshot(),/仓读取失败/)
+})
+await test('恢复quota失败与中断日志回滚完整保留原包enabled和资源；reset清包仓',async()=>{
+  const h=harness();h.tables.themePackages.set(packageRow.k,clone(packageRow));h.failures.set=true
+  await assert.rejects(h.api.importBackup(makeBackup()),/quota/)
+  assert.equal(h.tables.themePackages.get(packageRow.k).enabled,true)
+  assert.deepEqual(new Uint8Array(h.tables.themePackages.get(packageRow.k).resources[0].bytes),new Uint8Array(fontBytes))
+  h.tables.recovery.set('backup-restore',{k:'backup-restore',version:5,before:{local:{},data:{themePackages:[clone(packageRow)]}}})
+  h.tables.themePackages.clear();await h.api.recoverStorage()
+  assert.equal(h.tables.themePackages.get(packageRow.k).enabled,true)
+  await h.api.resetStorage();assert.equal(h.tables.themePackages.size,0)
+})
+await test('异步hash等待期间调用者修改原备份不会改变已确认目标',async()=>{
+  const h=harness(),backup=makeBackup()
+  backup.indexedDB.themePackages=[packageCodec.serializeStoredThemePackage(packageRow)]
+  const importing=h.api.importBackup(backup)
+  backup.indexedDB.themePackages[0].file.manifest.name='恶意迟到修改'
+  backup['fp.settings']='{"name":"恶意迟到修改"}'
+  await importing
+  assert.equal(h.tables.themePackages.get(packageRow.k).manifest.name,'字体备份')
+  assert.equal(h.ls.get('fp.settings'),'{"name":"备份"}')
 })
 console.log(`备份公开行为 ${passed} 项通过`)

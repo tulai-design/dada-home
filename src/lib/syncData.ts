@@ -235,7 +235,7 @@ export async function collect(scope: SyncScope, secrets: boolean): Promise<Local
   let database: unknown = null
   if (scope === 'full') {
     if (!await openDb()) throw new Error('此浏览器无法读取本地数据库，同步已停止。')
-    const data = await db.snapshot(); database = data
+    const data = await db.snapshot(); database = {kv: data.kv, apps: data.apps, convs: data.convs, turns: data.turns, toolDetails: data.toolDetails}
     validateStoredChat(data.convs, data.turns, data.toolDetails)
     const details = new Map(data.toolDetails.map(value => {const row = validateToolDetail(value); return [row.id, row]}))
     for (const row of data.apps) {const app = validateApplicationDataRecord(row); put(`app:${app.k}`, app.v)}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { A, ActionIcon, Modal, Text, toast } from '@lobehub/ui'
 import {AppWindow, SquaresFour as LayoutGrid, Monitor, Moon, Palette, ArrowClockwise as Redo, ArrowsClockwise as RefreshCw, Rss, Gear as Settings, Sparkle as Sparkles, Sun, ArrowCounterClockwise as Undo} from '@phosphor-icons/react'
 import { pageIcon } from './lib/pageIcons'
@@ -7,6 +7,7 @@ import {listApplications, updateApplication} from './lib/applications'
 import {ApplicationHost} from './components/ApplicationHost'
 import { applyTheme, resolveTheme, setMode } from './lib/themes'
 import { acquireThemeFonts } from './lib/fonts'
+import {getThemePackageGeneration,subscribeThemePackages,registerThemePackageRuntime} from './lib/themePackages'
 import { uid, useStored } from './lib/store'
 import { SEARCH_ENGINES, defaultBookmarks, defaultFeeds, defaultSettings } from './lib/defaults'
 import { hotOrigin } from './lib/hot'
@@ -129,8 +130,9 @@ export default function App() {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [switcherOpen, setSwitcherOpen] = useState(false)
   const { workspace, edit, undo, redo, canUndo, canRedo } = useWorkspace()
+  const packageGeneration=useSyncExternalStore(subscribeThemePackages,getThemePackageGeneration,getThemePackageGeneration)
   const theme = activeTheme(workspace)
-  const resolvedTheme = useMemo(() => resolveTheme(theme, workspace.theme.mode, {frameOff: workspace.theme.frameOff}), [theme, workspace.theme.mode, workspace.theme.frameOff])
+  const resolvedTheme = useMemo(() => resolveTheme(theme, workspace.theme.mode, {frameOff: workspace.theme.frameOff}), [theme, workspace.theme.mode, workspace.theme.frameOff, packageGeneration])
   const [shellSnapshot, setShellSnapshot] = useState<ShellSnapshot>({...VISIBLE_PRESENTATION, activeShell: 'standard', activeSkin: 'paper', capabilities: STANDARD_CAPABILITIES, fault: null})
   const effectiveTheme = useMemo(() => resolveShellTheme(resolvedTheme, shellSnapshot), [shellSnapshot.fault, resolvedTheme, workspace.theme.mode])
   const shellVisible = shellSnapshot.content === 'visible'
@@ -233,7 +235,7 @@ export default function App() {
     root.dataset.theme = effectiveTheme.mode
     root.dataset.primaryColor = 'red'
     root.dataset.shell = shellSnapshot.activeShell
-    root.dataset.themeRecipes = shellSnapshot.fault ? '' : ['button', 'input'].filter(key => theme.recipes?.[key as 'button' | 'input']?.radius !== undefined).join(' ')
+    root.dataset.themeRecipes = ['button', 'input'].filter(key => effectiveTheme.recipes?.[key as 'button' | 'input']?.radius !== undefined).join(' ')
     if (effectiveTheme.skin === 'paper') delete root.dataset.skin
     else root.dataset.skin = effectiveTheme.skin
     for (const name of appliedVars.current) root.style.removeProperty(`--${name}`)
@@ -242,9 +244,9 @@ export default function App() {
     rendering.current = {requested: {id: theme.id, skin: theme.skin, shell: theme.shell}, effective: {skin: effectiveTheme.skin, shell: shellSnapshot.activeShell, mode: effectiveTheme.mode, values: effectiveTheme.values, sources: effectiveTheme.sources}, content: shellSnapshot.content, fault: shellSnapshot.fault}
     document.title = `${settings.name === '朋友' ? '' : `${settings.name} · `}搭搭`
   }, [effectiveTheme, shellSnapshot, theme, settings.name])
-  const fontKey = JSON.stringify(shellSnapshot.fault ? null : theme.fonts ?? null)
+  const fontKey = JSON.stringify(effectiveTheme.effectiveFonts ?? null)
   useLayoutEffect(() => {
-    const lease = acquireThemeFonts(document, shellSnapshot.fault ? undefined : theme.fonts)
+    const lease = acquireThemeFonts(document, effectiveTheme.effectiveFonts)
     let current = true
     void lease.ready.then(result => {
       if (current && !result.ready) toast.error(`字体加载失败，已使用系统后备：${result.fonts.filter(font => font.status === 'error').map(font => `${font.family}（${font.reason}）`).join('；')}`)
@@ -256,6 +258,12 @@ export default function App() {
       setSettings(current => typeof current.avatarSeed === 'string' && current.avatarSeed.length > 0 && current.avatarSeed.length <= 100 ? current : {...current, avatarSeed: uid()})
     }
   }, [shellSnapshot.capabilities.settings.avatar, settings.avatarSeed, setSettings])
+
+  useLayoutEffect(()=>registerThemePackageRuntime({prepare:async (candidate,{signal,localResources})=>{
+    const lease=acquireThemeFonts(document,candidate.fonts,{signal,localResources,timeoutMs:7000})
+    const result=await lease.ready
+    return {ready:result.ready,reason:result.ready?undefined:result.fonts.filter(font=>font.status==='error').map(font=>`${font.family}：${font.reason}`).join('；'),release:lease.release}
+  }}),[])
 
   // 已读记录是共享数据，订阅组件读写它；外壳只需要把当前值传给宿主
   const [readIds, setReadIds] = useStored<string[]>('read', [])
@@ -680,7 +688,7 @@ export default function App() {
           <i className="frame-bar frame-l" />
           <i className="frame-bar frame-r" />
         </div>
-        <ShellHost requestedShell={resolvedTheme.shell} requestedSkin={resolvedTheme.skin} model={{entries: navigationEntries, shellConfig: shellSnapshot.fault ? undefined : theme.shellConfig, activation: shellActivation, mode: workspace.theme.mode, profile: {name: settings.name, avatarSeed: settings.avatarSeed || settings.name}, assistant: {open: assistantOpen, busy}, dock: visibleDock(workspace.dock, effectiveTheme.skin === 'ios', effectiveTheme.skin === 'pixel')}} dispatch={dispatchShellIntent} onPresentationChange={setShellSnapshot}>
+        <ShellHost requestedShell={resolvedTheme.shell} requestedSkin={resolvedTheme.skin} model={{entries: navigationEntries, shellConfig: effectiveTheme.shellConfig, activation: shellActivation, mode: workspace.theme.mode, profile: {name: settings.name, avatarSeed: settings.avatarSeed || settings.name}, assistant: {open: assistantOpen, busy}, dock: visibleDock(workspace.dock, effectiveTheme.skin === 'ios', effectiveTheme.skin === 'pixel')}} dispatch={dispatchShellIntent} onPresentationChange={setShellSnapshot}>
         <ShellNavigation />
 
         <AssistantSplitPane

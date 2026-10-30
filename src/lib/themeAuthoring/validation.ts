@@ -41,7 +41,7 @@ export function isThemeColor(value: string): boolean {
 
 export function validateThemeFieldValue(field: ThemeField, value: unknown, stored = false): string | number | ReturnType<typeof cleanFonts> {
   if (field.type === 'fonts') {
-    if (!Array.isArray(value) || value.some(item => !object(item) || Object.keys(item).some(key => key !== 'family' && key !== 'role'))) fail(field.path, '字体必须是结构化 family/role 数组')
+    if (!Array.isArray(value) || value.some(item => !object(item) || Object.keys(item).some(key => key !== 'family' && key !== 'role' && key !== 'resource'))) fail(field.path, '字体必须是结构化 family/role 数组')
     return cleanFonts(value)
   }
   if (stored && typeof value !== 'string') fail(field.path, '保存的token必须是字符串')
@@ -139,7 +139,7 @@ export function applyThemeOperations(theme: ThemeEntry, operations: readonly The
     }
     const cleaned = value === null ? null : validateThemeFieldValue(field, value)
     if (scope === 'resource') {
-      if (cleaned === null) delete next.fonts
+      if (cleaned === null) {if (next.packageRef) next.fonts = []; else delete next.fonts}
       else next.fonts = cleaned as ThemeEntry['fonts']
       for (const role of fontRoles) delete next.overrides[`font-${role}`]
       continue

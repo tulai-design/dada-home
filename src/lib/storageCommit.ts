@@ -4,12 +4,13 @@ import {flush as flushData} from './componentData'
 import {db, openDb, type DbOperation, type DbSnapshot} from './db'
 import {assertPersistenceHealthy, clearPersistenceError, reportPersistenceError, retryPersistence, withPersistenceExclusive} from './persistence'
 import {applicationSyncStore} from './applicationSyncStore'
+import {flushThemePackages} from './themePackages/repository'
 
 const RECOVERY_KEY = 'backup-restore'
 type DataSnapshot = Partial<DbSnapshot>
 type LocalSnapshot = Record<string, string>
-type RestorePoint = {k: typeof RECOVERY_KEY; version: 4; before: {local: LocalSnapshot; data: DataSnapshot | null}}
-const DATA_STORES = ['kv', 'apps', 'convs', 'turns', 'toolDetails'] as const
+type RestorePoint = {k: typeof RECOVERY_KEY; version: 5; before: {local: LocalSnapshot; data: DataSnapshot | null}}
+const DATA_STORES = ['kv', 'apps', 'convs', 'turns', 'toolDetails', 'themePackages'] as const
 const object = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value)
 const id = (value: unknown): value is string => typeof value === 'string' && value.length > 0
 const own = (value: object, key: string) => Object.prototype.hasOwnProperty.call(value, key)
@@ -45,13 +46,13 @@ export function replaceOperations(data: DataSnapshot): DbOperation[] {
 }
 
 export async function saveBarrier(): Promise<void> {
-  await Promise.all([flushData(), flushChat(), flushApplicationData()])
+  await Promise.all([flushData(), flushChat(), flushApplicationData(), flushThemePackages()])
   await retryPersistence()
   assertPersistenceHealthy()
 }
 
 function checkRestorePoint(raw: unknown): RestorePoint {
-  if (!object(raw) || raw.k !== RECOVERY_KEY || raw.version !== 4 || !object(raw.before) || !object(raw.before.local) || (raw.before.data !== null && !object(raw.before.data))) invalid('恢复日志损坏，已停止启动，请保留本机数据。')
+  if (!object(raw) || raw.k !== RECOVERY_KEY || raw.version !== 5 || !object(raw.before) || !object(raw.before.local) || (raw.before.data !== null && !object(raw.before.data))) invalid('恢复日志损坏，已停止启动，请保留本机数据。')
   const before = raw.before
   const data = before.data as Record<string, unknown>
   // 日志保留的是替换前原样数据，可能含坏配置或旧孤立轮次。
@@ -68,12 +69,12 @@ function checkRestorePoint(raw: unknown): RestorePoint {
     if (!Array.isArray(rows)) invalid('恢复日志中的数据表无效，已停止启动。')
     const seen = new Set<string>()
     for (const row of rows) {
-      const key = store === 'kv' || store === 'apps' ? 'k' : 'id'
+      const key = store === 'kv' || store === 'apps' || store === 'themePackages' ? 'k' : 'id'
       if (!object(row) || !id(row[key]) || seen.has(row[key])) invalid('恢复日志中的记录无效，已停止启动。')
       seen.add(row[key])
     }
   }
-  return {k: RECOVERY_KEY, version: 4, before: {local, data: before.data === null ? null : data as DataSnapshot}}
+  return {k: RECOVERY_KEY, version: 5, before: {local, data: before.data === null ? null : data as DataSnapshot}}
 }
 
 async function withRestoreLock<T>(work: () => Promise<T>): Promise<T> {
@@ -120,7 +121,7 @@ export async function commitStorage(update: {local: Record<string, string | null
     // 日志仅保存实际触及的业务仓。非apps提交失败不能回退期间未修改的apps，
     // 也不能因活动增量绑定而让配置/普通组件的回滚永久卡住。
     const data = snapshot === null ? null : Object.fromEntries(Object.entries(snapshot).filter(([store]) => affected.has(store as keyof DbSnapshot))) as DataSnapshot
-    const point: RestorePoint = {k: RECOVERY_KEY, version: 4, before: {local: readLocal(), data}}
+    const point: RestorePoint = {k: RECOVERY_KEY, version: 5, before: {local: readLocal(), data}}
     await applicationSyncStore.commitExternal([{store: 'recovery', type: 'put', value: point}, ...update.operations])
     try {
       if (update.replace) replaceLocal(update.local as LocalSnapshot)

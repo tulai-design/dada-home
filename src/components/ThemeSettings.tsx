@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState,useSyncExternalStore } from 'react'
 import { ActionIcon, Button, Flexbox, Modal, Segmented, Switch, Text } from '@lobehub/ui'
 import {PencilSimple as Pencil, Trash as Trash2} from '@phosphor-icons/react'
 import { useAppSettings } from '../lib/apps'
@@ -9,6 +9,8 @@ import { Group, Row, TextRow } from './ios'
 import {useShellPresentation} from './shell'
 import {themeCapabilities} from '../lib/themeCatalog'
 import {resolveShellTheme} from '../lib/shell/theme'
+import {ThemePackageSettings,downloadThemePackage} from './ThemePackageSettings'
+import {getThemePackageGeneration,subscribeThemePackages,getThemePackageAvailability,exportThemeWithDependencies} from '../lib/themePackages'
 import {createThemeDraft} from '../lib/themeAuthoring/store'
 
 /** 主题的小色块：背景色打底，一道文字色，一个主色点。 */
@@ -27,6 +29,7 @@ function Swatch({ theme, mode }: { theme: ThemeEntry; mode: 'light' | 'dark' }) 
  * 主题由搭搭创建（说一句「做一个深海蓝的主题」），这里负责看、切换、改名、删除。
  */
 export function AppearanceSettings({ mode, onMode }: { mode: 'light' | 'dark'; onMode: (mode: 'light' | 'dark') => void }) {
+  useSyncExternalStore(subscribeThemePackages,getThemePackageGeneration,getThemePackageGeneration)
   const { workspace, edit } = useAppSettings()
   const decorId = currentDecor(workspace)
   const [editing, setEditing] = useState<ThemeEntry | null>(null)
@@ -34,6 +37,7 @@ export function AppearanceSettings({ mode, onMode }: { mode: 'light' | 'dark'; o
   const [description, setDescription] = useState('')
   const [pending, setPending] = useState<ThemeEntry | null>(null)
   const [authorError, setAuthorError] = useState('')
+  const [frameError,setFrameError]=useState('')
 
   const current = activeTheme(workspace)
   const resolved = resolveTheme(current, mode, {frameOff: workspace.theme.frameOff})
@@ -61,6 +65,7 @@ export function AppearanceSettings({ mode, onMode }: { mode: 'light' | 'dark'; o
     })
 
   const startEdit = (theme: ThemeEntry) => {
+    setAuthorError('')
     setEditing(theme)
     setName(theme.name)
     setDescription(theme.description)
@@ -84,8 +89,9 @@ export function AppearanceSettings({ mode, onMode }: { mode: 'light' | 'dark'; o
 
       {frameCapability !== 'none' && <Group title="窗口" footer={skin ? '窗口四周那圈边。关掉只收起这圈边，还是当前这套主题。' : '窗口四周那圈外框。修改保留当前造型；内置主题会先另存，默认主题不受影响。粗细、颜色和字体，对搭搭说就行。'}>
         <Row label="外框">
-          <Switch checked={frameOn} onChange={setFrame} />
+          <Switch checked={frameOn} disabled={resolved.availability.status!=='available'} onChange={on=>{try{setFrame(on);setFrameError('')}catch(error){setFrameError(error instanceof Error?error.message:String(error))}}} />
         </Row>
+        {frameError&&<p role="alert">{frameError}</p>}
       </Group>}
 
       {backdrop === 'page' && <Group title="首页装饰" footer="给首页铺一层动态背景，来自 React Bits。想要别的效果，或者 Spline 3D 场景，对搭搭说一声就行。">
@@ -109,19 +115,22 @@ export function AppearanceSettings({ mode, onMode }: { mode: 'light' | 'dark'; o
             key={theme.id}
             icon={<Swatch theme={theme} mode={mode} />}
             label={theme.name}
-            hint={[theme.description || (theme.builtin ? '默认' : ''), theme.fonts?.length ? `字体：${theme.fonts.map((font) => font.family).join('、')}` : ''].filter(Boolean).join(' · ') || undefined}
+            hint={[getThemePackageAvailability(theme).status!=='available'?`暂用基础外观：${getThemePackageAvailability(theme).reason??getThemePackageAvailability(theme).status}`:'',theme.packageRef?`来自 ${theme.packageRef.packageId} v${theme.packageRef.version}`:'',theme.description || (theme.builtin ? '默认' : ''), theme.fonts?.length ? `字体：${theme.fonts.map((font) => font.family).join('、')}` : ''].filter(Boolean).join(' · ') || undefined}
             checked={theme.id === workspace.theme.active}
             onClick={() => edit((ws) => applyTheme(ws, theme.id).workspace)}
           >
             {!theme.builtin && (
               <Flexbox direction="horizontal" gap={2} onClick={(event) => event.stopPropagation()}>
-                <ActionIcon icon={Pencil} title="改名与说明" size="small" onClick={() => startEdit(theme)} />
-                <ActionIcon icon={Trash2} title="删除" size="small" onClick={() => setPending(theme)} />
+                <ActionIcon icon={Pencil} title="改名与说明" aria-label="改名与说明" size="small" onClick={() => startEdit(theme)} />
+                <Button size="small" title="导出完整主题及本地字体" onClick={()=>{void exportThemeWithDependencies(theme).then(text=>{downloadThemePackage(text,theme.name);setAuthorError('')},error=>setAuthorError(error instanceof Error?error.message:String(error)))}}>导出</Button>
+                <ActionIcon icon={Trash2} title="删除" aria-label="删除" size="small" onClick={() => setPending(theme)} />
               </Flexbox>
             )}
           </Row>
         ))}
       </Group>
+
+      <ThemePackageSettings />
 
       <Modal
         open={Boolean(editing)}
@@ -130,13 +139,17 @@ export function AppearanceSettings({ mode, onMode }: { mode: 'light' | 'dark'; o
         cancelText="取消"
         onCancel={() => setEditing(null)}
         onOk={() => {
-          if (editing && name.trim()) edit((ws) => saveTheme(ws, { id: editing.id, name, description, activate: false }).workspace)
-          setEditing(null)
+          try {
+            if (!editing || !name.trim()) {setAuthorError('请填写主题名称');return}
+            edit((ws) => saveTheme(ws, { id: editing.id, name, description, activate: false }).workspace)
+            setEditing(null);setAuthorError('')
+          } catch(error) {setAuthorError(error instanceof Error?error.message:String(error))}
         }}
       >
         <Group>
           <TextRow label="名称" value={name} onChange={setName} />
           <TextRow label="说明" value={description} onChange={setDescription} placeholder="这个主题是什么气质" />
+          {authorError&&<p role="alert">{authorError}</p>}
         </Group>
       </Modal>
 

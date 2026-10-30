@@ -131,7 +131,7 @@ export function SyncSettings() {
         {BACKENDS.map((backend) => <Row key={backend.id} label={backend.name} checked={config.backend === backend.id} onClick={() => set({backend: backend.id})} />)}
       </Group>
 
-      <Group title="同步范围" footer={config.backend === 'sync' ? '上传前已经加密。' : protection}>
+      <Group title="同步范围" footer={`${config.backend === 'sync' ? '上传前已经加密。' : protection} 主题包只同步设计引用，不传字体文件或本机启用状态；其他设备需导入对应主题包，完整本地备份包含这些资源。`}>
         <Row label={configurationOnly ? '仅配置' : '完整业务数据'} hint={configurationOnly
           ? '页面与主题、应用源码和设置、宿主偏好、当前 AI 性格。聊天、画像、累积记忆和业务状态留在本机。'
           : '页面与主题、应用配置、组件与应用业务状态、画像和记忆、已结束的聊天。网络授权和运行状态留在本机。'} />

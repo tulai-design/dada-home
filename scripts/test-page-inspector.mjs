@@ -19,6 +19,7 @@ const errors = compile('src/lib/errors.ts')
 const policy = compile('src/fx/policy.ts', {'./capabilities': compile('src/fx/capabilities.ts'), '../lib/errors': errors})
 const inspector = compile('src/lib/pageInspector.ts')
 const tools = compile('src/lib/tools.ts', {
+  './themePackages/contracts': compile('src/lib/themePackages/contracts.ts'),
   '@tulai-design/agent-core': core,
   '../fx/policy': policy,
   './dock': compile('src/lib/dock.ts', {'./errors': errors}),

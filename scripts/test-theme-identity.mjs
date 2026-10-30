@@ -97,6 +97,23 @@ mocks.set(path.resolve(root, 'src/lib/pageIcons.ts'), {isPageIcon: () => false})
 mocks.set(path.resolve(root, 'src/lib/market.ts'), {ADDONS: []})
 mocks.set(path.resolve(root, 'src/lib/presets.ts'), {PRESETS: [], findPreset: () => undefined})
 const store = load('src/lib/workspaceStore.ts'), templates = load('src/lib/templates.ts')
+test('同一本地字体承担多个角色时，主题与模板JSON往返保留完整角色设计', () => {
+  const resource = {packageId: 'test.roles', version: '1.0.0', digest: 'a'.repeat(64), resourceId: 'main', sha256: 'b'.repeat(64)}
+  const fonts = ['sans', 'serif'].map(role => ({family: 'Local Test', role, resource}))
+  const created = themes.saveTheme(base('ios'), {name: '多角色字体', fonts})
+  assert.deepEqual(created.theme.fonts, fonts)
+  const reloaded = themes.readThemes(clone(created.workspace.themes)).find(theme => theme.id === created.theme.id)
+  assert.deepEqual(reloaded.fonts, fonts)
+  const saved = templates.saveTemplate(created.workspace, {name: '字体快照'}).workspace
+  const restored = store.migrate(clone(saved))
+  assert.deepEqual(restored.templates[0].snapshot.theme.fonts, fonts)
+  const adopted = templates.applyTemplate(themes.applyTheme(restored, 'ios').workspace, restored.templates[0].id).workspace
+  assert.deepEqual(model.activeTheme(adopted).fonts, fonts)
+  const before = load('src/lib/fonts.ts').fontVars(fonts)
+  const after = load('src/lib/fonts.ts').fontVars(model.activeTheme(adopted).fonts)
+  assert.equal(after['font-sans'], before['font-sans'])
+  assert.equal(after['font-serif'], before['font-serif'])
+})
 test('my-custom模板保存、JSON重载、采用保持精确身份与完整设计', () => {
   const created = themes.saveTheme(base('switch'), {name: 'my-custom', overrides: {main: '#663399'}, fonts: [{family: 'Noto Sans SC', role: 'sans'}]})
   const saved = templates.saveTemplate(created.workspace, {name: '桌面快照'}).workspace
@@ -183,6 +200,19 @@ test('入站容量包含自动补齐的内置主题，合法库往返不丢自�
   assert.deepEqual(themes.readThemes(custom).filter(theme => !theme.builtin).map(theme => theme.id), custom.map(theme => theme.id))
   const overflow = [...custom, {...source, id:'overflow'}]
   assert.throws(() => themes.assertWorkspaceThemes({...base(), themes: overflow}))
+})
+test('缺包与未知renderer完整设计经模板保存/重载/应用保留请求并安全回退', () => {
+  const dependency = {packageId: 'test.unavailable', version: '1.0.0', digest: 'a'.repeat(64), themeId: 'future'}
+  const theme = {id: 'future-custom', name: '未来设计', description: '缺包不删除', skin: 'future-skin', shell: 'future-shell', overrides: {radius: '8px'}, fonts: [], packageRef: dependency, rendererContract: {schemaVersion: 1, skinVersion: 2, shellVersion: 2}}
+  const workspace = base(); workspace.themes.push(theme); workspace.theme.active = theme.id
+  const saved = templates.saveTemplate(workspace, {name: '保留依赖'}).workspace
+  const restored = store.migrate(clone(saved))
+  assert.deepEqual(model.activeTheme(restored), theme)
+  assert.deepEqual(restored.templates[0].snapshot.theme, theme)
+  const applied = templates.applyTemplate(restored, restored.templates[0].id).workspace
+  assert.deepEqual(model.activeTheme(applied), theme)
+  assert.equal(themes.resolveTheme(model.activeTheme(applied), 'light').skin, 'paper')
+  assert.equal(applied.theme.active, theme.id)
 })
 console.log(`主题身份回归：${passed}/${passed + failures.length}`)
 if (failures.length) process.exitCode = 1

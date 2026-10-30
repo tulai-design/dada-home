@@ -7,6 +7,8 @@
 | [浏览器扩展](browser-extension.md) | 当前有效 | Chrome/Edge 开发者模式版本 | 完整新标签页、打包下载、权限、沙盒与单运行实例 |
 | [运行时契约](runtime-contract.md) | 当前有效 | 已有实现，按记录日期核对 | 工作空间、应用、主题、容器与生命周期的现状 |
 | [桌面外壳与稳定宿主](desktop-shell.md) | 当前有效 | 可信 standard/Switch/Win98 外壳 | 固定业务舞台、统一导航、能力、隐藏恢复与故障回落 |
+| [主题作者与独立预览](theme-authoring.md) | 当前有效 | 字段目录、草稿与独立预览 | 人与 Agent 共用定制、资源检查和一次应用 |
+| [本地声明式主题包](local-theme-packages.md) | 当前有效 | 本地 JSON 主题及 WOFF2 资源 | 本地安装、依赖、资源与备份同步边界 |
 | [应用增量同步](application-incremental-sync.md) | 当前有效 | 应用业务程序接入已实现；设置、配置和聊天待接入 | 持久队列、加密对象、冲突与恢复边界 |
 | [AI 页面生成质量](ai-page-design-quality.md) | `accepted` | 9 个子任务已交付；开发完成归档，后续验收由用户负责 | 本轮质量增强的验收目标 |
 | [设计规范](../design-system.md) | 当前有效 | 规则已提供给 AI；不代表所有输出均已自动验收 | 视觉、文案、可访问性与应用形态的统一要求 |

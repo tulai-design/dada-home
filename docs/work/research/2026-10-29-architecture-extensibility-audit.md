@@ -84,7 +84,7 @@ flowchart TD
 
 ### A3 · P2：主题的数据层成熟，桌面皮肤仍耦合业务协调
 
-2026-10-30 后续：[深度主题与创意工坊设计研究](2026-10-30-theme-shell-architecture.md)已完成专项源码审查与实施拆分。用户接受声明式主题与隔离代码扩展分层开放；A3 生产重构尚未实施。
+2026-10-30 后续：[深度主题与创意工坊设计研究](2026-10-30-theme-shell-architecture.md)已完成专项源码审查与实施拆分。用户接受声明式主题与隔离代码扩展分层开放；后续 A3 主题身份、稳定宿主、作者预览与本地声明式主题包四阶段已实施。在线工坊与第三方执行 runner 仍待后续。
 
 **现状证据：** [ThemeEntry](../../../src/lib/workspace.ts#L286) 主要表达配色、字体等数据；[themes.ts](../../../src/lib/themes.ts#L63) 提供明暗解析。但 [App](../../../src/App.tsx#L93) 直接维护 Win98 窗口和 Switch 首页状态，[应用主题的 effect](../../../src/App.tsx#L315) 逐个判断主题 ID，[渲染段](../../../src/App.tsx#L816) 再决定桌面、标题栏与 Dock；[ThemeSettings](../../../src/components/ThemeSettings.tsx#L34) 也判断 ID。[main.tsx](../../../src/main.tsx#L16) 与 [theme.css](../../../src/theme.css#L1) 体现了全局样式与专题覆盖的组合。
 

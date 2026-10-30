@@ -1,12 +1,14 @@
 import {deleteConv, exportChat, flush} from './chat'
 import {db} from './db'
 import {download} from './bookmarks'
+import {flushThemePackages} from './themePackages/repository'
+import {validateStoredThemePackage} from './themePackages/codec'
 
 /**
  * 容量统计与聊天清理预览。统计只读；清理走 deleteConv，因此会与增量同步的删除标记同事务提交。
  * 字节数是 JSON 文本的 UTF-8 长度，用于判断相对大小，不等于浏览器实际占用的磁盘空间。
  */
-export type UsageItem = {id: 'config' | 'component' | 'application' | 'conversation' | 'turn' | 'tool'; label: string; count: number; bytes: number}
+export type UsageItem = {id: 'config' | 'component' | 'application' | 'conversation' | 'turn' | 'tool' | 'theme-package'; label: string; count: number; bytes: number}
 export type Usage = {items: UsageItem[]; total: number; quota?: number; browserUsage?: number}
 export type CleanupPreview = {cutoff: number; convIds: string[]; turns: number; bytes: number}
 
@@ -29,9 +31,12 @@ type Detail = {convId: string; bytes: number}
 
 export async function measureUsage(): Promise<Usage> {
   await flush()
-  const [kv, apps, convs, turns, details] = await Promise.all([
+  await flushThemePackages()
+  const [kv, apps, convs, turns, details, rawPackages] = await Promise.all([
     db.all<unknown>('kv'), db.all<unknown>('apps'), db.all<unknown>('convs'), db.all<unknown>('turns'), db.all<Detail>('toolDetails'),
+    db.all<unknown>('themePackages'),
   ])
+  const packages = await Promise.all(rawPackages.map(validateStoredThemePackage))
   const config = localConfigUsage()
   const items: UsageItem[] = [
     {id: 'config', label: '配置与偏好', ...config},
@@ -40,6 +45,7 @@ export async function measureUsage(): Promise<Usage> {
     {id: 'conversation', label: '聊天会话', count: convs.length, bytes: sizeOf(convs)},
     {id: 'turn', label: '聊天内容', count: turns.length, bytes: sizeOf(turns)},
     {id: 'tool', label: '工具明细', count: details.length, bytes: details.reduce((sum, detail) => sum + (Number.isFinite(detail.bytes) ? detail.bytes : 0), 0)},
+    {id: 'theme-package', label: '本地主题包与字体', count: packages.length, bytes: packages.reduce((sum, row) => sum + sizeOf(row.manifest) + row.resources.reduce((bytes, resource) => bytes + resource.bytes.byteLength, 0), 0)},
   ]
   const estimate = await navigator.storage?.estimate?.().catch(() => undefined)
   return {items, total: items.reduce((sum, item) => sum + item.bytes, 0), quota: estimate?.quota, browserUsage: estimate?.usage}

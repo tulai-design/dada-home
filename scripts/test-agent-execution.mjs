@@ -16,6 +16,7 @@ const deferred = () => {let resolve; const promise = new Promise(done => {resolv
 let writes = [], groups = [], playerError = '', sourceRequest, geocodeRequest, bridgeRequest
 const context = () => ({signal: new AbortController().signal, openPage() {}})
 const common = {
+  './themePackages/contracts': compile('themePackages/contracts'),
   '@tulai-design/agent-core': core,
   './errors': {WorkspaceError},
   './defaults': {OPEN_TARGETS: [], SEARCH_ENGINES: [], defaultSettings: () => ({})},

@@ -6,14 +6,14 @@ import ts from 'typescript'
 
 // 运行真实工具解析、主题/外观纯函数及列表输出；仅替换浏览器存储和无关工具依赖。
 const modules = new Map()
-const coreFiles = new Set(['errors', 'fonts', 'workspace', 'themes', 'themeResolution', 'themeCatalog', 'dock', 'appearance', 'themeAuthoring/catalog', 'themeAuthoring/validation'])
+const coreFiles = new Set(['errors', 'fonts', 'workspace', 'themes', 'themeResolution', 'themeCatalog', 'dock', 'appearance', 'themeAuthoring/catalog', 'themeAuthoring/validation', 'themePackages/contracts', 'themePackages/state', 'fontResource', 'themePackages/boundary', 'themePackages/availability'])
 function loadCore(name) {
   if (modules.has(name)) return modules.get(name).exports
   const module = {exports: {}}
   modules.set(name, module)
   const source = readFileSync(new URL(`../src/lib/${name}.ts`, import.meta.url), 'utf8')
   const js = ts.transpileModule(source, {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022}}).outputText
-  vm.runInNewContext(js, {module, exports: module.exports, require: (id) => {
+  vm.runInNewContext(js, {TextEncoder, TextDecoder, structuredClone, module, exports: module.exports, require: (id) => {
     if (id === '../fx/policy') return loadFx('policy')
     const dependency = path.posix.normalize(path.posix.join(path.posix.dirname(name), id))
     assert(coreFiles.has(dependency), `未声明的核心依赖：${id}`)
@@ -25,7 +25,7 @@ function loadFx(name) {
   const module = {exports: {}}
   const source = readFileSync(new URL(`../src/fx/${name}.ts`, import.meta.url), 'utf8')
   const js = ts.transpileModule(source, {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022}}).outputText
-  vm.runInNewContext(js, {module, exports: module.exports, require: (id) => id === '../lib/errors' ? loadCore('errors') : loadFx(id.replace(/^\.\//, ''))})
+  vm.runInNewContext(js, {TextEncoder, TextDecoder, structuredClone, module, exports: module.exports, require: (id) => id === '../lib/errors' ? loadCore('errors') : loadFx(id.replace(/^\.\//, ''))})
   return module.exports
 }
 const themes = loadCore('themes')
@@ -38,6 +38,7 @@ const dependencies = {
   './errors': {WorkspaceError},
   './workspace': model,
   './themes': themes,
+  './themePackages/contracts': loadCore('themePackages/contracts'),
   './appearance': loadCore('appearance'),
   './workspaceStore': {getWorkspace: () => workspace, commit: (next) => {workspace = next; commits += 1}},
   './ops': {setTheme: themes.tweakTheme, saveTheme: themes.saveTheme, applyTheme: themes.applyTheme},
@@ -321,5 +322,35 @@ await test('get_appearance 通过可信宿主回读有效外壳故障结果，�
   assert.equal(report.current.theme.id, current.id)
   assert.deepEqual(plain(workspace), before)
   assert.equal(commits, count)
+})
+await test('缺包主题诊断保留精确请求与设计，同时披露基础回退而非安装成功', async () => {
+  const theme = {...plain(model.WIN98_THEME), id: 'missing-package-theme', name: '离线复古', builtin: undefined,
+    packageRef: {packageId: 'fixture.missing', version: '1.0.0', digest: 'a'.repeat(64), themeId: 'retro'},
+    rendererContract: {schemaVersion: 1, skinVersion: 1, shellVersion: 1}, fonts: []}
+  workspace.themes.push(theme)
+  workspace.theme.active = theme.id
+  const before = JSON.stringify(workspace)
+  const listing = await run('list_themes')
+  const report = JSON.parse(await run('get_appearance'))
+  assert.equal(report.current.theme.packageRef.digest, theme.packageRef.digest)
+  assert.equal(report.current.theme.requested.skin, 'win98')
+  assert.equal(report.current.theme.effective.skin, 'paper')
+  assert.equal(report.current.theme.effective.shell, 'standard')
+  assert.equal(report.current.theme.availability.status, 'missing')
+  assert.equal(report.current.rendering, null, '领域诊断不能伪造真实DOM已渲染')
+  assert.match(listing, /packageRef.*fixture.missing/)
+  assert.match(listing, /availability.*missing/)
+  assert.equal(JSON.stringify(workspace), before)
+  assert.equal(commits, 0)
+})
+await test('字体工具公开精确本地引用且系统空数组不宣称请求Google', async () => {
+  for (const name of ['set_theme', 'save_theme']) {
+    const schema = tool(name).parameters.properties.fonts.items.properties.resource
+    assert.equal(schema.additionalProperties, false)
+    assert.deepEqual(plain(schema.required), ['packageId', 'version', 'digest', 'resourceId', 'sha256'])
+  }
+  const result = await run('set_theme', {fonts: []})
+  assert.doesNotMatch(result, /来自 Google|需要联网加载/)
+  assert.deepEqual(plain(active().fonts), [])
 })
 console.log(`主题工具回归全部通过：${passed}/${passed}`)

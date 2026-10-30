@@ -1,11 +1,12 @@
-import {useCallback, useEffect, useLayoutEffect, useRef, useState} from 'react'
+import {useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore} from 'react'
 import {Button, Input, Segmented, Select, TextArea} from '@lobehub/ui'
 import {acquireThemeFonts} from '../lib/fonts'
 import {getWorkspace, useWorkspace} from '../lib/workspaceStore'
 import {listThemeFields, type ThemeField, type ThemeScope} from '../lib/themeAuthoring/catalog'
 import {applyThemeDraft, describeThemeDraft, discardThemeDraft, getThemeDraft, registerThemeAuthoringPort, updateThemeDraft, useThemeDraft} from '../lib/themeAuthoring/store'
-import {registerThemePreviewInspector, type ThemePreviewInspection} from '../lib/themeAuthoring/previewBridge'
-import {isThemePreviewRequest, isThemePreviewResponse, THEME_PREVIEW_PROTOCOL, THEME_PREVIEW_WIDTHS, type ThemePreviewReport, type ThemePreviewRequest, type ThemePreviewWidth} from '../lib/themeAuthoring/previewProtocol'
+import {registerThemePreviewInspector, readThemePreviewResource, type ThemePreviewInspection} from '../lib/themeAuthoring/previewBridge'
+import {isThemePreviewRequest, isThemePreviewResponse, isThemePreviewResourceRequest, sameThemeFontResource, sameThemePreviewSession, THEME_PREVIEW_RESOURCE_TOTAL_BYTES, type ThemePreviewResourceResponse, THEME_PREVIEW_PROTOCOL, THEME_PREVIEW_WIDTHS, type ThemePreviewReport, type ThemePreviewRequest, type ThemePreviewWidth} from '../lib/themeAuthoring/previewProtocol'
+import {getThemePackageGeneration,subscribeThemePackages,getThemePackageAvailability,readLocalThemeFont} from '../lib/themePackages'
 import type {ThemeEntry} from '../lib/workspace'
 import '../theme-authoring.css'
 
@@ -40,7 +41,7 @@ function FieldEditor({field, theme, onPatch}: {field:ThemeField;theme:ThemeEntry
     {field.type === 'fonts' && <small>结构化字体 family/role 数组；输入 [] 明确使用系统字体，不请求网络。</small>}
   </div>
 }
-type Pending = {request:ThemePreviewRequest;promise:Promise<ThemePreviewReport>;resolve:(report:ThemePreviewReport)=>void;reject:(error:Error)=>void;cleanup:()=>void}
+type Pending = {request:ThemePreviewRequest;promise:Promise<ThemePreviewReport>;resolve:(report:ThemePreviewReport)=>void;reject:(error:Error)=>void;cleanup:()=>void;resources:AbortController;resourceIds:Set<string>;resourceBytes:number}
 const stopped = () => new DOMException('主题预览检查已停止','AbortError')
 function withAbort<T>(promise:Promise<T>,signal?:AbortSignal):Promise<T> {
   if (!signal) return promise
@@ -59,9 +60,10 @@ function DraftMetadata({draftId,revision,name,description,onError}:{draftId:stri
 }
 /** 稳定挂在宿主，Agent 创建草稿也自动展示；不依赖设置页挂载。 */
 export default function ThemeAuthoringPanel() {
+  const packageGeneration=useSyncExternalStore(subscribeThemePackages,getThemePackageGeneration,getThemePackageGeneration)
   useWorkspace() // 正式选择或源设计变化也应立即显示冲突。
   const draft = useThemeDraft()
-  const draftRef = useRef(draft);draftRef.current = draft
+  const displayedDraft=useRef(draft)
   const iframe = useRef<HTMLIFrameElement>(null)
   const frameBox = useRef<HTMLDivElement>(null)
   const pending = useRef(new Map<string,Pending>())
@@ -75,6 +77,7 @@ export default function ThemeAuthoringPanel() {
   const [group,setGroup] = useState<ThemeField['group']>('tokens')
   const [report,setReport] = useState<ThemePreviewReport|null>(null)
   const reportRef=useRef(report);reportRef.current=report
+  const reportGeneration=useRef(-1)
   const [error,setError] = useState('')
   const [busy,setBusy] = useState(false)
   const [collapsed,setCollapsed] = useState(false)
@@ -98,27 +101,48 @@ export default function ThemeAuthoringPanel() {
     const current = getThemeDraft()
     if (!current || current.id !== input.draftId || current.revision !== input.revision) throw new Error('主题预览版本已过期')
     if (!iframe.current?.contentWindow) throw new Error('主题预览文档尚未就绪，请稍后重试')
-    const existing=[...pending.current.values()].find(item=>item.request.draftId===current.id&&item.request.revision===current.revision&&item.request.mode===mode&&item.request.width===width)
+    const existing=[...pending.current.values()].find(item=>item.request.draftId===current.id&&item.request.revision===current.revision&&item.request.mode===mode&&item.request.width===width&&item.request.packageGeneration===getThemePackageGeneration())
     if (existing) return withAbort(existing.promise,input.signal)
-    const request:ThemePreviewRequest = {protocol:THEME_PREVIEW_PROTOCOL,type:'render',channel,draftId:current.id,revision:current.revision,requestId:crypto.randomUUID(),theme:structuredClone(current.theme),mode,width,reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches}
+    const request:ThemePreviewRequest = {protocol:THEME_PREVIEW_PROTOCOL,type:'render',channel,draftId:current.id,revision:current.revision,requestId:crypto.randomUUID(),theme:structuredClone(current.theme),packageGeneration:getThemePackageGeneration(),availability:{...getThemePackageAvailability(current.theme),generation:getThemePackageGeneration()},mode,width,reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches}
     if (!isThemePreviewRequest(request)) throw new Error('主题预览请求不符合schema或超过64KiB')
     if (input.signal?.aborted) throw stopped()
     let resolveRequest!:(report:ThemePreviewReport)=>void,rejectRequest!:(error:Error)=>void
     const promise=new Promise<ThemePreviewReport>((resolve,reject)=>{resolveRequest=resolve;rejectRequest=reject})
     {
       const timer = setTimeout(()=>{pending.current.get(request.requestId)?.cleanup();rejectRequest(new Error('主题预览检查超时，当前版本不可用'))},10000)
-      const cleanup = ()=>{clearTimeout(timer);pending.current.delete(request.requestId)}
-      pending.current.set(request.requestId,{request,promise,resolve:resolveRequest,reject:rejectRequest,cleanup})
+      const resources=new AbortController()
+      const cleanup = ()=>{clearTimeout(timer);resources.abort();pending.current.delete(request.requestId)}
+      pending.current.set(request.requestId,{request,promise,resolve:resolveRequest,reject:rejectRequest,cleanup,resources,resourceIds:new Set(),resourceBytes:0})
       iframe.current!.contentWindow!.postMessage(request,location.origin)
     }
     return withAbort(promise,input.signal)
-  },[channel,mode,width])
+  },[channel,mode,width,packageGeneration])
   useEffect(()=>{
     const receive = (event:MessageEvent<unknown>)=>{
-      if (event.source !== iframe.current?.contentWindow || event.origin !== location.origin || !isThemePreviewResponse(event.data) || event.data.channel !== channel) return
-      const message=event.data,item=pending.current.get(message.requestId),current=draftRef.current
-      if (!item || !current || message.draftId !== current.id || message.revision !== current.revision || message.report.mode !== item.request.mode || message.report.width !== item.request.width) return
-      item.cleanup();reportRef.current=message.report;setReport(message.report);item.resolve(message.report)
+      if(event.source!==iframe.current?.contentWindow || event.origin!==location.origin)return
+      if(isThemePreviewResourceRequest(event.data)){
+        const message=event.data,item=pending.current.get(message.requestId),current=getThemeDraft()
+        if(!item || !sameThemePreviewSession(message,item.request) || !current || message.channel!==channel || message.draftId!==current.id || message.revision!==current.revision || message.packageGeneration!==item.request.packageGeneration || message.packageGeneration!==getThemePackageGeneration() || item.resourceIds.has(message.resourceRequestId) || item.resourceIds.size>=4 || !item.request.theme.fonts?.some(font=>font.resource&&sameThemeFontResource(font.resource,message.ref)))return
+        item.resourceIds.add(message.resourceRequestId)
+        const target=event.source as Window
+        const isCurrent=()=>{const live=getThemeDraft();return !item.resources.signal.aborted && pending.current.get(message.requestId)===item && getThemePackageGeneration()===message.packageGeneration && live?.id===message.draftId && live.revision===message.revision}
+        const send=(body:{bytes:ArrayBuffer}|{error:string})=>{
+          if(!isCurrent())return
+          const response:ThemePreviewResourceResponse={...message,type:'resource-response',...body}
+          if('bytes' in body)target.postMessage(response,location.origin,[body.bytes]);else target.postMessage(response,location.origin)
+        }
+        void readThemePreviewResource(message.ref,{read:readLocalThemeFont,signal:item.resources.signal,current:isCurrent}).then(bytes=>{
+          if(!bytes)return
+          item.resourceBytes+=bytes.byteLength
+          if(item.resourceBytes>THEME_PREVIEW_RESOURCE_TOTAL_BYTES)throw new Error('预览本地资源超过4MiB')
+          send({bytes})
+        }).catch(error=>send({error:errorText(error).slice(0,500)||'本地字体读取失败'}))
+        return
+      }
+      if(!isThemePreviewResponse(event.data)||event.data.channel!==channel)return
+      const message=event.data,item=pending.current.get(message.requestId),current=getThemeDraft()
+      if (!item || !sameThemePreviewSession(message,item.request) || !current || message.draftId !== current.id || message.revision !== current.revision || message.packageGeneration!==getThemePackageGeneration() || message.packageGeneration!==item.request.packageGeneration || message.report.mode !== item.request.mode || message.report.width !== item.request.width) return
+      item.cleanup();reportGeneration.current=message.packageGeneration;reportRef.current=message.report;setReport(message.report);item.resolve(message.report)
     }
     window.addEventListener('message',receive)
     return ()=>window.removeEventListener('message',receive)
@@ -128,7 +152,7 @@ export default function ThemeAuthoringPanel() {
     const stopPort=registerThemeAuthoringPort({getReadiness:request=>{
       const current=getThemeDraft(),checked=reportRef.current
       if(!current || current.id!==request.draftId || current.revision!==request.revision || collapsedRef.current)return {...request,status:'unavailable',reason:collapsedRef.current?'主题预览已收起':'当前草稿已变化'}
-      if(!checked || checked.draftId!==current.id || checked.revision!==current.revision || checked.mode!==mode || checked.width!==width)return {...request,status:'pending'}
+      if(reportGeneration.current!==getThemePackageGeneration() || !checked || checked.draftId!==current.id || checked.revision!==current.revision || checked.mode!==mode || checked.width!==width)return {...request,status:'pending'}
       return {...request,status:checked.ready?'ready':'error',...(!checked.ready?{reason:checked.reason}: {})}
     },prepare:async request=>{
       const checked=await inspect(request)
@@ -140,13 +164,13 @@ export default function ThemeAuthoringPanel() {
     return ()=>{stopInspect();stopPort()}
   },[inspect,mode,width])
   useEffect(()=>{
-    setCollapsed(false);collapsedRef.current=false
-    setReport(null);setError('')
+    if(displayedDraft.current!==draft){setCollapsed(false);collapsedRef.current=false;displayedDraft.current=draft}
+    reportGeneration.current=-1;reportRef.current=null;setReport(null);setError('')
     for (const item of pending.current.values()) {item.cleanup();item.reject(new Error('草稿或预览配置已变化，旧回执无效'))}
     let active=true
-    if (draft && loadedRef.current) void inspect({draftId:draft.id,revision:draft.revision}).catch(error=>{if(active)setError(errorText(error))})
+    if (draft && loadedRef.current && !collapsedRef.current) void inspect({draftId:draft.id,revision:draft.revision}).catch(error=>{if(active)setError(errorText(error))})
     return ()=>{active=false}
-  },[draft,inspect])
+  },[draft,inspect,packageGeneration])
   useEffect(()=>{
     let active=true
     if(draft && loadGeneration>0)void inspect({draftId:draft.id,revision:draft.revision}).catch(error=>{if(active)setError(errorText(error))})

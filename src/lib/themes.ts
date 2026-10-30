@@ -1,9 +1,12 @@
+import {assertBoundedJson, assertRendererContract, assertThemePackageRef, boundedText, exact} from './themePackages/boundary'
+import {getThemePackageAvailability} from './themePackages/availability'
+import type {ThemePackageAvailability} from './themePackages/contracts'
 import {validateOverrideMap, validateThemeDesign} from './themeAuthoring/validation'
 import {WorkspaceError} from './errors'
 import {cleanFonts, fontVars} from './fonts'
 import {themeDesignLayers} from './themeResolution'
 import {isThemeRenderer, themeCapabilities} from './themeCatalog'
-import {DEFAULT_APPEARANCE_THEME, DEFAULT_THEME, DEFAULT_THEME_ID, IOS_THEME, PIXEL_THEME, SWITCH_THEME, WIN98_THEME, MAX_THEMES, activeTheme, type ThemeEntry, type Workspace} from './workspace'
+import {DEFAULT_APPEARANCE_THEME, DEFAULT_THEME, DEFAULT_THEME_ID, IOS_THEME, PIXEL_THEME, SWITCH_THEME, WIN98_THEME, MAX_THEMES, activeTheme, type ThemeEntry, type ThemeSkin, type ThemeShell, type Workspace} from './workspace'
 
 /**
  * 主题库的纯函数。
@@ -42,10 +45,14 @@ const BASE_SHARED = {radius: '0px', 'radius-lg': '0px', frame: '7px', 'side-widt
 export type ThemeValueSource = 'default' | 'font' | 'shared' | 'light' | 'dark' | 'preference'
 
 /** 全部消费者共用的有效主题；values 是语义 CSS 值，不是浏览器 computedStyle。 */
-export function resolveTheme(theme: ThemeEntry, mode: Mode, preferences: {frameOff?: boolean} = {}) {
-  const entry = theme
-  const capabilities = themeCapabilities(entry.skin)
-  const host = {paper: DEFAULT_THEME, ios: IOS_THEME, pixel: PIXEL_THEME, switch: SWITCH_THEME, win98: WIN98_THEME}[entry.skin]
+export function resolveTheme(theme: ThemeEntry, mode: Mode, preferences: {frameOff?: boolean; packageAvailability?: ThemePackageAvailability} = {}) {
+  const availability = preferences.packageAvailability ?? getThemePackageAvailability(theme)
+  const available = availability.status === 'available' && isThemeRenderer(theme.skin, theme.shell)
+  const entry = available ? theme : {...DEFAULT_THEME, fonts: []}
+  const skin = entry.skin as ThemeSkin
+  const shell = entry.shell as ThemeShell
+  const capabilities = themeCapabilities(skin)
+  const host = {paper: DEFAULT_THEME, ios: IOS_THEME, pixel: PIXEL_THEME, switch: SWITCH_THEME, win98: WIN98_THEME}[skin]
   // 固定实现的默认合同，不读取 origin；用户快照和模式层仍优先。
   const hostOverrides: Overrides = {...fontVars(host.fonts), ...host.overrides, ...host[mode]}
   const defaults: Overrides = {...BASE_SHARED, ...DEFAULT_THEME_PALETTES[mode], ...fontVars(undefined), ...hostOverrides}
@@ -59,29 +66,43 @@ export function resolveTheme(theme: ThemeEntry, mode: Mode, preferences: {frameO
   for (const [part, recipe] of Object.entries(entry.recipes ?? {})) if (recipe.radius !== undefined) layer({[`recipe-${part}-radius`]: `${recipe.radius}px`}, 'shared')
   if (entry.shellConfig?.coverScale !== undefined) layer({'switch-cover-scale': String(entry.shellConfig.coverScale / 100)}, 'shared')
   if (preferences.frameOff) layer({frame: '0px', 'frame-gap': '0px'}, 'preference')
-  return {id: entry.id, skin: entry.skin, shell: entry.shell, ...(entry.origin ? {origin: {...entry.origin}} : {}), mode, values, sources, overrides, capabilities, shellConfig: entry.shellConfig ?? {}, recipes: entry.recipes ?? {}}
+  return {id: theme.id, skin, shell, requested: {id: theme.id, skin: theme.skin, shell: theme.shell, ...(theme.packageRef ? {packageRef: {...theme.packageRef}} : {})}, availability, effectiveFonts: entry.fonts, ...(theme.origin ? {origin: {...theme.origin}} : {}), mode, values, sources, overrides, capabilities, shellConfig: entry.shellConfig ?? {}, recipes: entry.recipes ?? {}}
 }
 
 const object = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value)
 const BUILTIN_THEMES = new Map([DEFAULT_THEME, IOS_THEME, PIXEL_THEME, SWITCH_THEME, WIN98_THEME].map(theme => [theme.id, theme]))
 const BUILTIN_IDS = new Set(BUILTIN_THEMES.keys())
-const ENTRY_FIELDS = new Set(['id', 'name', 'description', 'overrides', 'light', 'dark', 'fonts', 'mode', 'builtin', 'skin', 'shell', 'origin', 'recipes', 'shellConfig'])
+const ENTRY_FIELDS = new Set(['id', 'name', 'description', 'overrides', 'light', 'dark', 'fonts', 'mode', 'builtin', 'skin', 'shell', 'origin', 'recipes', 'shellConfig', 'packageRef', 'rendererContract', 'opaqueDesign'])
 
 /** 所有 unknown 主题入口共用校验；不从自定义实例 ID 推断实现。 */
 export function assertThemeEntry(raw: unknown): asserts raw is ThemeEntry {
-  if (!object(raw) || Object.keys(raw).some(key => !ENTRY_FIELDS.has(key)) || typeof raw.id !== 'string' || !raw.id.trim() || raw.id.length > 120 || typeof raw.name !== 'string' || !raw.name.trim() || raw.name.length > 20 || typeof raw.description !== 'string' || raw.description.length > 120 || !isThemeRenderer(raw.skin, raw.shell)) throw new WorkspaceError('主题身份、名称或造型/外壳引用无效')
+  if (!object(raw) || Object.keys(raw).some(key => !ENTRY_FIELDS.has(key)) || typeof raw.id !== 'string' || !raw.id.trim() || raw.id.length > 120 || typeof raw.name !== 'string' || !raw.name.trim() || raw.name.length > 20 || typeof raw.description !== 'string' || raw.description.length > 120) throw new WorkspaceError('主题身份、名称或造型/外壳引用无效')
+  boundedText(raw.skin, 80, 'skin'); boundedText(raw.shell, 80, 'shell')
+  if (raw.packageRef !== undefined) {assertThemePackageRef(raw.packageRef); assertRendererContract(raw.rendererContract); assertBoundedJson(raw)}
+  else if (raw.rendererContract !== undefined || raw.opaqueDesign !== undefined || !isThemeRenderer(raw.skin, raw.shell)) throw new WorkspaceError('非包主题需要已知造型/外壳')
+  const contract = raw.rendererContract as ThemeEntry['rendererContract']
+  const knownDesign = isThemeRenderer(raw.skin, raw.shell) && (!contract || contract.schemaVersion === 1 && contract.skinVersion === 1 && contract.shellVersion === 1) && raw.opaqueDesign === undefined
   const builtin = BUILTIN_THEMES.get(raw.id)
+  if (builtin && (raw.packageRef !== undefined || Array.isArray(raw.fonts) && raw.fonts.some(font => object(font) && font.resource !== undefined))) throw new WorkspaceError('内置主题ID不能冒用包或本地字体依赖')
   if (builtin && (raw.skin !== builtin.skin || raw.shell !== builtin.shell || raw.builtin === false)) throw new WorkspaceError('内置主题 ID 与实现身份不一致')
   if (!object(raw.overrides)) throw new WorkspaceError('主题 overrides 必须是对象')
-  cleanOverrides(raw.overrides)
-  for (const key of ['light', 'dark']) if (raw[key] !== undefined) {if (!object(raw[key])) throw new WorkspaceError(`主题 ${key} 必须是对象`); cleanOverrides(raw[key])}
+  if (knownDesign) cleanOverrides(raw.overrides)
+  else if (Object.values(raw.overrides).some(value => typeof value !== 'string')) throw new WorkspaceError('不可用主题变量必须为字符串')
+  for (const key of ['light', 'dark']) if (raw[key] !== undefined) {if (!object(raw[key])) throw new WorkspaceError(`主题 ${key} 必须是对象`); if (knownDesign) cleanOverrides(raw[key]); else if (Object.values(raw[key]).some(value => typeof value !== 'string')) throw new WorkspaceError('不可用主题模式变量必须为字符串')}
   if (raw.mode !== undefined && raw.mode !== 'light' && raw.mode !== 'dark') throw new WorkspaceError('主题 mode 只能是 light 或 dark')
   if (raw.builtin !== undefined && (typeof raw.builtin !== 'boolean' || raw.builtin && !BUILTIN_IDS.has(raw.id))) throw new WorkspaceError('主题 builtin 身份无效')
   if (raw.fonts !== undefined) {
-    if (!Array.isArray(raw.fonts) || raw.fonts.some(font => !object(font) || Object.keys(font).some(key => key !== 'family' && key !== 'role'))) throw new WorkspaceError('主题 fonts 必须是字体对象数组')
+    if (!Array.isArray(raw.fonts) || raw.fonts.some(font => !object(font) || Object.keys(font).some(key => key !== 'family' && key !== 'role' && key !== 'resource'))) throw new WorkspaceError('主题 fonts 必须是字体对象数组')
     cleanFonts(raw.fonts)
   }
-  validateThemeDesign(raw as ThemeEntry)
+  if (raw.packageRef && (!Array.isArray(raw.fonts) || raw.fonts.some(font => !object(font) || font.resource === undefined))) throw new WorkspaceError('包主题必须显式使用系统字体fonts:[]或精确本地资源，不能默认联网')
+  if (knownDesign) validateThemeDesign(raw as ThemeEntry)
+  if (raw.opaqueDesign !== undefined) {
+    if (!object(raw.opaqueDesign)) throw new WorkspaceError('opaqueDesign必须为对象')
+    exact(raw.opaqueDesign, ['schemaVersion', 'payload'])
+    if (!Number.isSafeInteger(raw.opaqueDesign.schemaVersion) || Number(raw.opaqueDesign.schemaVersion) < 1 || !object(raw.opaqueDesign.payload)) throw new WorkspaceError('opaqueDesign schema/payload无效')
+    assertBoundedJson(raw.opaqueDesign)
+  } else if (raw.rendererContract && (raw.rendererContract as {schemaVersion: number}).schemaVersion !== 1) throw new WorkspaceError('未知schema需要保留opaqueDesign')
   if (raw.origin !== undefined && (!object(raw.origin) || Object.keys(raw.origin).some(key => key !== 'definitionId' && key !== 'version') || typeof raw.origin.definitionId !== 'string' || !BUILTIN_IDS.has(raw.origin.definitionId) || !Number.isSafeInteger(raw.origin.version) || Number(raw.origin.version) < 1)) throw new WorkspaceError('主题 origin 必须指向合法定义与正整数版本')
 }
 
@@ -109,7 +130,7 @@ export function readThemes(raw: unknown, _fallbackMode: Mode = 'light'): ThemeEn
       assertThemeEntry(item)
       if (list.some(entry => entry.id === item.id) || list.length >= MAX_THEMES) continue
       const {builtin: _builtin, ...entry} = item
-      list.push({...entry, overrides: cleanOverrides(entry.overrides), ...(entry.light ? {light: cleanOverrides(entry.light)} : {}), ...(entry.dark ? {dark: cleanOverrides(entry.dark)} : {}), ...(entry.fonts ? {fonts: cleanFonts(entry.fonts)} : {}), ...(entry.origin ? {origin: {...entry.origin}} : {})})
+      list.push({...entry, overrides: {...entry.overrides}, ...(entry.light ? {light: {...entry.light}} : {}), ...(entry.dark ? {dark: {...entry.dark}} : {}), ...(entry.fonts ? {fonts: cleanFonts(entry.fonts)} : {}), ...(entry.origin ? {origin: {...entry.origin}} : {})})
     } catch { /* 宽松本地读取跳过损坏条目；导入/同步/备份必须先严格校验。 */ }
   }
   return list
@@ -164,6 +185,7 @@ export function saveTheme(
   if (!existing && !name) throw new WorkspaceError('新主题需要一个名字')
   if (!existing && workspace.themes.length >= MAX_THEMES) throw new WorkspaceError(`主题库满了，最多 ${MAX_THEMES} 个，先删掉不用的。`)
   const original = existing ?? (input.from !== undefined ? find(workspace, input.from) : activeTheme(workspace))
+  assertThemeEditable(original)
   const old = cloneTheme(original)
   const supplied = cleanOverrides(input.overrides)
   const {shared, colors} = splitOverrides(supplied)
@@ -235,11 +257,12 @@ export function tweakTheme(workspace: Workspace, input: {mode?: string; override
   const fontKeys = fontOverrideKeys(fonts)
   const next = input.mode !== undefined ? setMode(workspace, input.mode) : workspace
   if (input.overrides === undefined && input.light === undefined && input.dark === undefined && input.fonts === undefined) return {workspace: next}
+  assertThemeEditable(activeTheme(next))
   const current = cloneTheme(activeTheme(next))
   if (input.overrides === null) {
     if (current.builtin) return {workspace: next}
     const {fonts: _fonts, light: _light, dark: _dark, ...rest} = current
-    return {workspace: {...next, themes: next.themes.map(item => item.id === current.id ? {...rest, overrides: {}} : item)}}
+    return {workspace: {...next, themes: next.themes.map(item => item.id === current.id ? {...rest, ...(current.packageRef ? {fonts: []} : {}), overrides: {}} : item)}}
   }
   const palettes: Pick<ThemeEntry, 'light' | 'dark'> = {}
   for (const mode of ['light', 'dark'] as const) {
@@ -267,4 +290,10 @@ export function tweakTheme(workspace: Workspace, input: {mode?: string; override
 export function swatch(theme: ThemeEntry, mode: 'light' | 'dark'): {bg: string; text: string; main: string} {
   const {values} = resolveTheme(theme, mode)
   return {bg: values.bg, text: values.text, main: values.main}
+}
+
+/** 数据可以保留缺依赖设计，但作者与即时编辑不能猜未知schema或覆盖不可用来源。 */
+export function assertThemeEditable(theme: ThemeEntry): void {
+  const availability = getThemePackageAvailability(theme)
+  if (theme.opaqueDesign || !isThemeRenderer(theme.skin, theme.shell) || availability.status !== 'available') throw new WorkspaceError(`主题当前不可编辑：${availability.reason ?? availability.status}`)
 }

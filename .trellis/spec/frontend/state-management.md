@@ -6,9 +6,15 @@
 
 新增结构写操作遵循“读取当前工作空间 → 纯函数返回新结构 → `commit`”。不要直接修改 store 内对象或从工具写 `localStorage`。编辑前规整配置，导入和历史数据读取也要经过迁移/读取校验，不能只保护新建路径。
 
-主题实例 `id` 只用于库选择；渲染与生命周期分别消费 `resolveTheme` 的 `skin` 和 `shell`。派生必须完整复制设计，不能仅保存补丁或按实例 ID 选择桌面；同 shell 变体切换不重置窗口状态。主题和模板内主题的 unknown 校验复用 `themes.ts`，显式备份/同步入站必须先严格校验再写入，不能用宽松读取丢弃坏主题后宣称成功。结构版本 8 的当前合同包含受控 recipes/shellConfig，见[主题、外观与模板](../../../docs/specs/runtime-contract.md#主题外观与模板)。作者草稿只在内存，异步预览与字体等待后必须重核源、选择和版本，再向最新工作空间单次提交；详见[主题作者合同](../../../docs/specs/theme-authoring.md)。
+主题实例 `id` 只用于库选择；渲染与生命周期分别消费 `resolveTheme` 的 `skin` 和 `shell`。派生必须完整复制设计，不能仅保存补丁或按实例 ID 选择桌面；同 shell 变体切换不重置窗口状态。主题和模板内主题的 unknown 校验复用 `themes.ts`，显式备份/同步入站必须先严格校验再写入，不能用宽松读取丢弃坏主题后宣称成功。结构版本 9 的当前合同包含受控 recipes/shellConfig，见[主题、外观与模板](../../../docs/specs/runtime-contract.md#主题外观与模板)。作者草稿只在内存，异步预览与字体等待后必须重核源、选择和版本，再向最新工作空间单次提交；详见[主题作者合同](../../../docs/specs/theme-authoring.md)。
 
 `migrate` 会恢复固定首页、规整主题和应用记录等。结构变更需考虑旧快照、模板导入、缺失字段和无效组件；不能只让新初始化的数据可用。首页布局草稿通过独立内存状态、首页冲突检查和一次正式提交实现，见[首页草稿规范](homepage-drafts.md)；不能把它扩大理解为全工作空间或业务数据事务。
+
+## 主题包与资源
+
+主题包只入 themePackages 专仓，不能塞入 kv/apps 或 localStorage 大字符串。安装与启用分开；定义和资源先有界校验、摘要核对及实际准备，事务完成后才发布状态。等待期间重核精确 identity、generation 与选择；失败保留旧主题，预备字体不得提前改变正式 CSS family。
+
+缺包、停用、不兼容与损坏分开。合法请求和设计经读取、模板、备份与同步保留，实际回退不写回请求。卸载扫描主题、模板及草稿的包与字体引用。完整备份及恢复日志覆盖资源仓，导入恢复默认停用，原快照回滚保留原状态；所有同步只带设计引用。规则与预算见[主题包合同](../../../docs/specs/local-theme-packages.md)。
 
 ## 数据分离
 
@@ -49,7 +55,7 @@ App/Applet 只走 applicationData 仓库，apps 专仓按类型+canonical实例I
 
 ## 聊天分页与工具正文
 
-聊天UI只消费StoredTurn分页元信息；工具正文经readToolDetail单条读取。不得从可见数组缺席推断删除或从已加载页构造模型上下文。显式append/patch/appendTool绑定convId+turnId，活动轮独立于导航；loadContextTurns独立查最新N轮并沿用contextTurns预算。索引游标使用时间+ID且exclusive，失败不推进；在途读取需保留期间已确认的本地更新，不能仅靠flush后已清除的dirty覆盖旧快照，读取结束释放临时overlay。导航和删除按会话归属撤销请求，删除其他会话不能遗留分页loading。新增工具头和正文同db.batch提交，已保存正文不随回答重写；删除整个会话用key-only索引包括未加载数据。备份严格五仓交叉引用，sync仍完整逻辑Turn原子合并，不增加远端独立正文记录。详见[长期聊天合同](../../../docs/specs/runtime-contract.md#长期聊天与模型上下文)。
+聊天UI只消费StoredTurn分页元信息；工具正文经readToolDetail单条读取。不得从可见数组缺席推断删除或从已加载页构造模型上下文。显式append/patch/appendTool绑定convId+turnId，活动轮独立于导航；loadContextTurns独立查最新N轮并沿用contextTurns预算。索引游标使用时间+ID且exclusive，失败不推进；在途读取需保留期间已确认的本地更新，不能仅靠flush后已清除的dirty覆盖旧快照，读取结束释放临时overlay。导航和删除按会话归属撤销请求，删除其他会话不能遗留分页loading。新增工具头和正文同db.batch提交，已保存正文不随回答重写；删除整个会话用key-only索引包括未加载数据。备份严格验证业务五仓与主题包仓的关系，sync仍完整逻辑Turn原子合并，不增加远端独立正文记录。详见[长期聊天合同](../../../docs/specs/runtime-contract.md#长期聊天与模型上下文)。
 
 ## 自建加密增量同步
 

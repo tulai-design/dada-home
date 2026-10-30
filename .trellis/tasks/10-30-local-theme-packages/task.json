@@ -3,7 +3,7 @@
   "name": "local-theme-packages",
   "title": "本地声明式主题包安装与停用",
   "description": "定义可热装主题数据与资源包，明确版本、依赖、缺包保留、失败恢复和备份范围。",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -12,7 +12,7 @@
   "assignee": "ROYIANS",
   "createdAt": "2026-10-30",
   "completedAt": null,
-  "branch": null,
+  "branch": "main",
   "base_branch": "main",
   "worktree_path": null,
   "commit": null,
@@ -21,11 +21,11 @@
   "children": [],
   "parent": "10-30-theme-shell-architecture",
   "relatedFiles": [],
-  "notes": "2026-10-30已完成架构研究与设计提案，分层开放方向已确认；生产实施尚未启动。",
+  "notes": "2026-10-30 本地主题包安装/启停/导出/卸载保护、未知依赖保留、独立字体预览及备份恢复已完成；通过全量test/tsc/build、PWA/MV3与双轴审查，准备归档。",
   "meta": {
     "blocked_by": [
       "theme-authoring"
     ],
-    "design_status": "proposed"
+    "design_status": "implemented"
   }
 }

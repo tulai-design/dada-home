@@ -1,6 +1,6 @@
 # A3：深度主题、Agent 定制与创意工坊
 
-日期：2026-10-30。审查基线：`27358e2`，main。本文保留该基线的设计研究；分层开放的产品方向已接受。后续已实现主题身份、完整派生与保存往返、[稳定外壳宿主](../../specs/desktop-shell.md)及[主题作者与独立预览](../../specs/theme-authoring.md)；当前行为见[运行时契约](../../specs/runtime-contract.md#主题外观与模板)，本地主题包仍为后续提案。
+日期：2026-10-30。审查基线：`27358e2`，main。本文保留该基线的设计研究；分层开放的产品方向已接受。后续已实现主题身份、完整派生与保存往返、[稳定外壳宿主](../../specs/desktop-shell.md)及[主题作者与独立预览](../../specs/theme-authoring.md)；当前行为见[运行时契约](../../specs/runtime-contract.md#主题外观与模板)，[本地声明式主题包](../../specs/local-theme-packages.md)也已落地。下文保留研究时的证据与取舍，实际字段及边界以各长期契约为准；在线工坊与第三方代码运行器仍未实施。
 
 ## 判断
 
@@ -112,6 +112,6 @@ MV3 普通扩展页当前实际 CSP 只允许 self 脚本；sandbox 是不同权
 
 ## 任务与证据
 
-[父任务](../../../.trellis/tasks/10-30-theme-shell-architecture/prd.md)下拆四项纵向交付，全部保持 planning。详细 [Interface 与生命周期设计](../../../.trellis/tasks/10-30-theme-shell-architecture/design.md)、[实施与验收计划](../../../.trellis/tasks/10-30-theme-shell-architecture/implement.md)。
+[父任务](../../../.trellis/tasks/10-30-theme-shell-architecture/prd.md)下拆四项纵向交付，初始研究时均为 planning；后续已按序实施并验收，当前合同见本文开头链接。详细 [Interface 与生命周期设计](../../../.trellis/tasks/10-30-theme-shell-architecture/design.md)、[实施与验收计划](../../../.trellis/tasks/10-30-theme-shell-architecture/implement.md)。
 
 专项证据：[外壳结构](../../../.trellis/tasks/10-30-theme-shell-architecture/research/shell-structure.md)、[作者与 Agent](../../../.trellis/tasks/10-30-theme-shell-architecture/research/theme-authoring.md)、[工坊合同](../../../.trellis/tasks/10-30-theme-shell-architecture/research/workshop-contract.md)。

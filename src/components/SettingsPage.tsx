@@ -397,8 +397,8 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest,
       >
         {pendingImport && (
           <Text>
-            {pendingImport.name}：{pendingImport.summary.keys} 项配置，{pendingImport.summary.data} 份组件数据，{pendingImport.summary.apps} 份应用数据，{pendingImport.summary.convs} 段对话。
-            导入会替换现在的订阅、书签、待办、页面、对话和配置，建议先导出一份当前的备份。请先停止回答，并关闭其他搭搭标签页，再恢复数据。完成后页面会自动刷新。
+            {pendingImport.name}：{pendingImport.summary.keys} 项配置，{pendingImport.summary.data} 份组件数据，{pendingImport.summary.apps} 份应用数据，{pendingImport.summary.convs} 段对话，{pendingImport.summary.themePackages} 个主题包（字体 {(pendingImport.summary.themeResourceBytes / 1024).toFixed(1)} KiB）。
+            导入会替换现在的订阅、书签、待办、页面、对话、配置和主题包，建议先导出一份当前的备份。恢复的主题包需要重新启用，原设计保留。请先停止回答，并关闭其他搭搭标签页，再恢复数据。完成后页面会自动刷新。
           </Text>
         )}
       </Modal>
@@ -415,7 +415,7 @@ export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest,
           onReset()
         }}
       >
-        <Text>会清掉订阅、书签、待办、页面和密钥。请先停止回答，并关闭其他搭搭标签页，再恢复默认。</Text>
+        <Text>会清掉订阅、书签、待办、页面、主题包及其字体和密钥。请先停止回答，并关闭其他搭搭标签页，再恢复默认。</Text>
       </Modal>
     </AppSettingsCtx.Provider>
   )

@@ -1,3 +1,5 @@
+import {registerThemePackageDependents} from '../themePackages/state'
+import {samePackage} from '../themePackages/contracts'
 import {useSyncExternalStore} from 'react'
 import {WorkspaceError} from '../errors'
 import {resolveTheme} from '../themes'
@@ -13,6 +15,11 @@ export type ThemeAuthoringPort = {
   getReadiness?: (request: {draftId: string; revision: number}) => ThemePreviewReadiness
 }
 let current: ThemeDraft | null = null
+registerThemePackageDependents(identity => {
+  const theme = current?.theme
+  if (!theme || !(theme.packageRef && samePackage(theme.packageRef, identity) || theme.fonts?.some(font => font.resource && samePackage(font.resource, identity)))) return []
+  return [{kind: 'draft', id: current!.id, name: theme.name}]
+})
 let selectionGeneration = 0
 let selectedId: string | undefined
 let tracking = false
