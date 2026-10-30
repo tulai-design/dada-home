@@ -34,7 +34,7 @@ Spec：已修同一字体多角色读取丢失、同名未来 renderer 合同被
 - 全量 test：最后一次 `pnpm test` exit 0，日志 `/tmp/dada-local-theme-full-test-final.log`。
 - Web/MV3/下载ZIP构建：全构建 exit 0，日志 `/tmp/dada-local-theme-build-final.log`；第三方 PURE 注释与大 chunk 提示不影响成功，未改变构建警告阈值。
 - 静态 PWA 离线22/22、真实 MV3 21/21、Win98 包跨壳生命周期8/8，资源存储浏览器4/4。最后原始请求身份加严后重新构建，并追加 PWA 预览6/6、MV3预览5/5。详见 browser-validation。
-- 文档本地引用217项有效；父子 Trellis validate 通过，diff check 通过；归档后再次检查路径。
+- 归档后文档本地引用276项有效；父任务及四子任务 Trellis validate 通过，diff check 通过。
 
 ## 边界
 

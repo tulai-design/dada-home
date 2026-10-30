@@ -1,9 +1,9 @@
 {"file": ".trellis/spec/frontend/state-management.md", "reason": "本阶段的已确认约束与源码研究依据"}
 {"file": "docs/specs/browser-extension.md", "reason": "本阶段的已确认约束与源码研究依据"}
-{"file": ".trellis/tasks/10-30-theme-shell-architecture/research/workshop-contract.md", "reason": "本阶段的已确认约束与源码研究依据"}
+{"file": ".trellis/tasks/archive/2026-10/10-30-theme-shell-architecture/research/workshop-contract.md", "reason": "本阶段的已确认约束与源码研究依据"}
 {"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "真实行为、浏览器与项目质量检查要求"}
 {"file": ".trellis/spec/frontend/type-safety.md", "reason": "包、资源、备份与未知依赖均从 unknown 严格校验"}
 {"file": "docs/specs/theme-authoring.md", "reason": "复用完整主题快照、草稿提交和独立预览"}
 {"file": "docs/specs/desktop-shell.md", "reason": "稳定业务宿主与请求/实际外观分离"}
-{"file": ".trellis/tasks/10-30-local-theme-packages/research/resources-storage.md", "reason": "本地字体、资源额度、完整备份与同步边界研究"}
-{"file": ".trellis/tasks/10-30-local-theme-packages/research/ui-platform.md", "reason": "安装管理、缺包反馈、Web/MV3与真实浏览器验收研究"}
+{"file": ".trellis/tasks/archive/2026-10/10-30-local-theme-packages/research/resources-storage.md", "reason": "本地字体、资源额度、完整备份与同步边界研究"}
+{"file": ".trellis/tasks/archive/2026-10/10-30-local-theme-packages/research/ui-platform.md", "reason": "安装管理、缺包反馈、Web/MV3与真实浏览器验收研究"}

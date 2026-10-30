@@ -37,7 +37,7 @@
 2026-10-30 用本机 Node、TypeScript transpileModule，隔离执行真实 `workspace.ts/themes.ts/fonts.ts/errors.ts`，不读写用户存储。可重复历史探针保存在同目录 `theme-identity-probe.mjs`，执行命令如下；该脚本断言缺陷存在，不是未来应保持绿色的回归：
 
 ```sh
-/Users/xiaomengdao/.nvm/versions/node/v24.11.0/bin/node .trellis/tasks/10-30-theme-shell-architecture/research/theme-identity-probe.mjs
+/Users/xiaomengdao/.nvm/versions/node/v24.11.0/bin/node .trellis/tasks/archive/2026-10/10-30-theme-shell-architecture/research/theme-identity-probe.mjs
 ```
 
 实际运行退出 0，确认三套内置派生和一项模板读回共 4/4 历史缺陷。核心调用为：

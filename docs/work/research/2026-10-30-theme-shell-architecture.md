@@ -112,6 +112,6 @@ MV3 普通扩展页当前实际 CSP 只允许 self 脚本；sandbox 是不同权
 
 ## 任务与证据
 
-[父任务](../../../.trellis/tasks/10-30-theme-shell-architecture/prd.md)下拆四项纵向交付，初始研究时均为 planning；后续已按序实施并验收，当前合同见本文开头链接。详细 [Interface 与生命周期设计](../../../.trellis/tasks/10-30-theme-shell-architecture/design.md)、[实施与验收计划](../../../.trellis/tasks/10-30-theme-shell-architecture/implement.md)。
+[父任务](../../../.trellis/tasks/archive/2026-10/10-30-theme-shell-architecture/prd.md)下拆四项纵向交付，初始研究时均为 planning；后续已按序实施并验收，当前合同见本文开头链接。详细 [Interface 与生命周期设计](../../../.trellis/tasks/archive/2026-10/10-30-theme-shell-architecture/design.md)、[实施与验收计划](../../../.trellis/tasks/archive/2026-10/10-30-theme-shell-architecture/implement.md)。
 
-专项证据：[外壳结构](../../../.trellis/tasks/10-30-theme-shell-architecture/research/shell-structure.md)、[作者与 Agent](../../../.trellis/tasks/10-30-theme-shell-architecture/research/theme-authoring.md)、[工坊合同](../../../.trellis/tasks/10-30-theme-shell-architecture/research/workshop-contract.md)。
+专项证据：[外壳结构](../../../.trellis/tasks/archive/2026-10/10-30-theme-shell-architecture/research/shell-structure.md)、[作者与 Agent](../../../.trellis/tasks/archive/2026-10/10-30-theme-shell-architecture/research/theme-authoring.md)、[工坊合同](../../../.trellis/tasks/archive/2026-10/10-30-theme-shell-architecture/research/workshop-contract.md)。

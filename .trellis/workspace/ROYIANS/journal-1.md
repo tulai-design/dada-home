@@ -1032,3 +1032,42 @@
 ### Next Steps
 
 - 按序细化并启动local-theme-packages：本地声明式主题包的安装、切换与卸载；父theme-shell-architecture仍in_progress。
+
+
+## Session 30: 完成本地主题包与 A3 四阶段验收
+<!-- trellis-session: v=2 fp=3192b2254d2ed23d -->
+
+**Date**: 2026-10-30
+**Task**: 完成本地主题包与 A3 四阶段验收
+**Branch**: `main`
+
+### Summary
+
+本地声明式JSON/WOFF2主题包、精确依赖回退、隔离预览与完整备份已交付；四阶段A3全部验收归档。
+
+### Main Changes
+
+- 实现安装与启用分离、热切换与停用恢复、个人变体和原包导出、主题/模板/草稿卸载依赖保护；包不授予网络或执行能力。
+- 统一未知设计保留和实际回退，字体document lease与二进制预览协议；修复多角色读取丢失、同名未来合同误过滤、卸载重装ABA及取消污染保存屏障。
+- DB7/备份4/恢复日志5包含主题包资源；所有同步只传完整设计及精确引用；更新用户指南、运行时规范与Agent单一正文。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5b9932e` | feat(theme): 支持本地声明式主题包与资源热装 |
+
+### Testing
+
+- [OK] 本机pnpm full test、tsc、Web/MV3/ZIP build通过；最后预览身份加严后定向资源12/原17及重新构建通过。
+- [OK] PWA离线22/22、真实MV3 21/21、Win98跨壳生命周期8/8、真实字体/IDB4/4；最后产物预览定向PWA6/6、MV3 5/5。
+- [OK] Standards与Spec独立审查0遗留；5项归档任务上下文校验、276个Markdown本地链接及diff check通过。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- A3主题身份、稳定宿主、主题作者和本地包四阶段完成；在线创意工坊分发与单独授权的隔离代码扩展保留为后续独立范围。
+- 保持main本地提交，未推送或发布；专用5201/5204测试服务已停止，未触碰用户5173。
