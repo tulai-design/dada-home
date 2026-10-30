@@ -994,3 +994,41 @@
 ### Next Steps
 
 - 按依赖细化并实施theme-authoring，再进入local-theme-packages；不把设计当交付。
+
+
+## Session 29: 完成主题作者、草稿事务与独立预览
+<!-- trellis-session: v=2 fp=4f0dd9ec0170253e -->
+
+**Date**: 2026-10-30
+**Task**: 完成主题作者、草稿事务与独立预览
+**Branch**: `main`
+
+### Summary
+
+完成A3第三项，统一字段目录驱动Agent与设置表单，独立主题草稿支持校验、资源准备、隔离预览、一次应用与取消；Web、MV3和PWA离线均已真实验证。
+
+### Main Changes
+
+- 工作空间v8携带真实recipes与shellConfig；统一严格校验覆盖模板、备份与同步，不新增旧格式桥。
+- 作者草稿具备版本、来源指纹、选择generation和异步后重核；修改/取消立即停止在途准备，应用只合并最新工作空间主题部分。
+- 字体按document lease隔离；预览不启业务/AI/sync，Lobe Modal/Drawer与通知portal归iframe，系统字体无隐式外链。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a0f0189` | feat(theme): 增加统一作者目录、主题草稿与隔离预览 |
+
+### Testing
+
+- [OK] 完整本机pnpm test、tsc、Web/MV3/ZIP build通过；Markdown本地链接259项与Trellis validate通过，无lint命令。
+- [OK] 作者领域16、工具6、字体9、协议17；真实预览56、修正定向19、业务生命周期5、正式渲染20、PWA离线7、MV3产物6全部通过。
+- [OK] 固定基线7eb8701双轴审查及最后取消/Drawer窄复审未解决0项。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 按序细化并启动local-theme-packages：本地声明式主题包的安装、切换与卸载；父theme-shell-architecture仍in_progress。

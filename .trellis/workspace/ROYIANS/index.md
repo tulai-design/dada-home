@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 28
+- **Total Sessions**: 29
 - **Last Active**: 2026-10-30
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~996 | Active |
+| `journal-1.md` | ~1034 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 29 | 2026-10-30 | 完成主题作者、草稿事务与独立预览 | `a0f0189` | `main` |
 | 28 | 2026-10-30 | A3 稳定内容宿主与可信桌面外壳交付 | `70e2114` | `main` |
 | 27 | 2026-10-30 | A3 主题身份与完整派生落地 | `63f6586` | `main` |
 | 26 | 2026-10-30 | A3 深度主题与创意工坊架构审查 | `2f8a4c5` | `main` |
