@@ -3,7 +3,7 @@
   "name": "theme-shell-architecture",
   "title": "A3 深度主题与创意工坊架构设计",
   "description": "审查主题、外壳和 Agent 定制链路，形成可扩展与热插拔演进方案，先完成设计与任务拆分。",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -26,7 +26,7 @@
   ],
   "parent": null,
   "relatedFiles": [],
-  "notes": "2026-10-30已完成架构研究与设计提案，分层开放方向已确认；生产实施尚未启动。",
+  "notes": "2026-10-30 theme-identity 已完成验收，后续按 shell-host → theme-authoring → local-theme-packages 推进；父任务继续 in_progress。",
   "meta": {
     "blocked_by": [],
     "design_status": "proposed"

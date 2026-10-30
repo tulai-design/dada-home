@@ -3,6 +3,21 @@ import {readFileSync} from 'node:fs'
 import vm from 'node:vm'
 import ts from 'typescript'
 
+// 主题校验使用真实领域模块，避免存储替身掩盖非法 renderer 或模板设计。
+const themeModules = new Map()
+function loadThemeModule(url) {
+  if (themeModules.has(url.href)) return themeModules.get(url.href)
+  const module = {exports: {}}
+  themeModules.set(url.href, module.exports)
+  const code = ts.transpileModule(readFileSync(url, 'utf8'), {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022}}).outputText
+  new Function('module', 'exports', 'require', code)(module, module.exports, id => {
+    assert.ok(id.startsWith('.'), `主题纯模块不应加载外部依赖：${id}`)
+    return loadThemeModule(new URL(`${id}.ts`, url))
+  })
+  return module.exports
+}
+const themeApi = loadThemeModule(new URL('../src/lib/themes.ts', import.meta.url))
+
 // 公开备份接口 + 原子存储替身；所有数据为合成数据，不连接浏览器或外网。
 const source = ts.transpileModule(readFileSync(new URL('../src/lib/storage.ts', import.meta.url), 'utf8'), {
   compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022},
@@ -51,6 +66,7 @@ function harness({activeBinding=false,existing}={}) {
     './componentData':{initComponentData:async()=>log.push('initData'),flush:async()=>{log.push('flushData');await flushData()},dropPendingData(){}},
     './applicationDataSchema':schemaModule.exports,
     './chatStorageSchema':chatSchemaModule.exports,
+    './themes':themeApi,
     './applicationData':{flushApplicationData:async()=>{log.push('flushApps');await flushApps()}},
     './sync':{waitForSyncIdle:async()=>{}},
     './persistence':{
@@ -106,8 +122,32 @@ await test('工作空间不能以合法JSON空壳覆盖现有库，当前格式�
     await assert.rejects(()=>h.api.importBackup(bad),/工作空间/)
     assert.equal(h.tables.kv.get('note').v,'原便签');assert.equal(h.reloads,0)
   }
-  const current=makeBackup({'fp.workspace':JSON.stringify({version:6,pages:[{id:'home',components:[]}],customField:true})})
+  const current=makeBackup({'fp.workspace':JSON.stringify({pages:[{id:'home',components:[]}],themes:[],templates:[],customField:true})})
   assert.equal(h.api.parseBackup(JSON.stringify(current)).summary.keys,2)
+})
+
+await test('备份主题与模板主题非法时整次拒绝，合法完整身份原样恢复',async()=>{
+  const theme = {id:'violet',name:'紫色主机',description:'合成主题',skin:'switch',shell:'switch',origin:{definitionId:'switch',version:1},overrides:{main:'#663399'},light:{text:'#121212'},dark:{text:'#eeeeee'}}
+  const workspace = {pages:[{id:'home',components:[]}],themes:[theme],templates:[{id:'saved',snapshot:{theme:clone(theme)}}]}
+  for (const mutate of [
+    w=>w.themes[0].shell='standard',
+    w=>delete w.themes[0].skin,
+    w=>w.themes[0].overrides.main='red;display:none',
+    w=>w.templates[0].snapshot.theme.origin.version=0,
+    w=>w.templates[0].snapshot.theme.fonts=[{family:'bad;url(x)'}],
+  ]) {
+    const h=harness(),badWorkspace=clone(workspace);mutate(badWorkspace)
+    const bad=makeBackup({'fp.workspace':JSON.stringify(badWorkspace)})
+    assert.throws(()=>h.api.parseBackup(JSON.stringify(bad)))
+    await assert.rejects(()=>h.api.importBackup(bad))
+    assert.equal(h.log.includes('batch'),false)
+    assert.equal(h.ls.get('fp.settings'),'{"name":"原配置"}')
+    assert.equal(h.reloads,0)
+  }
+  const h=harness(),backup=makeBackup({'fp.workspace':JSON.stringify(workspace)})
+  await h.api.importBackup(backup)
+  assert.deepEqual(JSON.parse(h.ls.get('fp.workspace')),workspace)
+  assert.equal(h.reloads,1)
 })
 
 await test('应用备份缺仓、重复身份、坏JSON值和超预算均在清库前拒绝',async()=>{

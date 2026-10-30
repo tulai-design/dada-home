@@ -18,6 +18,8 @@
 
 工具说明、[ai.ts](../../../src/lib/ai.ts) 主提示词、[skills.ts](../../../src/lib/skills.ts) 技能以及组件目录需要保持一致：不得推荐与设计规范相反的默认写法，不把配置检查说成视觉验证。涉及默认外观时读取 `get_appearance` 的统一资料，避免复制一套默认值。
 
+主题新建默认完整复制当前方案，`save_theme.from` 仅可用于新建；更新/改名不改造型与桌面来源。共享主色输入需清除旧模式同名遮盖，再应用显式模式补丁。工具读回实例、skin/shell/origin、双模式有效值和字段来源，不能把数据写入等同于颜色实际生效或视觉验收；细节保持在[设计规范](../../../docs/design-system.md)。
+
 ## 页面分区工具
 
 `list_page_layouts` 读取 [pageSections.ts](../../../src/lib/pageSections.ts) 的共享目录；`set_page_sections` 经严格参数校验与 `ops.setPageSections` 后一次提交。`sections` 必须显式提供，`null`/`[]` 才表示清除；缺字段、错误引用、重复组件或超额结构不能产生部分提交。`get_workspace` 披露分区、实际阅读顺序与未分组组件，新增/移动工具须说明索引与槽位关系。

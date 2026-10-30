@@ -11,11 +11,11 @@
  * 4. 自定义组件是「声明」，不是代码：AI 写一份规格，渲染器解释它。
  */
 
-/** 当前工作空间结构版本。改结构就加一，并在 migrate 里补一条迁移。 */
+/** 当前工作空间结构版本；主题快照须包含显式造型与外壳身份。 */
 import type {DockStyle} from './dock'
 import type {ThemeFont} from './fonts'
 
-export const WORKSPACE_VERSION = 6
+export const WORKSPACE_VERSION = 7
 
 /** 内置组件类型。新增内置组件要在 registry 里注册，并在这里加一个值。 */
 export type BuiltinType =
@@ -280,10 +280,19 @@ export const DEFAULT_THEME_ID = 'default'
 export const MAX_THEMES = 24
 
 /**
- * 一个主题：名字、说明，加上相对默认主题的 CSS 变量差异。
+ * 一个主题：独立设计快照及其造型、桌面交互实现引用。
  * 默认主题的 overrides 为空，也就是「什么都不改」。
  */
+export type ThemeSkin = 'paper' | 'ios' | 'pixel' | 'switch' | 'win98'
+export type ThemeShell = 'standard' | 'switch' | 'win98'
+export type ThemeOrigin = {definitionId: string; version: number}
+
 export type ThemeEntry = {
+  /** 造型与桌面交互实现，不随实例另存或改名变化。 */
+  skin: ThemeSkin
+  shell: ThemeShell
+  /** 定义来源仅供溯源，运行时不继承来源的值。 */
+  origin?: ThemeOrigin
   id: string
   name: string
   /** 一两句话说明这个主题的气质，列表里显示，也让 AI 和用户记得它是什么 */
@@ -408,6 +417,7 @@ export function instanceId(type: string): string {
 
 export const DEFAULT_THEME: ThemeEntry = {
   id: DEFAULT_THEME_ID,
+  skin: 'paper', shell: 'standard', origin: {definitionId: DEFAULT_THEME_ID, version: 1},
   name: '纸张',
   description: '米白纸张、墨色文字、红色点缀，编辑部风格的纸面界面。',
   overrides: {},
@@ -419,6 +429,7 @@ export const IOS_THEME_ID = 'ios'
 
 export const IOS_THEME: ThemeEntry = {
   id: IOS_THEME_ID,
+  skin: 'ios', shell: 'standard', origin: {definitionId: IOS_THEME_ID, version: 1},
   name: 'iOS',
   description: '分组灰底、白卡片、系统蓝。圆角，没有外框。',
   overrides: {radius: '12px', 'radius-lg': '16px', frame: '0px', 'frame-gap': '0px'},
@@ -445,6 +456,7 @@ export const PIXEL_THEME_ID = 'pixel'
 
 export const PIXEL_THEME: ThemeEntry = {
   id: PIXEL_THEME_ID,
+  skin: 'pixel', shell: 'standard', origin: {definitionId: PIXEL_THEME_ID, version: 1},
   name: '掌机',
   description: '灰绿液晶、实线和错位阴影，像掌机主屏。',
   overrides: {radius: '0px', 'radius-lg': '0px', frame: '8px', 'frame-gap': '8px', 'frame-color': '#243024'},
@@ -468,6 +480,7 @@ export const SWITCH_THEME_ID = 'switch'
 
 export const SWITCH_THEME: ThemeEntry = {
   id: SWITCH_THEME_ID,
+  skin: 'switch', shell: 'switch', origin: {definitionId: SWITCH_THEME_ID, version: 1},
   name: '主机',
   description: 'Switch 风格的横排封面、圆形入口与系统列表，支持浅色和深色。',
   overrides: {
@@ -500,6 +513,7 @@ export const WIN98_THEME_ID = 'win98'
 
 export const WIN98_THEME: ThemeEntry = {
   id: WIN98_THEME_ID,
+  skin: 'win98', shell: 'win98', origin: {definitionId: WIN98_THEME_ID, version: 1},
   name: 'Windows 98',
   description: '青绿桌面、立体灰色窗口、开始菜单与任务栏，提供经典浅色和深色。',
   overrides: {

@@ -7,7 +7,7 @@ import { DEFAULT_DOCK_PRESET, DOCK_PRESETS, visibleDock } from '../lib/dock'
 import { listStatusTypes, movePage, removePage, renamePage, setDock, setStatusbar } from '../lib/ops'
 import { PAGE_ICONS, PAGE_ICON_LABELS, pageIcon } from '../lib/pageIcons'
 import { getDefinition, type ConfigField } from '../lib/registry'
-import { activeTheme, FROZEN_PAGE_ID, IOS_THEME_ID, PIXEL_THEME_ID, WIN98_THEME_ID, MAX_STATUS_ITEMS, type Page } from '../lib/workspace'
+import { activeTheme, FROZEN_PAGE_ID, MAX_STATUS_ITEMS, type Page } from '../lib/workspace'
 import { Group, Row, TextRow } from './ios'
 import {ArrowCounterClockwise as RotateCcw} from '@phosphor-icons/react'
 import {configureApplication, listApplications} from '../lib/applications'
@@ -75,10 +75,10 @@ export function SidebarSettings() {
   const editingPage = editingIndex >= 0 ? pages[editingIndex] : null
 
   const dock = workspace.dock
-  const themeId = activeTheme(workspace).id
-  const ios = themeId === IOS_THEME_ID
-  const pixel = themeId === PIXEL_THEME_ID
-  const win98 = themeId === WIN98_THEME_ID
+  const theme = activeTheme(workspace)
+  const ios = theme.skin === 'ios'
+  const pixel = theme.skin === 'pixel'
+  const win98 = theme.shell === 'win98'
   const shown = visibleDock(dock, ios, pixel)?.preset ?? DEFAULT_DOCK_PRESET
   return (
     <>

@@ -7,6 +7,7 @@ import {validateApplicationDataRecord, type ApplicationDataRecord} from './appli
 import {commitStorage, readLocal, recoverStorage, replaceOperations, saveBarrier} from './storageCommit'
 export {recoverStorage} from './storageCommit'
 import {waitForSyncIdle} from './sync'
+import {assertWorkspaceThemes} from './themes'
 
 /** 整包 JSON 备份的读取预算，不是 IndexedDB 或浏览器存储配额。 */
 export const MAX_BACKUP_BYTES = 256 * 1024 * 1024
@@ -72,9 +73,11 @@ function checkLocal(raw: Record<string, unknown>): LocalSnapshot {
     if (typeof value !== 'string') invalid('备份的配置值必须是字符串。')
     let parsed: unknown
     try {parsed = JSON.parse(value)} catch {invalid(`配置「${key}」不是有效 JSON。`)}
-    // 工作空间至少要有一个可被现有 migrate 接受的页面，否则会静默回落成默认库。
-    // 旧版本、扩展字段与其余领域规整仍由各自的迁移入口处理。
-    if (key === 'fp.workspace' && (!object(parsed) || !Array.isArray(parsed.pages) || !parsed.pages.some(page => object(page) && id(page.id) && Array.isArray(page.components)))) invalid('备份的工作空间缺少可恢复的页面。')
+    // 先拒绝损坏主题，避免重载时被宽松读取过滤后伪装成恢复成功。
+    if (key === 'fp.workspace') {
+      if (!object(parsed) || !Array.isArray(parsed.pages) || !parsed.pages.some(page => object(page) && id(page.id) && Array.isArray(page.components))) invalid('备份的工作空间缺少可恢复的页面。')
+      assertWorkspaceThemes(parsed)
+    }
     local[key] = value
   }
   return local

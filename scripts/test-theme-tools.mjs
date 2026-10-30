@@ -5,7 +5,7 @@ import ts from 'typescript'
 
 // 运行真实工具解析、主题/外观纯函数及列表输出；仅替换浏览器存储和无关工具依赖。
 const modules = new Map()
-const coreFiles = new Set(['errors', 'fonts', 'workspace', 'themes', 'dock', 'appearance'])
+const coreFiles = new Set(['errors', 'fonts', 'workspace', 'themes', 'themeCatalog', 'dock', 'appearance'])
 function loadCore(name) {
   if (modules.has(name)) return modules.get(name).exports
   const module = {exports: {}}
@@ -36,6 +36,7 @@ const dependencies = {
   '@tulai-design/agent-core': {createToolFactory: () => (schema, definition) => ({...definition, parameters: schema.json, parse: schema.schema.parse})},
   './errors': {WorkspaceError},
   './workspace': model,
+  './themes': themes,
   './appearance': loadCore('appearance'),
   './workspaceStore': {getWorkspace: () => workspace, commit: (next) => {workspace = next; commits += 1}},
   './ops': {setTheme: themes.tweakTheme, saveTheme: themes.saveTheme, applyTheme: themes.applyTheme},
@@ -55,7 +56,7 @@ const run = (name, args = {}) => {const item = tool(name); return item.execute(i
 const active = () => model.activeTheme(workspace)
 const plain = (value) => JSON.parse(JSON.stringify(value))
 const reset = () => {
-  workspace = {theme: {active: 'default', mode: 'light', base: 'light'}, themes: [model.DEFAULT_THEME, model.IOS_THEME]}
+  workspace = {pages: [], templates: [], theme: {active: 'default', mode: 'light', base: 'light'}, themes: [model.DEFAULT_THEME, model.IOS_THEME, model.PIXEL_THEME, model.SWITCH_THEME, model.WIN98_THEME]}
   commits = 0
 }
 const palettes = {light: {bg: '#f4fafb', text: '#172f38', border: '#ccddee'}, dark: {bg: '#10232b', text: '#e5f3f7', border: '#334455'}}
@@ -70,7 +71,36 @@ await test('主题工具 schema 接受模式对象和显式 null，拒绝无效�
       for (const value of [[], 'invalid', 17]) assert.throws(() => tool(name).parse({[field]: value}), /CSS 变量对象/)
     }
   }
+  for (const from of ['', 17, null, {}]) assert.throws(() => tool('save_theme').parse({name: '新主题', from}), /from/)
   assert.equal(commits, 0)
+})
+await test('工具修改五种内置主题保留完整造型与外壳，并回读有效主色和来源', async () => {
+  for (const preset of [model.DEFAULT_THEME, model.IOS_THEME, model.PIXEL_THEME, model.SWITCH_THEME, model.WIN98_THEME]) {
+    reset()
+    workspace = themes.applyTheme(workspace, preset.id).workspace
+    await run('set_theme', {overrides: {main: '#663399'}})
+    assert.notEqual(active().id, preset.id)
+    assert.equal(active().skin, {default: 'paper', ios: 'ios', pixel: 'pixel', switch: 'switch', win98: 'win98'}[preset.id])
+    assert.equal(active().shell, preset.shell)
+    assert.deepEqual(active().fonts && plain(active().fonts), preset.fonts && plain(preset.fonts))
+    const listed = await run('list_themes')
+    assert.match(listed, new RegExp(`skin ${preset.skin}.*shell ${preset.shell}`))
+    const appearance = JSON.parse(await run('get_appearance'))
+    assert.equal(appearance.current.theme.resolved.main, '#663399')
+    assert.match(listed, /有效值.*#663399/)
+    assert.match(listed, /来源.*shared/)
+  }
+})
+await test('save_theme 显式选择来源保留完整设计，更新不能改来源且失败不提交', async () => {
+  await run('save_theme', {name: '紫色主机', from: 'switch'})
+  assert.equal(active().skin, 'switch')
+  assert.equal(active().shell, 'switch')
+  assert.deepEqual(plain(active().light), plain(model.SWITCH_THEME.light))
+  const count = commits
+  const before = JSON.stringify(workspace)
+  await assert.rejects(() => run('save_theme', {id: active().id, from: 'ios'}), /./)
+  assert.equal(commits, count)
+  assert.equal(JSON.stringify(workspace), before)
 })
 await test('AI 保存双模式主题后真实列表包含共享与两套配色', async () => {
   const result = await run('save_theme', {name: '海湾', mode: 'dark', overrides: {main: '#397c95', radius: '8px'}, ...palettes})

@@ -2,11 +2,11 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { A, ActionIcon, Modal, Text, toast } from '@lobehub/ui'
 import {AppWindow, SquaresFour as LayoutGrid, Monitor, Moon, Palette, ArrowClockwise as Redo, ArrowsClockwise as RefreshCw, Rss, Gear as Settings, Sparkle as Sparkles, Sun, ArrowCounterClockwise as Undo} from '@phosphor-icons/react'
 import { pageIcon } from './lib/pageIcons'
-import { activeTheme, FROZEN_PAGE_ID, IOS_THEME_ID, PIXEL_THEME_ID, SWITCH_THEME_ID, WIN98_THEME_ID, type ApplicationOpenMode } from './lib/workspace'
+import { activeTheme, FROZEN_PAGE_ID, type ApplicationOpenMode } from './lib/workspace'
 import {findApplication, listApplications, updateApplication} from './lib/applications'
 import {ApplicationHost} from './components/ApplicationHost'
-import { applyTheme, resolveThemeOverrides, setMode } from './lib/themes'
-import { fontVars, syncFonts } from './lib/fonts'
+import { applyTheme, resolveTheme, setMode } from './lib/themes'
+import { syncFonts } from './lib/fonts'
 import { uid, useStored } from './lib/store'
 import { SEARCH_ENGINES, defaultBookmarks, defaultFeeds, defaultSettings } from './lib/defaults'
 import { hotOrigin } from './lib/hot'
@@ -149,7 +149,8 @@ export default function App() {
 
   const { workspace, edit, undo, redo, canUndo, canRedo } = useWorkspace()
   const theme = activeTheme(workspace)
-  const win98On = theme.id === WIN98_THEME_ID
+  const resolvedTheme = useMemo(() => resolveTheme(theme, workspace.theme.mode, {frameOff: workspace.theme.frameOff}), [theme, workspace.theme.mode, workspace.theme.frameOff])
+  const win98On = resolvedTheme.shell === 'win98'
   const showWin98Desktop = win98On && (!win98WindowOpen || win98Minimized)
   const persistence = usePersistenceStatus()
   const homepageDraft = useHomepageDraft()
@@ -314,41 +315,33 @@ export default function App() {
   const appliedVars = useRef<string[]>([])
   useEffect(() => {
     const root = document.documentElement
-    root.dataset.theme = workspace.theme.mode
+    root.dataset.theme = resolvedTheme.mode
     root.dataset.primaryColor = 'red'
-    if (theme.id === IOS_THEME_ID) root.dataset.skin = 'ios'
-    else if (theme.id === PIXEL_THEME_ID) root.dataset.skin = 'pixel'
-    else if (theme.id === SWITCH_THEME_ID) root.dataset.skin = 'switch'
-    else if (theme.id === WIN98_THEME_ID) root.dataset.skin = 'win98'
-    else delete root.dataset.skin
+    if (resolvedTheme.skin === 'paper') delete root.dataset.skin
+    else root.dataset.skin = resolvedTheme.skin
     for (const name of appliedVars.current) root.style.removeProperty(`--${name}`)
-    // 字体接管的变量在前，主题自己写的变量在后（后者优先）
-    const vars = { ...fontVars(theme.fonts), ...resolveThemeOverrides(theme, workspace.theme.mode) }
-    if (workspace.theme.frameOff) {
-      vars.frame = '0px'
-      vars['frame-gap'] = '0px'
-    }
+    const vars = resolvedTheme.overrides
     appliedVars.current = Object.keys(vars)
     for (const [name, value] of Object.entries(vars)) root.style.setProperty(`--${name}`, value)
     syncFonts(theme.fonts, (family) => toast.error(`字体「${family}」没加载出来：检查名字是否是 Google Fonts 上的，或网络能不能访问 fonts.googleapis.com。`))
     document.title = `${settings.name === '朋友' ? '' : `${settings.name} · `}搭搭`
-  }, [workspace.theme.mode, workspace.theme.frameOff, theme, settings.name])
+  }, [resolvedTheme, theme.fonts, settings.name])
 
   useEffect(() => {
-    if (theme.id === SWITCH_THEME_ID) setSwitchBoard(true)
-    if (theme.id === WIN98_THEME_ID) {
+    if (resolvedTheme.shell === 'switch') setSwitchBoard(true)
+    if (resolvedTheme.shell === 'win98') {
       setWin98WindowOpen(false)
       setWin98Minimized(false)
       setWin98Maximized(false)
     }
-  }, [theme.id])
+  }, [resolvedTheme.shell])
 
   useEffect(() => {
-    if (theme.id === SWITCH_THEME_ID && !settings.avatarSeed) {
+    if (resolvedTheme.shell === 'switch' && !settings.avatarSeed) {
       setSettings(current => typeof current.avatarSeed === 'string' && current.avatarSeed.length > 0 && current.avatarSeed.length <= 100
         ? current : {...current, avatarSeed: uid()})
     }
-  }, [theme.id, settings.avatarSeed, setSettings])
+  }, [resolvedTheme.shell, settings.avatarSeed, setSettings])
 
   // 已读记录是共享数据，订阅组件读写它；外壳只需要把当前值传给宿主
   const [readIds, setReadIds] = useStored<string[]>('read', [])
@@ -738,7 +731,7 @@ export default function App() {
   )
 
   const monitorOn = isInstalled(workspace, 'monitor')
-  const switchOn = theme.id === SWITCH_THEME_ID
+  const switchOn = resolvedTheme.shell === 'switch'
   const showSwitchBoard = switchOn && switchBoard && view === 'page'
   const win98Title = view === 'settings' ? '控制面板' : view === 'market' ? '组件市场'
     : view === 'monitor' ? '服务监控' : view === 'application' ? openedApplication?.instance.title || '应用'
@@ -791,7 +784,7 @@ export default function App() {
           page={currentPage?.id ?? ''}
           onPage={goPage}
           view={view}
-          dock={visibleDock(workspace.dock, theme.id === IOS_THEME_ID, theme.id === PIXEL_THEME_ID)}
+          dock={visibleDock(workspace.dock, resolvedTheme.skin === 'ios', resolvedTheme.skin === 'pixel')}
           onMore={() => setSwitcherOpen(true)}
           onAssistant={() => (assistantOpen ? setAssistantOpen(false) : openAssistant())}
           onLogo={openAssistantPanel}

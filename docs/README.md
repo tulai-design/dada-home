@@ -22,7 +22,7 @@
 
 - [浏览器扩展契约](specs/browser-extension.md)：完整新标签页的打包下载、运行实例、权限与生成应用边界；早期分析见[可行性调研](work/research/2026-10-30-browser-extension-feasibility.md)。
 - [架构与扩展性评估](work/research/2026-10-29-architecture-extensibility-audit.md)：主题、Agent、应用和存储的当前判断与演进建议，未作为已接受设计。
-- [A3 深度主题与创意工坊设计研究](work/research/2026-10-30-theme-shell-architecture.md)：主题身份、稳定宿主、Agent 作者接口与热插拔路径；分层开放方向已接受，具体设计尚未实施。
+- [A3 深度主题与创意工坊设计研究](work/research/2026-10-30-theme-shell-architecture.md)：主题身份、稳定宿主、Agent 作者接口与热插拔路径；分层开放方向已接受；主题身份与完整派生已落地，稳定宿主、作者预览及本地包继续按序推进。
 - [运行时现状契约](specs/runtime-contract.md)：工作空间编辑、应用设置、形态、主题与生命周期。
 - [AI 页面生成质量目标](specs/ai-page-design-quality.md)：已接受的改进方向；未完成能力不能宣称已交付。
 - [AI 搭建能力增强里程碑](work/milestones/2026-10-27-ai-builder.md)：本轮范围与实施顺序。

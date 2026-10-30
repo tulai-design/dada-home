@@ -16,6 +16,7 @@ try {
   page.setDefaultTimeout(10000)
   page.on('pageerror', error => errors.push(error.message))
   await page.goto(base + '/', {waitUntil: 'domcontentloaded'})
+  await page.locator('.app').waitFor({state: 'attached'})
   await page.waitForFunction(() => window.__tada?.workspace())
   const settle = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
   const call = async (name, args) => {

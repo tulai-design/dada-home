@@ -19,7 +19,7 @@ function load(path) {
   return module.exports
 }
 const {projectIncrementalConfig, applyIncrementalConfig, validateIncrementalConfig} = load('src/lib/incrementalConfigSchema.ts')
-const workspace = () => ({version: 6, pages: [{id: 'home', name: '首页', label: '首页', components: []}], theme: {active: 'custom', mode: 'dark', base: 'light'}, themes: [{id: 'custom', name: '测试', description: '', overrides: {}, light: {bg: '#fff'}, dark: {bg: '#222'}}], layout: {columns: 12, maxWidth: 1480}, widgets: [], applications: [], statusbar: [], dock: {}, addons: [], templates: [], network: [{host: 'local.example', grantedAt: 1}]})
+const workspace = () => ({version: load('src/lib/workspace.ts').WORKSPACE_VERSION, pages: [{id: 'home', name: '首页', label: '首页', components: []}], theme: {active: 'custom', mode: 'dark', base: 'light'}, themes: [{skin: 'paper', shell: 'standard', id: 'custom', name: '测试', description: '', overrides: {}, light: {bg: '#fff'}, dark: {bg: '#222'}}], layout: {columns: 12, maxWidth: 1480}, widgets: [], applications: [], statusbar: [], dock: {}, addons: [], templates: [], network: [{host: 'local.example', grantedAt: 1}]})
 let passed = 0
 function test(name, fn) {fn(); passed++; console.log('通过：' + name)}
 test('完整搜索配置保留服务地址和密钥', () => {
@@ -60,5 +60,24 @@ test('稳定偏好可往返且拒绝错误类型，删除保留仅本机授权',
   assert.deepEqual(applyIncrementalConfig('workspace', undefined, workspace()), {network: workspace().network})
   assert.equal(projectIncrementalConfig('workspace', {network: workspace().network}), undefined)
   assert.equal(applyIncrementalConfig('settings', undefined, {ai: {apiKey: 'old'}}), undefined)
+})
+test('增量配置保留派生主题和模板完整设计，坏身份在入站前拒绝', () => {
+  const themes = load('src/lib/themes.ts'), model = load('src/lib/workspace.ts')
+  for (const id of ['default', 'ios', 'pixel', 'switch', 'win98']) {
+    const source = workspace(); source.themes = themes.readThemes([]); source.theme.active = id
+    const changed = themes.tweakTheme(source, {overrides: {main: '#663399'}}).workspace
+    const theme = model.activeTheme(changed)
+    changed.templates = [{id: 'snapshot', name: '快照', description: '', createdAt: 1, updatedAt: 1, snapshot: {pages: changed.pages, statusbar: [], layout: changed.layout, widgets: [], addons: [], applications: [], theme}}]
+    const projected = projectIncrementalConfig('workspace', changed)
+    const restored = applyIncrementalConfig('workspace', structuredClone(projected), source)
+    assert.deepEqual(restored.themes, changed.themes)
+    assert.deepEqual(restored.templates[0].snapshot.theme, theme)
+    for (const target of [restored.themes.find(entry => entry.id === theme.id), restored.templates[0].snapshot.theme]) {
+      const shell = target.shell; target.shell = 'invalid'
+      const invalid = {...restored}; delete invalid.network
+      assert.throws(() => validateIncrementalConfig('workspace', invalid))
+      target.shell = shell
+    }
+  }
 })
 console.log(`增量同步适配器契约通过：${passed} 组`)

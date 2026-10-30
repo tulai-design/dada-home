@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { ActionIcon, Flexbox, Modal, Segmented, Switch, Text } from '@lobehub/ui'
 import {PencilSimple as Pencil, Trash as Trash2} from '@phosphor-icons/react'
 import { useAppSettings } from '../lib/apps'
-import { applyTheme, removeTheme, resolveThemeOverrides, saveTheme, setSkinFrame, swatch, tweakTheme } from '../lib/themes'
-import { activeTheme, IOS_THEME_ID, PIXEL_THEME_ID, SWITCH_THEME_ID, WIN98_THEME_ID, type ThemeEntry } from '../lib/workspace'
+import { applyTheme, removeTheme, resolveTheme, saveTheme, setSkinFrame, swatch, tweakTheme } from '../lib/themes'
+import { activeTheme, type ThemeEntry } from '../lib/workspace'
 import { applyDecor, currentDecor, DECORS } from '../lib/decor'
 import { Group, Row, TextRow } from './ios'
 
@@ -31,8 +31,9 @@ export function AppearanceSettings({ mode, onMode }: { mode: 'light' | 'dark'; o
   const [pending, setPending] = useState<ThemeEntry | null>(null)
 
   const current = activeTheme(workspace)
-  const skin = current.id === IOS_THEME_ID || current.id === PIXEL_THEME_ID || current.id === SWITCH_THEME_ID
-  const frameOn = workspace.theme.frameOff ? false : !['0', '0px'].includes(resolveThemeOverrides(current, mode).frame ?? '')
+  const resolved = resolveTheme(current, mode, {frameOff: workspace.theme.frameOff})
+  const skin = resolved.capabilities.frame === 'toggle'
+  const frameOn = !['0', '0px'].includes(resolved.values.frame)
   const setFrame = (on: boolean) =>
     edit((ws) => {
       if (skin) return setSkinFrame(ws, on)
@@ -73,13 +74,13 @@ export function AppearanceSettings({ mode, onMode }: { mode: 'light' | 'dark'; o
         </Row>
       </Group>
 
-      {current.id !== WIN98_THEME_ID && <Group title="窗口" footer={skin ? '窗口四周那圈边。关掉只收起这圈边，还是当前这套主题。' : '窗口四周那圈红框。关掉会另存为一个新主题，默认主题不受影响。粗细、颜色和字体，对搭搭说就行。'}>
+      {resolved.capabilities.frame !== 'none' && <Group title="窗口" footer={skin ? '窗口四周那圈边。关掉只收起这圈边，还是当前这套主题。' : '窗口四周那圈外框。修改保留当前造型；内置主题会先另存，默认主题不受影响。粗细、颜色和字体，对搭搭说就行。'}>
         <Row label="外框">
           <Switch checked={frameOn} onChange={setFrame} />
         </Row>
       </Group>}
 
-      {current.id !== WIN98_THEME_ID && <Group title="首页装饰" footer="给首页铺一层动态背景，来自 React Bits。想要别的效果，或者 Spline 3D 场景，对搭搭说一声就行。">
+      {resolved.shell !== 'win98' && <Group title="首页装饰" footer="给首页铺一层动态背景，来自 React Bits。想要别的效果，或者 Spline 3D 场景，对搭搭说一声就行。">
         {DECORS.map((decor) => (
           <Row key={decor.id} label={decor.name} hint={decor.hint} checked={decor.id === decorId} onClick={() => edit((ws) => applyDecor(ws, decor.id))} />
         ))}

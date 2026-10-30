@@ -16,11 +16,13 @@ PATH="/Users/xiaomengdao/.nvm/versions/node/v24.11.0/bin:$PATH" /Users/xiaomengd
 
 仓库主要使用 Node 脚本执行真实 TypeScript 模块/运行时契约。先运行与改动相关的一组；完成行为改动后运行完整测试和类型检查。需要验证打包时再运行 build。
 
+真实 App 脚本先等待 `.app` 挂载，再读取 `window.__tada.workspace()`；调试入口早于动态组件注册可用，过早读取会在注册完成前初始化工作空间。Switch 启动器和 Win98 桌面可以合法隐藏内容，不能用首个 widget 可见作为通用启动条件。主题回归使用独立 Vite 端口和新浏览器 context，避免 HMR 模块身份混入状态断言。
+
 | 行为 | 现有回归入口 |
 | --- | --- |
 | AI 协议与模型 | [test-ai-protocol.mjs](../../../scripts/test-ai-protocol.mjs)、[test-models.mjs](../../../scripts/test-models.mjs) |
 | Agent 取消、审批与失败状态 | [test-agent-execution.mjs](../../../scripts/test-agent-execution.mjs)、`test-ai-protocol.mjs`、`test-assistant-flows.mjs`；真实 App 使用 [test-agent-execution-browser.mjs](../../../scripts/test-agent-execution-browser.mjs)，合成模型响应验证停止、审批身份、下一轮发送和失败记录，不访问真实模型或用户数据 |
-| 主题与还原 | [test-theme-tools.mjs](../../../scripts/test-theme-tools.mjs)、[test-appearance.mjs](../../../scripts/test-appearance.mjs) |
+| 主题与还原 | [test-theme-identity.mjs](../../../scripts/test-theme-identity.mjs)、[test-theme-tools.mjs](../../../scripts/test-theme-tools.mjs)、[test-appearance.mjs](../../../scripts/test-appearance.mjs)；真实 App [test-theme-identity-browser.mjs](../../../scripts/test-theme-identity-browser.mjs) 检查派生身份、实际主色、同外壳输入/应用/窗口/助手保持与模板重载 |
 | 主机外壳与内容页 | [test-switch-theme-browser.mjs](../../../scripts/test-switch-theme-browser.mjs)、[test-switch-content-browser.mjs](../../../scripts/test-switch-content-browser.mjs)；隔离真实 App，检查亮暗、窄屏、AI 分栏与末项可达，内容夹具不访问外网 |
 | Win98 桌面与窗口 | [test-win98-theme-browser.mjs](../../../scripts/test-win98-theme-browser.mjs)；真实开始菜单、桌面入口、窗口操作与输入状态保留，亮暗、窄屏、AI 分栏、内置内容与主题切换清理 |
 | 其他内置主题内容页 | [audit-builtin-theme-content-browser.mjs](../../../scripts/audit-builtin-theme-content-browser.mjs)；纸张、iOS、掌机亮暗，末项不被浮动 Dock 遮挡，窄屏日历控件不出界并能实际添加日程；检查失败返回非零 |

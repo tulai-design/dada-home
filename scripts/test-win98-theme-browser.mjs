@@ -35,6 +35,7 @@ try {
   page.setDefaultTimeout(10000)
   page.on('pageerror', error => errors.push(error.message))
   await page.goto(base, {waitUntil: 'domcontentloaded'})
+  await page.locator('.app').waitFor({state: 'attached'})
   await page.waitForFunction(() => window.__tada?.workspace())
   const settle = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
   const call = async (name, args) => {
@@ -217,7 +218,9 @@ try {
   assert.equal(await page.evaluate(() => window.__tada.workspace().theme.mode), 'light')
   await appearance.getByText('深色', {exact: true}).click()
   assert.equal(await page.evaluate(() => window.__tada.workspace().theme.mode), 'dark')
-  await page.reload({waitUntil: 'domcontentloaded'}); await page.waitForFunction(() => window.__tada?.workspace())
+  await page.reload({waitUntil: 'domcontentloaded'})
+  await page.locator('.app').waitFor({state: 'attached'})
+  await page.waitForFunction(() => window.__tada?.workspace())
   assert.equal(await page.evaluate(() => window.__tada.workspace().theme.active), 'win98')
   assert.equal(await page.evaluate(() => window.__tada.workspace().theme.mode), 'dark')
   await desktop.waitFor(); await snapshot('refresh-dark')

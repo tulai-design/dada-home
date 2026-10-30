@@ -2,13 +2,13 @@ import {useCallback, useSyncExternalStore} from 'react'
 import {assertPersistenceWritable, clearPersistenceError, reportPersistenceError} from './persistence'
 import {defaultWorkspace} from './ops'
 import {getDefinition, normalizeConfig} from './registry'
-import {DEFAULT_APPEARANCE_THEME, DEFAULT_THEME, DEFAULT_THEME_ID, FROZEN_PAGE_ID, MAX_STATUS_ITEMS, MAX_TEMPLATES, WORKSPACE_VERSION, type StatusItem, type TemplateEntry, type ThemeEntry, type ThemeConfig, type CustomWidget, type Layer, type Page, type Wallpaper, type Workspace} from './workspace'
+import {DEFAULT_APPEARANCE_THEME, FROZEN_PAGE_ID, MAX_STATUS_ITEMS, MAX_TEMPLATES, WORKSPACE_VERSION, type StatusItem, type TemplateEntry, type ThemeEntry, type ThemeConfig, type CustomWidget, type Layer, type Page, type Wallpaper, type Workspace} from './workspace'
 import {normalizeWidget, sanitizeCss} from './customWidget'
 import {normalizeLayer} from '../fx/catalog'
 import {isPageIcon} from './pageIcons'
 import {readDock} from './dock'
 import {ADDONS} from './market'
-import {cleanOverrides, readThemes} from './themes'
+import {assertThemeEntry, cleanOverrides, readThemes} from './themes'
 import {isApplicationType, readApplications} from './applications'
 import {normalizePageSections} from './pageSections'
 
@@ -122,6 +122,7 @@ export function readTemplates(raw: unknown): TemplateEntry[] {
     if (!item || typeof item.id !== 'string' || typeof item.name !== 'string' || out.some((entry) => entry.id === item.id)) continue
     const snap = item.snapshot as Partial<TemplateEntry['snapshot']> | undefined
     if (!snap) continue
+    if (snap.theme !== undefined) {try {assertThemeEntry(snap.theme)} catch {continue}}
     const checked = migrate({
       pages: snap.pages,
       widgets: snap.widgets,
@@ -132,7 +133,7 @@ export function readTemplates(raw: unknown): TemplateEntry[] {
       themes: snap.theme ? [snap.theme] : undefined,
     })
     if (!checked) continue
-    const theme = snap.theme?.id === DEFAULT_THEME_ID ? DEFAULT_THEME : checked.themes.find((entry) => entry.id !== DEFAULT_THEME_ID)
+    const theme = snap.theme ? checked.themes.find(entry => entry.id === snap.theme!.id) : undefined
     const now = Date.now()
     out.push({
       id: item.id,
@@ -184,7 +185,7 @@ function readThemeState(data: Partial<Workspace>): { themes: ThemeEntry[]; confi
     try {
       const overrides = cleanOverrides(raw.overrides)
       if (Object.keys(overrides).length) {
-        const migrated = readThemes([{ id: 'mine', name: '我的主题', description: '升级前你调过的配色', overrides, mode }], mode).find((item) => item.id === 'mine')
+        const migrated = readThemes([{ id: 'mine', skin: 'paper', shell: 'standard', name: '我的主题', description: '升级前你调过的配色', overrides, mode }], mode).find((item) => item.id === 'mine')
         if (migrated) themes.push(migrated)
         return { themes, config: { active: 'mine', mode, base } }
       }

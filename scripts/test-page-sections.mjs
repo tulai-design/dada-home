@@ -145,7 +145,7 @@ test('版本迁移保留旧页面，坏布局只清理引用且模板读取共�
   const store = load('src/lib/workspaceStore.ts')
   const old = {...base(), version: 5}
   const legacy = store.migrate(old)
-  assert.equal(legacy.version, 6)
+  assert.equal(legacy.version, load('src/lib/workspace.ts').WORKSPACE_VERSION)
   assert.equal(legacy.pages[0].sections, undefined)
   assert.deepEqual(ids(legacy.pages[0]), ['a', 'b', 'c', 'd'])
   for (const sections of [null, 0, '', {}, []]) {

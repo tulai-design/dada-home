@@ -123,11 +123,12 @@ function adoptTheme(workspace: Workspace, theme: ThemeEntry): Workspace {
     const preset = workspace.themes.find((item) => item.id === theme.id && item.builtin)
     return {...workspace, theme: {...workspace.theme, active: preset?.id ?? DEFAULT_THEME_ID, mode: preset?.mode ?? workspace.theme.base}}
   }
-  const same = workspace.themes.find((item) => item.name === theme.name && JSON.stringify(item.overrides) === JSON.stringify(theme.overrides) && JSON.stringify(item.light ?? {}) === JSON.stringify(theme.light ?? {}) && JSON.stringify(item.dark ?? {}) === JSON.stringify(theme.dark ?? {}) && JSON.stringify(item.fonts ?? []) === JSON.stringify(theme.fonts ?? []) && item.mode === theme.mode)
+  const design = ({id: _id, builtin: _builtin, ...entry}: ThemeEntry) => JSON.stringify(entry, (_key, value: unknown) => value && typeof value === 'object' && !Array.isArray(value) ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b))) : value)
+  const same = workspace.themes.find(item => design(item) === design(theme))
   let themes = workspace.themes
   let entry = same
   if (!entry) {
-    if (themes.length >= MAX_THEMES) return workspace
+    if (themes.length >= MAX_THEMES) throw new WorkspaceError(`主题库满了，最多 ${MAX_THEMES} 个，先删掉不用的。`)
     let id = theme.id
     for (let n = 2; themes.some((item) => item.id === id); n += 1) id = `${theme.id}-${n}`
     entry = {...clone(theme), id, builtin: undefined}

@@ -28,7 +28,7 @@ const clone = (value) => JSON.parse(JSON.stringify(value))
 const fixture = () => ({
   version: WORKSPACE_VERSION,
   theme: {active: 'night', mode: 'dark', base: 'light'},
-  themes: [DEFAULT_THEME, IOS_THEME, {id: 'night', name: '夜航', description: '自定义主题', overrides: {frame: '0px'}, dark: {bg: '#07111f', text: '#dcecff'}, fonts: [{family: 'Noto Sans SC', role: 'sans'}]}],
+  themes: [DEFAULT_THEME, IOS_THEME, {skin: 'paper', shell: 'standard', id: 'night', name: '夜航', description: '自定义主题', overrides: {frame: '0px'}, dark: {bg: '#07111f', text: '#dcecff'}, fonts: [{family: 'Noto Sans SC', role: 'sans'}]}],
   layout: {columns: 9, maxWidth: 1234},
   widgets: [{id: 'custom-list', name: '自定义列表', source: {kind: 'static', items: [{title: '保留自定义数据'}]}}],
   network: [{host: 'example.com', grantedAt: 1}],

@@ -11,6 +11,7 @@ import {ADDONS, isInstalled, typeAvailable} from './market'
 import {NO_EXTENSION_HINT, SYNC_FOLDER, call, detect, importFromBrowser, listBrowser, pushToBrowser} from './browserBookmarks'
 import {addBookmarks, countBookmarks, getBookmarks, removeBookmarks, removeGroup, renameGroup, setBookmarks, updateBookmark} from './bookmarks'
 import {activeTheme} from './workspace'
+import {resolveTheme} from './themes'
 import {getAppearance, resetAppearance} from './appearance'
 import {createApplication, updateApplication, configureApplication, findApplication, listApplications, mountApplication, removeApplication} from './applications'
 import type {ApplicationOpenMode} from './workspace'
@@ -493,7 +494,7 @@ export const HOME_TOOLS = [
         type: 'object',
         properties: {
           mode: {type: 'string', enum: ['light', 'dark'], description: '切换当前显示模式，不锁定主题的其他模式'},
-          overrides: {type: ['object', 'null'], description: '共享变量补丁，键不带 `--`，例如 {"main":"#2b6cf6","radius":"8px","frame":"0px"}。旧写法的 bg/text/border 等核心配色仅修改当前模式；推荐显式写 light/dark。传 null 清空全部自定义变量和字体'},
+          overrides: {type: ['object', 'null'], description: '共享变量补丁，键不带 `--`，例如 {"main":"#2b6cf6","radius":"8px","frame":"0px"}。bg/text/border 等中性色仅修改当前模式；共享 main 等会移除两模式旧同名覆盖，再叠加本次显式 light/dark（优先级最高）。传 null 清空全部自定义变量和字体并保留造型/外壳，此时其他设计补丁不生效'},
           light: {type: ['object', 'null'], description: '仅浅色模式的变量补丁，与已有浅色变量合并；bg/bg2/bg3、text/text2/text3/text4、border/rule 等放这里。传 null 清空这一分支，未传保留'},
           dark: {type: ['object', 'null'], description: '仅深色模式的变量补丁，与已有深色变量合并。传 null 清空这一分支，未传保留'},
           fonts: {type: 'array', description: '从 Google Fonts 引入的字体，一次传整个数组；传 [] 清掉', items: {type: 'object', properties: {family: {type: 'string'}, role: {type: 'string', enum: ['serif', 'sans', 'mono']}}, required: ['family']}},
@@ -504,7 +505,7 @@ export const HOME_TOOLS = [
       name: 'set_theme',
       title: '调整主题',
       description:
-        '微调当前主题：mode 切当前明暗；overrides 放共享尺寸、外框或主色；light 和 dark 分别补丁合并两种模式配色，只写要改的。不要用一组固定 bg/text 代替两套适配；如只调深色，传 dark 即可，不影响浅色。修改后用 list_themes 核对两套分支，缺少的配色继承系统基础色。可改的变量（键不带 `--`）：main 主色；bg/bg2/bg3 背景层级；text/text2/text3/text4 文字层级；border、rule 线条；radius、radius-lg 圆角（纸张基底为 0，iOS 为 12px / 16px）；gutter 页面左右留白；frame 外框粗细（纸张基底为 7px，iOS 为 0px，设 0px 就去掉外框，同时去掉外框占的边距）；frame-gap 外框占的边距（只想去掉红框但保留边距时，frame 设 0px 并把 frame-gap 设为 7px）；frame-color 外框颜色（默认跟随 main）；side-width 侧栏宽度。字体：用 fonts 从 Google Fonts 引入，例如 [{"family":"Playfair Display","role":"serif"},{"family":"Noto Sans SC","role":"sans"}]。role 决定它接管哪一类：serif=标题、大数字和正文（按当前主题字体），sans=界面控件和小字，mono=数字、标签和顶栏的等宽字。不写 role 只加载不接管（再自己用 font-serif 等变量引用）。family 必须是 Google Fonts 上真实存在的名字，中文内容记得选支持中文的（Noto Serif SC、Noto Sans SC、ZCOOL XiaoWei、LXGW WenKai 等）。最多 4 个，一次传整个数组。当前是内置主题时会自动另存为「自定义 N」再改，默认主题不会被改坏。要整套新风格并起名保存，用 save_theme。',
+        '微调当前主题：mode 切当前明暗；overrides 放共享尺寸、外框或主色；light 和 dark 分别补丁合并两种模式配色，只写要改的。不要用一组固定 bg/text 代替两套适配；如只调深色，传 dark 即可，不影响浅色。修改后用 list_themes 核对两套分支，缺少的配色继承系统基础色。可改的变量（键不带 `--`）：main 主色；bg/bg2/bg3 背景层级；text/text2/text3/text4 文字层级；border、rule 线条；radius、radius-lg 圆角（纸张基底为 0，iOS 为 12px / 16px）；gutter 页面左右留白；frame 外框粗细（纸张基底为 7px，iOS 为 0px，设 0px 就去掉外框，同时去掉外框占的边距）；frame-gap 外框占的边距（只想去掉红框但保留边距时，frame 设 0px 并把 frame-gap 设为 7px）；frame-color 外框颜色（默认跟随 main）；side-width 侧栏宽度。字体：用 fonts 从 Google Fonts 引入，例如 [{"family":"Playfair Display","role":"serif"},{"family":"Noto Sans SC","role":"sans"}]。role 决定它接管哪一类：serif=标题、大数字和正文（按当前主题字体），sans=界面控件和小字，mono=数字、标签和顶栏的等宽字。不写 role 只加载不接管（再自己用 font-serif 等变量引用）。family 必须是 Google Fonts 上真实存在的名字，中文内容记得选支持中文的（Noto Serif SC、Noto Sans SC、ZCOOL XiaoWei、LXGW WenKai 等）。最多 4 个，一次传整个数组。当前是内置主题时会完整另存为「自定义 N」再改，保留造型、桌面外壳、双模式、字体和未改参数；内置主题不会被改坏。共享 main 等会清掉两分支旧同名值，本次显式 light/dark 最后覆盖。要整套新风格并起名保存，用 save_theme。',
       effect: 'write',
       highRisk: () => false,
       execute: (args) =>
@@ -512,7 +513,7 @@ export const HOME_TOOLS = [
           const result = ops.setTheme(getWorkspace(), args)
           commit(result.workspace)
           const loaded = args.fonts !== undefined ? '字体来自 Google Fonts，需要联网加载；加载失败页面会提示。' : ''
-          return loaded + (result.forked ? `当前是默认主题，已另存为「${result.forked.name}」并应用修改。想起个名字可以用 save_theme。` : '主题已更新。')
+          return loaded + (result.forked ? `当前是内置主题，已完整另存为「${result.forked.name}」并应用修改。想起个名字可以用 save_theme。` : '主题已更新。')
         }),
     },
   ),
@@ -523,13 +524,18 @@ export const HOME_TOOLS = [
     {
       name: 'list_themes',
       title: '查看主题库',
-      description: '列出所有主题（含默认主题）：id、名字、说明、共享变量、light/dark 两套覆盖、初始模式与是否正在使用；缺分支会说明继承基础配色。创建前看现状，修改后核对双模式是否完整。',
+      description: '列出所有主题的实例 id、造型 skin、外壳 shell、定义来源 origin、共享与双模式设计，以及双模式有效值和每项来源。有效值为语义 CSS 值，不是浏览器 computedStyle 或视觉验收。当前主题还披露外框用户偏好后的实际结果。',
       effect: 'read',
       highRisk: () => false,
       execute: async () => {
         const workspace = getWorkspace()
         return workspace.themes
-          .map((item) => `${item.id}｜${item.name}｜${item.id === workspace.theme.active ? `使用中（当前 ${workspace.theme.mode}）` : '未使用'}${item.id === 'default' ? '｜默认（不可改删）' : item.builtin ? '｜预设（不可改删）' : ''}${item.mode ? `｜应用时初始偏好 ${item.mode}（仍可切换）` : ''}\n  ${item.description || '（无说明）'}\n  共享 overrides ${JSON.stringify(item.overrides)}\n  浅色 light ${item.light && Object.keys(item.light).length ? JSON.stringify(item.light) : '未单独覆盖，继承共享变量与系统浅色基础配色'}\n  深色 dark ${item.dark && Object.keys(item.dark).length ? JSON.stringify(item.dark) : '未单独覆盖，继承共享变量与系统深色基础配色'}${item.fonts?.length ? `\n  字体 ${JSON.stringify(item.fonts)}` : ''}`)
+          .map((item) => {
+            const light = resolveTheme(item, 'light')
+            const dark = resolveTheme(item, 'dark')
+            const current = item.id === workspace.theme.active ? resolveTheme(item, workspace.theme.mode, {frameOff: workspace.theme.frameOff}) : undefined
+            return `${item.id}｜${item.name}｜skin ${item.skin}｜shell ${item.shell}｜origin ${JSON.stringify(item.origin ?? null)}｜${item.id === workspace.theme.active ? `使用中（当前 ${workspace.theme.mode}）` : '未使用'}${item.id === 'default' ? '｜默认（不可改删）' : item.builtin ? '｜预设（不可改删）' : ''}${item.mode ? `｜应用时初始偏好 ${item.mode}（仍可切换）` : ''}\n  ${item.description || '（无说明）'}\n  共享 overrides ${JSON.stringify(item.overrides)}\n  浅色 light ${item.light && Object.keys(item.light).length ? JSON.stringify(item.light) : '未单独覆盖，继承共享变量与系统浅色基础配色'}\n  深色 dark ${item.dark && Object.keys(item.dark).length ? JSON.stringify(item.dark) : '未单独覆盖，继承共享变量与系统深色基础配色'}${item.fonts?.length ? `\n  字体 ${JSON.stringify(item.fonts)}` : ''}\n  浅色有效值 ${JSON.stringify(light.values)}\n  浅色来源 ${JSON.stringify(light.sources)}\n  深色有效值 ${JSON.stringify(dark.values)}\n  深色来源 ${JSON.stringify(dark.sources)}${current ? `\n  当前有效值 ${JSON.stringify(current.values)}\n  当前来源 ${JSON.stringify(current.sources)}` : ''}`
+          })
           .join('\n')
       },
     },
@@ -539,13 +545,15 @@ export const HOME_TOOLS = [
       schema: {
         parse: (raw) => {
           const value = obj(raw)
-          return {id: optStr(value.id), name: optStr(value.name), description: optStr(value.description), overrides: themeVars(value.overrides, 'overrides'), light: themeVars(value.light, 'light'), dark: themeVars(value.dark, 'dark'), fonts: value.fonts, mode: optStr(value.mode), activate: value.activate === false ? false : undefined}
+          if (value.from !== undefined && (typeof value.from !== 'string' || !value.from.trim())) throw new WorkspaceError('from 必须是主题 id 或名称')
+          return {id: optStr(value.id), from: optStr(value.from), name: optStr(value.name), description: optStr(value.description), overrides: themeVars(value.overrides, 'overrides'), light: themeVars(value.light, 'light'), dark: themeVars(value.dark, 'dark'), fonts: value.fonts, mode: optStr(value.mode), activate: value.activate === false ? false : undefined}
         },
       },
       json: {
         type: 'object',
         properties: {
           name: {type: 'string', description: '主题名，20 字以内，例如「深海」「黄昏」'},
+          from: {type: 'string', description: '仅新建时可用：来源主题 id 或名称；不填完整复制当前主题的造型、外壳、共享值、双模式与字体。更新已有主题不能传'},
           description: {type: 'string', description: '一两句话说明这个主题的气质，之后在列表里看'},
           overrides: {type: ['object', 'null'], description: '共享变量，键不带 `--`，如 main 主色、radius 圆角、frame 外框粗细（0px 去掉外框）。传入时替换整组共享变量，null 或 {} 清空共享变量，未传保留；bg/text 等核心配色应放进 light/dark'},
           light: {type: ['object', 'null'], description: '浅色模式的一整套覆盖。新建完整风格应与 dark 一起提供：bg/bg2/bg3、text/text2/text3/text4、border/rule 等。传入时替换整组浅色变量，null 或 {} 清空，未传保留'},
@@ -561,7 +569,7 @@ export const HOME_TOOLS = [
       name: 'save_theme',
       title: '保存主题',
       description:
-        '把主题存进主题库并（默认）启用。用户让你「做一个xx风格的主题」时：先 list_themes，再起名字、写说明，并分别给 light 和 dark 两套配色；共享主色、尺寸、外框放 overrides，字体放 fonts。mode 只表示应用时的初始偏好，不能替代另一套配色。例：overrides:{main:"#397c95",radius:"8px"},light:{bg:"#f4fafb",text:"#172f38"},dark:{bg:"#10232b",text:"#e5f3f7"}。完整风格应配齐两边背景、文字层级和边线并检查可读性，不把固定 bg/text 写进一组共享覆盖。仅添加字体或外框可以不传配色；更新时允许只替换一套分支，其他分支保持。存完用 list_themes 核对两套覆盖和当前模式。可改的变量（键不带 `--`）：main 主色；bg/bg2/bg3 背景层级；text/text2/text3/text4 文字层级；border、rule 线条；radius、radius-lg 圆角（纸张基底为 0，iOS 为 12px / 16px）；gutter 页面左右留白；frame 外框粗细（纸张基底为 7px，iOS 为 0px，0px 去掉外框与边距）；frame-gap 外框占的边距；frame-color 外框颜色（默认跟随 main）；side-width 侧栏宽度。字体用 fonts，例如 [{"family":"Playfair Display","role":"serif"},{"family":"Noto Sans SC","role":"sans"}]，role 为 serif（标题、大数字和正文）、sans（界面控件和小字）、mono（数字标签和顶栏）；不写 role 只加载。family 必须是 Google Fonts 上真实存在的名字，中文优先选支持中文的字体，最多 4 个，一次传整个数组。同名或同 id 的会被更新；默认主题不能改。',
+        '把主题存进主题库并（默认）启用。新建默认完整复制当前主题，from 可显式选来源 id 或名称，保留造型与桌面交互；更新已有主题不能传 from。显式 overrides/light/dark 仍整组替换，未传保留来源设计；共享 main 等会清除两模式旧同名值，再叠本次显式模式值。用户让你「做一个xx风格的主题」时：先 list_themes，再起名字、写说明，并分别给 light 和 dark 两套配色；共享主色、尺寸、外框放 overrides，字体放 fonts。mode 只表示应用时的初始偏好，不能替代另一套配色。例：overrides:{main:"#397c95",radius:"8px"},light:{bg:"#f4fafb",text:"#172f38"},dark:{bg:"#10232b",text:"#e5f3f7"}。完整风格应配齐两边背景、文字层级和边线并检查可读性，不把固定 bg/text 写进一组共享覆盖。仅添加字体或外框可以不传配色；更新时允许只替换一套分支，其他分支保持。存完用 list_themes 核对两套覆盖和当前模式。可改的变量（键不带 `--`）：main 主色；bg/bg2/bg3 背景层级；text/text2/text3/text4 文字层级；border、rule 线条；radius、radius-lg 圆角（纸张基底为 0，iOS 为 12px / 16px）；gutter 页面左右留白；frame 外框粗细（纸张基底为 7px，iOS 为 0px，0px 去掉外框与边距）；frame-gap 外框占的边距；frame-color 外框颜色（默认跟随 main）；side-width 侧栏宽度。字体用 fonts，例如 [{"family":"Playfair Display","role":"serif"},{"family":"Noto Sans SC","role":"sans"}]，role 为 serif（标题、大数字和正文）、sans（界面控件和小字）、mono（数字标签和顶栏）；不写 role 只加载。family 必须是 Google Fonts 上真实存在的名字，中文优先选支持中文的字体，最多 4 个，一次传整个数组。同名或同 id 的会被更新；默认主题不能改。',
       effect: 'write',
       highRisk: () => false,
       execute: (args) =>

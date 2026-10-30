@@ -73,7 +73,7 @@ test('双模式主题切换使用各自的背景、文字和主色，共享布�
   assert.equal(dark.radius, '8px')
 })
 test('旧固定深色主题归入深色分支，浅色回落系统配色', () => {
-  const old = {id: 'legacy-dark', name: '旧深色', description: '', mode: 'dark', overrides: {bg: '#111827', text: '#f8fafc', border: '#334155', main: '#60a5fa', frame: '0px'}}
+  const old = {skin: 'paper', shell: 'standard', id: 'legacy-dark', name: '旧深色', description: '', mode: 'dark', overrides: {bg: '#111827', text: '#f8fafc', border: '#334155', main: '#60a5fa', frame: '0px'}}
   const entry = readThemes([old]).find((item) => item.id === old.id)
   assert.equal(resolveThemeOverrides(entry, 'dark').bg, '#111827')
   assert.notEqual(swatch(entry, 'light').bg, '#111827')
@@ -82,12 +82,12 @@ test('旧固定深色主题归入深色分支，浅色回落系统配色', () =>
   assert.equal(resolveThemeOverrides(entry, 'light').main, '#60a5fa')
 })
 test('旧主题未声明模式时能从深色十六进制背景判断归属', () => {
-  const entry = readThemes([{id: 'inferred', name: '无模式深色', overrides: {bg: '#101820', text: '#f3f7fc'}}]).find((item) => item.id === 'inferred')
+  const entry = readThemes([{skin: 'paper', shell: 'standard', description: '', id: 'inferred', name: '无模式深色', overrides: {bg: '#101820', text: '#f3f7fc'}}]).find((item) => item.id === 'inferred')
   assert.equal(resolveThemeOverrides(entry, 'dark').bg, '#101820')
   assert.notEqual(swatch(entry, 'light').bg, '#101820')
 })
 test('旧共享主色、外框、字体变量继续跨模式生效', () => {
-  const entry = readThemes([{id: 'shared', name: '共用', overrides: {main: '#a855f7', frame: '3px', 'font-serif': 'Georgia, serif'}}]).find((item) => item.id === 'shared')
+  const entry = readThemes([{skin: 'paper', shell: 'standard', description: '', id: 'shared', name: '共用', overrides: {main: '#a855f7', frame: '3px', 'font-serif': 'Georgia, serif'}}]).find((item) => item.id === 'shared')
   for (const mode of ['light', 'dark']) {
     const vars = resolveThemeOverrides(entry, mode)
     assert.equal(vars.main, '#a855f7')

@@ -19,10 +19,10 @@ function runtime(seed = {}) {
     return module.exports
   }
   const api = load('src/lib/syncData.ts')
-  return {api, schema:load('src/lib/chatStorageSchema.ts'), data, entries, get reads() {return reads}, apply(patch) {for (const [key, value] of Object.entries(patch)) value === null ? entries.delete(key) : entries.set(key, value)}}
+  return {api, themes:load('src/lib/themes.ts'), model:load('src/lib/workspace.ts'), schema:load('src/lib/chatStorageSchema.ts'), data, entries, get reads() {return reads}, apply(patch) {for (const [key, value] of Object.entries(patch)) value === null ? entries.delete(key) : entries.set(key, value)}}
 }
 const clone = value => JSON.parse(JSON.stringify(value))
-const workspace = () => ({version: 6, pages: [{id: 'home', name: '首页', label: '首页', components: [{id: 'clock', type: 'clock', config: {}}]}], theme: {active: 'default', mode: 'light', base: 'light'}, themes: [{id: 'default', name: '默认', description: '', overrides: {}}], layout: {columns: 12, maxWidth: 1480}, widgets: [], statusbar: [], addons: [], templates: [], applications: [], network: [{host: 'local.example', grantedAt: 1}]})
+const workspace = () => ({version: 7, pages: [{id: 'home', name: '首页', label: '首页', components: [{id: 'clock', type: 'clock', config: {}}]}], theme: {active: 'default', mode: 'light', base: 'light'}, themes: [{skin: 'paper', shell: 'standard', id: 'default', name: '默认', description: '', overrides: {}}], layout: {columns: 12, maxWidth: 1480}, widgets: [], statusbar: [], addons: [], templates: [], applications: [], network: [{host: 'local.example', grantedAt: 1}]})
 const persona = () => ({soul: {name: '搭搭', text: '性格', aiCanEdit: true, history: [{at: 1, by: 'user', text: '旧性格'}]}, memory: {enabled: true, items: [{id: 'm1', text: '累积记忆', kind: 'fact', by: 'user', at: 1}]}, profile: {role: '个人资料', interests: '', preferences: '', notes: ''}})
 const tombstone = {revision: {counter: 3, device: 'remote'}, hash: 'unused', deleted: true}
 let passed = 0
@@ -173,4 +173,25 @@ await test('轮次换会话与原会话墓碑不受入站顺序影响，不能�
   }
 })
 
+await test('派生主题与模板经快照配置双向往返保留完整身份，非法模板整次拒绝', async () => {
+  const h = runtime()
+  for (const id of ['default', 'ios', 'pixel', 'switch', 'win98']) {
+    const source = workspace(); source.theme.active = id; source.themes = h.themes.readThemes([])
+    const changed = h.themes.tweakTheme(source, {overrides: {main: '#663399'}, fonts: [{family: 'Noto Sans SC', role: 'sans'}]}).workspace
+    const theme = h.model.activeTheme(changed)
+    changed.templates = [{id: 'snapshot', name: '快照', description: '', createdAt: 1, updatedAt: 1, snapshot: {pages: changed.pages, statusbar: [], layout: changed.layout, widgets: [], addons: [], applications: [], theme}}]
+    for (const scope of ['configuration', 'full']) {
+      const projected = h.api.project('config:workspace', changed, scope, false)
+      h.api.validateRecord('config:workspace', projected, false, scope)
+      const restored = h.api.applyConfig('workspace', clone(projected), workspace(), scope, false)
+      assert.deepEqual(clone(restored.themes), clone(changed.themes))
+      assert.deepEqual(clone(restored.templates[0].snapshot.theme), clone(theme))
+      assert.equal(h.model.activeTheme(restored).shell, theme.shell)
+      for (const invalid of [{...theme, shell: 'invalid'}, {...theme, fonts: [{family: 'bad;'}]}, {...theme, origin: {definitionId: 'ios', version: 0}}]) {
+        const bad = clone(projected); bad.templates[0].snapshot.theme = invalid
+        assert.throws(() => h.api.validateRecord('config:workspace', bad, false, scope))
+      }
+    }
+  }
+})
 console.log(`同步记录codec回归全部通过：${passed}/${passed}`)

@@ -25,7 +25,7 @@ import {MemorySettings, ProfileForm, SoulSettings} from './PersonaSettings'
 import {usePersona} from '../lib/persona'
 import {ApplicationSettings} from './ApplicationSettings'
 import type {AssistantMode} from '../lib/assistantLayout'
-import {activeTheme, SWITCH_THEME_ID} from '../lib/workspace'
+import {activeTheme} from '../lib/workspace'
 import {ProfileAvatar} from './ProfileAvatar'
 import {ExtensionSettings} from './ExtensionSettings'
 import {isExtension} from '../lib/platform'
@@ -68,7 +68,7 @@ async function exportBackup() {
 export function SettingsPage({ctx, themeMode, onThemeMode, section, openRequest, onSection, onReset, generating = false}: Props) {
   const {settings, patch} = ctx
   const mobile = useIsMobile()
-  const consoleTheme = activeTheme(ctx.workspace).id === SWITCH_THEME_ID
+  const consoleTheme = activeTheme(ctx.workspace).shell === 'switch'
   const persona = usePersona()
   const syncStatus = useSyncStatus()
   // 手机上一次只显示一栏：直接点进设置先看列表；从别处跳来指定某一项时直接显示那一项

@@ -4,6 +4,7 @@ import {db, openDb, type DbOperation} from './db'
 import {canonical, digest, exactKeys, object, type SyncRecord} from './syncProtocol'
 import type {SyncScope} from './syncTypes'
 import {WORKSPACE_VERSION} from './workspace'
+import {assertWorkspaceThemes} from './themes'
 
 export const configNames = ['workspace', 'settings', 'search', 'persona', 'focusSettings', 'searchMode', 'sidebarAi', 'assistantPanelMode', 'range']
 const settingsFields = ['name', 'avatarSeed', 'city', 'lat', 'lon', 'theme', 'showFavicons', 'showSeconds', 'wallpaper', 'wallpaperIndex', 'wallpaperUrl', 'hotSource', 'hotBoards', 'ai']
@@ -140,10 +141,7 @@ export function validateRecord(id: string, value: unknown, deleted: boolean, sco
     pages(value.pages)
     layout(value.layout)
     if (!nonempty(value.theme.active) || !oneOf(value.theme.mode, ['light', 'dark']) || !oneOf(value.theme.base, ['light', 'dark']) || !strings(value.addons)) fail()
-    uniqueRows(value.themes, theme => {
-      if (typeof theme.name !== 'string' || typeof theme.description !== 'string') fail()
-      for (const key of ['overrides', 'light', 'dark']) if ((key === 'overrides' || theme[key] !== undefined) && (!object(theme[key]) || Object.values(theme[key]).some(item => typeof item !== 'string'))) fail()
-    })
+    assertWorkspaceThemes(value)
     uniqueRows(value.widgets, widget => {if (typeof widget.name !== 'string' || typeof widget.description !== 'string' || !oneOf(widget.layout, ['list', 'cards', 'stats', 'text', 'links', 'art']) || !object(widget.source)) fail()})
     uniqueRows(value.statusbar, component)
     uniqueRows(value.templates, template => {

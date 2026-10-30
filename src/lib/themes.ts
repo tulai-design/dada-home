@@ -1,11 +1,12 @@
 import {WorkspaceError} from './errors'
-import {cleanFonts, readFonts} from './fonts'
-import {DEFAULT_APPEARANCE_THEME, DEFAULT_THEME, DEFAULT_THEME_ID, IOS_THEME, IOS_THEME_ID, PIXEL_THEME, PIXEL_THEME_ID, SWITCH_THEME, SWITCH_THEME_ID, WIN98_THEME, WIN98_THEME_ID, MAX_THEMES, activeTheme, type ThemeEntry, type Workspace} from './workspace'
+import {cleanFonts, DEFAULT_STACKS, fontVars} from './fonts'
+import {isThemeRenderer, themeCapabilities} from './themeCatalog'
+import {DEFAULT_APPEARANCE_THEME, DEFAULT_THEME, DEFAULT_THEME_ID, IOS_THEME, PIXEL_THEME, SWITCH_THEME, WIN98_THEME, MAX_THEMES, activeTheme, type ThemeEntry, type Workspace} from './workspace'
 
 /**
  * 主题库的纯函数。
  *
- * 主题是「名字 + 说明 + 变量差异」的一条记录，存在 Workspace.themes 里，随工作空间一起导出、可撤销。
+ * 主题是「独立设计快照 + 实现引用」的一条记录，存在 Workspace.themes 里，随工作空间一起导出、可撤销。
  * 默认主题永远在库里，且不可改：AI 在默认主题上调色，会先另存成新主题再改，
  * 所以无论怎么折腾，都能一键回到最初的样子。
  */
@@ -66,6 +67,64 @@ export function resolveThemeOverrides(theme: ThemeEntry, mode: Mode): Overrides 
   return {...entry.overrides, ...entry[mode]}
 }
 
+const BASE_SHARED = {radius: '0px', 'radius-lg': '0px', frame: '7px', 'side-width': '84px', gutter: '28px', 'frame-gap': 'var(--frame)', 'frame-color': 'var(--main)'}
+export type ThemeValueSource = 'default' | 'font' | 'shared' | 'light' | 'dark' | 'preference'
+
+/** 全部消费者共用的有效主题；values 是语义 CSS 值，不是浏览器 computedStyle。 */
+export function resolveTheme(theme: ThemeEntry, mode: Mode, preferences: {frameOff?: boolean} = {}) {
+  const entry = normalizeEntry(theme, mode)
+  const capabilities = themeCapabilities(entry.skin)
+  const host = {paper: DEFAULT_THEME, ios: IOS_THEME, pixel: PIXEL_THEME, switch: SWITCH_THEME, win98: WIN98_THEME}[entry.skin]
+  // 固定实现的默认合同，不读取 origin；用户快照和模式层仍优先。
+  const hostOverrides: Overrides = {...fontVars(host.fonts), ...host.overrides, ...host[mode]}
+  const defaults: Overrides = {...BASE_SHARED, ...DEFAULT_THEME_PALETTES[mode], ...Object.fromEntries(Object.entries(DEFAULT_STACKS).map(([role, stack]) => [`font-${role}`, stack])), ...hostOverrides}
+  const values = {...defaults}
+  const sources: Record<string, ThemeValueSource> = Object.fromEntries(Object.keys(defaults).map(key => [key, 'default']))
+  const overrides: Overrides = {...hostOverrides}
+  const layer = (input: Overrides, source: ThemeValueSource) => {
+    for (const [key, value] of Object.entries(input)) {values[key] = value; overrides[key] = value; sources[key] = source}
+  }
+  layer(fontVars(entry.fonts), 'font')
+  layer(entry.overrides, 'shared')
+  layer(entry[mode] ?? {}, mode)
+  if (preferences.frameOff) layer({frame: '0px', 'frame-gap': '0px'}, 'preference')
+  return {id: entry.id, skin: entry.skin, shell: entry.shell, ...(entry.origin ? {origin: {...entry.origin}} : {}), mode, values, sources, overrides, capabilities}
+}
+
+const object = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value)
+const BUILTIN_THEMES = new Map([DEFAULT_THEME, IOS_THEME, PIXEL_THEME, SWITCH_THEME, WIN98_THEME].map(theme => [theme.id, theme]))
+const BUILTIN_IDS = new Set(BUILTIN_THEMES.keys())
+const ENTRY_FIELDS = new Set(['id', 'name', 'description', 'overrides', 'light', 'dark', 'fonts', 'mode', 'builtin', 'skin', 'shell', 'origin'])
+
+/** 所有 unknown 主题入口共用校验；不从自定义实例 ID 推断实现。 */
+export function assertThemeEntry(raw: unknown): asserts raw is ThemeEntry {
+  if (!object(raw) || Object.keys(raw).some(key => !ENTRY_FIELDS.has(key)) || typeof raw.id !== 'string' || !raw.id.trim() || raw.id.length > 120 || typeof raw.name !== 'string' || !raw.name.trim() || raw.name.length > 20 || typeof raw.description !== 'string' || raw.description.length > 120 || !isThemeRenderer(raw.skin, raw.shell)) throw new WorkspaceError('主题身份、名称或造型/外壳引用无效')
+  const builtin = BUILTIN_THEMES.get(raw.id)
+  if (builtin && (raw.skin !== builtin.skin || raw.shell !== builtin.shell || raw.builtin === false)) throw new WorkspaceError('内置主题 ID 与实现身份不一致')
+  if (!object(raw.overrides)) throw new WorkspaceError('主题 overrides 必须是对象')
+  cleanOverrides(raw.overrides)
+  for (const key of ['light', 'dark']) if (raw[key] !== undefined) {if (!object(raw[key])) throw new WorkspaceError(`主题 ${key} 必须是对象`); cleanOverrides(raw[key])}
+  if (raw.mode !== undefined && raw.mode !== 'light' && raw.mode !== 'dark') throw new WorkspaceError('主题 mode 只能是 light 或 dark')
+  if (raw.builtin !== undefined && (typeof raw.builtin !== 'boolean' || raw.builtin && !BUILTIN_IDS.has(raw.id))) throw new WorkspaceError('主题 builtin 身份无效')
+  if (raw.fonts !== undefined) {
+    if (!Array.isArray(raw.fonts) || raw.fonts.some(font => !object(font) || Object.keys(font).some(key => key !== 'family' && key !== 'role'))) throw new WorkspaceError('主题 fonts 必须是字体对象数组')
+    cleanFonts(raw.fonts)
+  }
+  if (raw.origin !== undefined && (!object(raw.origin) || Object.keys(raw.origin).some(key => key !== 'definitionId' && key !== 'version') || typeof raw.origin.definitionId !== 'string' || !BUILTIN_IDS.has(raw.origin.definitionId) || !Number.isSafeInteger(raw.origin.version) || Number(raw.origin.version) < 1)) throw new WorkspaceError('主题 origin 必须指向合法定义与正整数版本')
+}
+
+/** 备份/显式导入也走同一主题边界，避免 migrate 过滤坏主题后仍报告成功。 */
+export function assertWorkspaceThemes(raw: unknown): void {
+  if (!object(raw) || !Array.isArray(raw.themes) || raw.themes.length > MAX_THEMES || !Array.isArray(raw.templates)) throw new WorkspaceError('工作空间主题库或模板库无效')
+  const ids = new Set<string>()
+  for (const theme of raw.themes) {assertThemeEntry(theme); if (ids.has(theme.id)) throw new WorkspaceError('主题 ID 重复'); ids.add(theme.id)}
+  if (BUILTIN_IDS.size + [...ids].filter(id => !BUILTIN_IDS.has(id)).length > MAX_THEMES) throw new WorkspaceError(`补齐内置主题后主题库超过 ${MAX_THEMES} 个`)
+  for (const template of raw.templates) {
+    if (!object(template) || !object(template.snapshot)) throw new WorkspaceError('模板快照无效')
+    if (template.snapshot.theme !== undefined) assertThemeEntry(template.snapshot.theme)
+  }
+}
+
 /** 校验并规整一组变量覆盖。AI 和导入的数据都不可信。 */
 export function cleanOverrides(raw: unknown): Record<string, string> {
   if (raw === undefined || raw === null) return {}
@@ -83,26 +142,16 @@ export function cleanOverrides(raw: unknown): Record<string, string> {
 
 /** 导入或升级时读主题库：坏条目丢掉，内置预设始终用当前定义。 */
 export function readThemes(raw: unknown, fallbackMode: Mode = 'light'): ThemeEntry[] {
-  const list: ThemeEntry[] = [DEFAULT_THEME]
+  const list: ThemeEntry[] = [DEFAULT_THEME, IOS_THEME, PIXEL_THEME, SWITCH_THEME, WIN98_THEME]
   if (Array.isArray(raw)) for (const item of raw.slice(0, MAX_THEMES)) {
-    if (!item || typeof item.id !== 'string' || typeof item.name !== 'string' || item.id === DEFAULT_THEME_ID || item.id === IOS_THEME_ID || item.id === PIXEL_THEME_ID || item.id === SWITCH_THEME_ID || item.id === WIN98_THEME_ID) continue
-    if (list.some((entry) => entry.id === item.id)) continue
+    if (object(item) && typeof item.id === 'string' && BUILTIN_IDS.has(item.id)) continue
     try {
-      list.push(normalizeEntry({
-        id: item.id,
-        name: item.name.trim().slice(0, 20) || '未命名',
-        description: typeof item.description === 'string' ? item.description.slice(0, 120) : '',
-        overrides: cleanOverrides(item.overrides),
-        ...(item.light !== undefined ? {light: cleanOverrides(item.light)} : {}),
-        ...(item.dark !== undefined ? {dark: cleanOverrides(item.dark)} : {}),
-        ...(readFonts(item.fonts).length ? {fonts: readFonts(item.fonts)} : {}),
-        ...(item.mode === 'light' || item.mode === 'dark' ? {mode: item.mode} : {}),
-      }, fallbackMode))
-    } catch {
-      /* 变量不合法的主题直接丢掉 */
-    }
+      assertThemeEntry(item)
+      if (list.some(entry => entry.id === item.id) || list.length >= MAX_THEMES) continue
+      const {builtin: _builtin, ...entry} = item
+      list.push(normalizeEntry({...entry, overrides: cleanOverrides(entry.overrides), ...(entry.light ? {light: cleanOverrides(entry.light)} : {}), ...(entry.dark ? {dark: cleanOverrides(entry.dark)} : {}), ...(entry.fonts ? {fonts: cleanFonts(entry.fonts)} : {}), ...(entry.origin ? {origin: {...entry.origin}} : {})}, fallbackMode))
+    } catch { /* 宽松本地读取跳过损坏条目；导入/同步/备份必须先严格校验。 */ }
   }
-  list.splice(1, 0, IOS_THEME, PIXEL_THEME, SWITCH_THEME, WIN98_THEME)
   return list
 }
 
@@ -125,10 +174,10 @@ function activate(workspace: Workspace, entry: ThemeEntry): Workspace {
   return {...workspace, theme: {...theme, active: entry.id, mode: entry.mode ?? workspace.theme.base}}
 }
 
-/** 掌机和 iOS 的外框开关留在当前主题上。另存会丢掉皮肤。 */
+/** 外框偏好属于当前工作空间，变体沿用相同造型能力。 */
 export function setSkinFrame(workspace: Workspace, on: boolean): Workspace {
   const active = activeTheme(workspace)
-  if (!active.builtin || (active.id !== IOS_THEME_ID && active.id !== PIXEL_THEME_ID && active.id !== SWITCH_THEME_ID)) return workspace
+  if (themeCapabilities(active.skin).frame !== 'toggle') return workspace
   const theme = {...workspace.theme}
   if (on) delete theme.frameOff
   else theme.frameOff = true
@@ -144,66 +193,54 @@ function fontsField(raw: unknown): {fonts?: ReturnType<typeof cleanFonts>} {
 /** 存一个主题：id 或同名的已有主题会被更新，否则新建；默认启用。 */
 export function saveTheme(
   workspace: Workspace,
-  input: {id?: string; name?: string; description?: string; overrides?: unknown; light?: unknown; dark?: unknown; fonts?: unknown; mode?: string; activate?: boolean},
+  input: {id?: string; from?: string; name?: string; description?: string; overrides?: unknown; light?: unknown; dark?: unknown; fonts?: unknown; mode?: string; activate?: boolean},
 ): {workspace: Workspace; theme: ThemeEntry; created: boolean} {
   if (input.mode !== undefined && input.mode !== 'light' && input.mode !== 'dark') throw new WorkspaceError('mode 只能是 light 或 dark')
   const name = input.name?.trim().slice(0, 20)
-  const existing =
-    (input.id ? workspace.themes.find((item) => item.id === input.id) : undefined) ??
-    (name ? workspace.themes.find((item) => item.name.toLowerCase() === name.toLowerCase()) : undefined)
+  const existing = (input.id ? workspace.themes.find(item => item.id === input.id) : undefined) ?? (name ? workspace.themes.find(item => item.name.toLowerCase() === name.toLowerCase()) : undefined)
   if (name?.toLowerCase() === DEFAULT_THEME_ID) throw new WorkspaceError('「default」是默认主题的 id，换个名字。')
   if (existing?.builtin) throw new WorkspaceError('内置主题不能修改。换个名字另存为新主题。')
-
-  const old = existing ? normalizeEntry(existing, workspace.theme.mode) : undefined
+  if (existing && input.from !== undefined) throw new WorkspaceError('更新主题时不能重选 from 来源；请换个名字另存。')
+  if (!existing && !name) throw new WorkspaceError('新主题需要一个名字')
+  if (!existing && workspace.themes.length >= MAX_THEMES) throw new WorkspaceError(`主题库满了，最多 ${MAX_THEMES} 个，先删掉不用的。`)
+  const original = existing ?? (input.from !== undefined ? find(workspace, input.from) : activeTheme(workspace))
+  const old = cloneTheme(normalizeEntry(original, workspace.theme.mode))
   const supplied = cleanOverrides(input.overrides)
   const {shared, colors} = splitOverrides(supplied)
-  const colorMode = input.mode ?? old?.mode ?? legacyMode(supplied, workspace.theme.mode)
+  const fonts = input.fonts === undefined ? undefined : cleanFonts(input.fonts)
+  const fontKeys = fontOverrideKeys(fonts)
+  const colorMode = input.mode ?? workspace.theme.mode
   const palettes: Pick<ThemeEntry, 'light' | 'dark'> = {}
   for (const mode of ['light', 'dark'] as const) {
-    // save 的显式分支整组替换；没传则保留。旧 overrides 中的中性色只更新它原属的模式。
-    const legacyColors = mode === colorMode ? colors : {}
-    const merged = input[mode] === null ? {} : input[mode] !== undefined
-      ? {...legacyColors, ...cleanOverrides(input[mode])}
-      : {...old?.[mode], ...legacyColors}
+    const inherited = withoutKeys(old[mode], [...Object.keys(shared), ...fontKeys])
+    const shortcuts = mode === colorMode ? colors : {}
+    const merged = input[mode] === null ? {} : input[mode] !== undefined ? {...shortcuts, ...cleanOverrides(input[mode])} : {...inherited, ...shortcuts}
     if (Object.keys(merged).length) palettes[mode] = merged
   }
-
-  let theme: ThemeEntry
-  let themes: ThemeEntry[]
-  if (existing) {
-    theme = {
-      ...old!,
-      name: name || existing.name,
-      description: input.description !== undefined ? input.description.trim().slice(0, 120) : existing.description,
-      overrides: input.overrides !== undefined ? shared : old!.overrides,
-      ...palettes,
-      ...(input.fonts !== undefined ? fontsField(input.fonts) : old!.fonts ? {fonts: old!.fonts} : {}),
-      ...(input.mode ? {mode: input.mode} : {}),
-    }
-    themes = workspace.themes.map((item) => (item.id === existing.id ? theme : item))
-  } else {
-    if (!name) throw new WorkspaceError('新主题需要一个名字')
-    if (workspace.themes.length >= MAX_THEMES) throw new WorkspaceError(`主题库满了，最多 ${MAX_THEMES} 个，先删掉不用的。`)
-    theme = {
-      id: uniqueId(workspace, name),
-      name,
-      description: (input.description ?? '').trim().slice(0, 120),
-      overrides: shared,
-      ...palettes,
-      ...fontsField(input.fonts),
-      ...(input.mode ? {mode: input.mode} : Object.keys(colors).length ? {mode: colorMode} : {}),
-    }
-    themes = [...workspace.themes, theme]
+  const theme: ThemeEntry = {
+    ...old,
+    id: existing?.id ?? uniqueId(workspace, name!),
+    name: name || old.name,
+    description: input.description !== undefined ? input.description.trim().slice(0, 120) : existing ? old.description : '',
+    overrides: input.overrides !== undefined ? shared : withoutKeys(old.overrides, fontKeys),
+    ...palettes,
+    ...(input.fonts !== undefined ? fontsField(input.fonts) : {}),
+    ...(input.mode ? {mode: input.mode} : {}),
   }
-  // 展开旧条目后显式清空也必须生效，不能把旧字段带回来。
+  delete theme.builtin
   if (!palettes.light) delete theme.light
   if (!palettes.dark) delete theme.dark
   if (input.fonts !== undefined && !cleanFonts(input.fonts).length) delete theme.fonts
+  assertThemeEntry(theme)
+  const themes = existing ? workspace.themes.map(item => item.id === existing.id ? theme : item) : [...workspace.themes, theme]
   const next = {...workspace, themes}
-  // 编辑当前主题不等于重新应用它，不能悄悄撤销用户手选的明暗。
   const preserveMode = existing?.id === workspace.theme.active && input.mode === undefined
   return {workspace: input.activate === false || preserveMode ? next : activate(next, theme), theme, created: !existing}
 }
+
+const cloneTheme = (entry: ThemeEntry): ThemeEntry => JSON.parse(JSON.stringify(entry)) as ThemeEntry
+const withoutKeys = (input: Overrides | undefined, keys: string[]): Overrides => Object.fromEntries(Object.entries(input ?? {}).filter(([key]) => !keys.includes(key)))
+const fontOverrideKeys = (fonts: ReturnType<typeof cleanFonts> | undefined): string[] => [...new Set((fonts ?? []).flatMap(font => font.role ? [`font-${font.role}`] : []))]
 
 /** 切换到某个主题（按 id 或名字）。 */
 export function applyTheme(workspace: Workspace, ref: string): {workspace: Workspace; theme: ThemeEntry} {
@@ -229,58 +266,44 @@ export function setMode(workspace: Workspace, mode: 'light' | 'dark'): Workspace
  * 当前是默认主题时先另存一份「自定义 N」再改，默认主题保持原样。
  */
 export function tweakTheme(workspace: Workspace, input: {mode?: string; overrides?: Record<string, unknown> | null; light?: unknown; dark?: unknown; fonts?: unknown}): {workspace: Workspace; forked?: ThemeEntry} {
-  let next = workspace
-  if (input.mode !== undefined) {
-    if (input.mode !== 'light' && input.mode !== 'dark') throw new WorkspaceError('主题模式只能是 light 或 dark')
-    next = setMode(next, input.mode)
-  }
+  if (input.mode !== undefined && input.mode !== 'light' && input.mode !== 'dark') throw new WorkspaceError('主题模式只能是 light 或 dark')
+  // 全部设计参数先校验，清空也不能掩盖其他非法输入。
+  const {shared: patch, colors} = splitOverrides(cleanOverrides(input.overrides))
+  const branches = {light: cleanOverrides(input.light), dark: cleanOverrides(input.dark)}
+  const fonts = input.fonts === undefined ? undefined : cleanFonts(input.fonts)
+  const fontKeys = fontOverrideKeys(fonts)
+  const next = input.mode !== undefined ? setMode(workspace, input.mode) : workspace
   if (input.overrides === undefined && input.light === undefined && input.dark === undefined && input.fonts === undefined) return {workspace: next}
-
-  const current = normalizeEntry(activeTheme(next), next.theme.mode)
+  const current = cloneTheme(normalizeEntry(activeTheme(next), next.theme.mode))
   if (input.overrides === null) {
     if (current.builtin) return {workspace: next}
     const {fonts: _fonts, light: _light, dark: _dark, ...rest} = current
-    return {workspace: {...next, themes: next.themes.map((item) => (item.id === current.id ? {...rest, overrides: {}} : item))}}
+    return {workspace: {...next, themes: next.themes.map(item => item.id === current.id ? {...rest, overrides: {}} : item)}}
   }
-  const {shared: patch, colors} = splitOverrides(cleanOverrides(input.overrides))
   const palettes: Pick<ThemeEntry, 'light' | 'dark'> = {}
   for (const mode of ['light', 'dark'] as const) {
-    const branch = input[mode] === null ? {} : {
-      ...current[mode],
-      ...(mode === next.theme.mode ? colors : {}),
-      ...cleanOverrides(input[mode]),
-    }
+    const branch = input[mode] === null ? {} : {...withoutKeys(current[mode], [...Object.keys(patch), ...fontKeys]), ...(mode === next.theme.mode ? colors : {}), ...branches[mode]}
     if (Object.keys(branch).length) palettes[mode] = branch
   }
-  const fonts = input.fonts === undefined ? undefined : cleanFonts(input.fonts)
+  const merged: ThemeEntry = {...current, overrides: {...withoutKeys(current.overrides, fontKeys), ...patch}, ...palettes}
+  if (!palettes.light) delete merged.light
+  if (!palettes.dark) delete merged.dark
+  if (fonts) {if (fonts.length) merged.fonts = fonts; else delete merged.fonts}
   if (current.builtin) {
     if (next.themes.length >= MAX_THEMES) throw new WorkspaceError(`主题库满了，最多 ${MAX_THEMES} 个，先删掉不用的。`)
     let n = 1
-    while (next.themes.some((item) => item.name === `自定义 ${n}`)) n += 1
-    const forked: ThemeEntry = {id: uniqueId(next, `custom-${n}`), name: `自定义 ${n}`, description: '', overrides: patch, ...palettes, ...(fonts?.length ? {fonts} : {})}
+    while (next.themes.some(item => item.name === `自定义 ${n}`)) n += 1
+    const forked: ThemeEntry = {...merged, id: uniqueId(next, `custom-${n}`), name: `自定义 ${n}`}
+    delete forked.builtin
+    assertThemeEntry(forked)
     return {workspace: {...next, themes: [...next.themes, forked], theme: {...next.theme, active: forked.id}}, forked}
   }
-  return {
-    workspace: {
-      ...next,
-      themes: next.themes.map((item) => {
-        if (item.id !== current.id) return item
-        const merged: ThemeEntry = {...current, overrides: {...current.overrides, ...patch}, ...palettes}
-        if (!palettes.light) delete merged.light
-        if (!palettes.dark) delete merged.dark
-        if (fonts) {
-          if (fonts.length) merged.fonts = fonts
-          else delete merged.fonts
-        }
-        return merged
-      }),
-    },
-  }
+  assertThemeEntry(merged)
+  return {workspace: {...next, themes: next.themes.map(item => item.id === current.id ? merged : item)}}
 }
 
 /** 列表里的色块：从主题变量里取背景、文字、主色；没覆盖的用默认主题的值。 */
 export function swatch(theme: ThemeEntry, mode: 'light' | 'dark'): {bg: string; text: string; main: string} {
-  const base = DEFAULT_THEME_PALETTES[mode]
-  const vars = resolveThemeOverrides(theme, mode)
-  return {bg: vars.bg ?? base.bg, text: vars.text ?? base.text, main: vars.main ?? base.main}
+  const {values} = resolveTheme(theme, mode)
+  return {bg: values.bg, text: values.text, main: values.main}
 }

@@ -1,29 +1,30 @@
 import {DEFAULT_DOCK_PRESET} from './dock'
 import {WorkspaceError} from './errors'
-import {DEFAULT_STACKS, fontVars} from './fonts'
-import {DEFAULT_THEME_PALETTES, resolveThemeOverrides} from './themes'
+import {DEFAULT_STACKS} from './fonts'
+import {resolveTheme} from './themes'
 import {DEFAULT_APPEARANCE_THEME, DEFAULT_HOME_LAYERS, DEFAULT_THEME, DEFAULT_THEME_ID, FROZEN_PAGE_ID, activeTheme, type Page, type Workspace} from './workspace'
 import {assertFxBudgetChange} from '../fx/policy'
 
 const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T
 const stable = (value: unknown): string => JSON.stringify(value, (_, item: unknown) => item && typeof item === 'object' && !Array.isArray(item) ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item)
 // 样式表的纸张基底独立于产品初始主题，其他主题不能继承 iOS 的圆角或字体。
-const BASE_SHARED = {radius: '0px', 'radius-lg': '0px', frame: '7px', 'side-width': '84px', gutter: '28px', 'frame-gap': 'var(--frame)', 'frame-color': 'var(--main)'}
 
 /** 默认外观的可查询说明；首页图层与真正的初始化使用同一份定义。 */
 export function defaultAppearance() {
   const theme = DEFAULT_APPEARANCE_THEME
-  const fonts = fontVars(theme.fonts)
+  const light = resolveTheme(theme, 'light'), dark = resolveTheme(theme, 'dark')
+  const palette = new Set(['bg', 'bg2', 'bg3', 'text', 'text2', 'text3', 'text4', 'border', 'rule', 'main'])
   return {
     theme: {
       id: theme.id,
       name: theme.name,
       description: theme.description,
       mode: theme.mode ?? 'light',
-      shared: {...BASE_SHARED, ...theme.overrides},
-      light: {...DEFAULT_THEME_PALETTES.light, ...theme.light},
-      dark: {...DEFAULT_THEME_PALETTES.dark, ...theme.dark},
-      fonts: Object.fromEntries(Object.entries(DEFAULT_STACKS).map(([role, stack]) => [role, fonts[`font-${role}`] ?? stack])),
+      skin: theme.skin, shell: theme.shell, origin: theme.origin,
+      shared: Object.fromEntries(Object.entries(light.values).filter(([key]) => !palette.has(key) && !key.startsWith('font-'))),
+      light: Object.fromEntries(Object.entries(light.values).filter(([key]) => palette.has(key))),
+      dark: Object.fromEntries(Object.entries(dark.values).filter(([key]) => palette.has(key))),
+      fonts: Object.fromEntries(Object.keys(DEFAULT_STACKS).map(role => [role, light.values[`font-${role}`]])),
     },
     home: {wallpaper: {mode: 'off'}, layers: clone(DEFAULT_HOME_LAYERS), css: '', align: 'center'},
     otherPages: {wallpaper: {mode: 'off'}, layers: [], css: '', align: 'start'},
@@ -52,18 +53,13 @@ const pageAppearance = (page: Page) => ({
 export function getAppearance(workspace: Workspace) {
   const defaults = defaultAppearance()
   const currentTheme = activeTheme(workspace)
+  const resolved = resolveTheme(currentTheme, workspace.theme.mode, {frameOff: workspace.theme.frameOff})
   const pages = workspace.pages.map(pageAppearance)
   return {
     defaults,
     current: {
       mode: workspace.theme.mode,
-      theme: {...currentTheme, resolved: {
-        ...BASE_SHARED,
-        ...DEFAULT_THEME_PALETTES[workspace.theme.mode],
-        ...Object.fromEntries(Object.entries(DEFAULT_STACKS).map(([role, stack]) => [`font-${role}`, stack])),
-        ...fontVars(currentTheme.fonts),
-        ...resolveThemeOverrides(currentTheme, workspace.theme.mode),
-      }},
+      theme: {...currentTheme, resolved: resolved.values, sources: resolved.sources, capabilities: resolved.capabilities},
       dock: workspace.dock ?? defaults.dock,
       pages,
     },
